@@ -270,22 +270,33 @@ export function NoAccessScreen(props: NoAccessScreenProps) {
               },
               onMouseEnter: hoverBg, onMouseLeave: unhoverBg,
             },
-              // Portal icon — R2 logo or SVG fallback
-              p.logo_mark_url
-                ? React.createElement('div', {
-                    style: { width: 22, height: 22, borderRadius: 5, overflow: 'hidden', flexShrink: 0 }
-                  },
-                    React.createElement('img', { src: p.logo_mark_url, alt: '', width: 22, height: 22, style: { display: 'block', objectFit: 'contain' } })
+              // Portal icon — R2 logo or SVG fallback (dark mode: subtle-stroke treatment)
+              (() => {
+                var _isDk = typeof document !== 'undefined' && (document.documentElement.getAttribute('data-theme') === 'dark' || (!document.documentElement.getAttribute('data-theme') && window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches))
+                if (p.logo_mark_url) {
+                  var _cs: React.CSSProperties = _isDk
+                    ? { width: 22, height: 22, borderRadius: 5, flexShrink: 0, background: iconColor + '14', border: '1px solid ' + iconColor + '40', boxSizing: 'border-box', display: 'flex', alignItems: 'center', justifyContent: 'center', overflow: 'hidden' }
+                    : { width: 22, height: 22, borderRadius: 5, overflow: 'hidden', flexShrink: 0 }
+                  return React.createElement('div', { style: _cs },
+                    React.createElement('img', { src: p.logo_mark_url, alt: '', width: _isDk ? 16 : 22, height: _isDk ? 16 : 22, style: { display: 'block', objectFit: 'contain' as const } })
                   )
-                : React.createElement('div', {
-                    style: { width: 22, height: 22, borderRadius: 5, background: iconTint, display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }
-                  },
-                    React.createElement('svg', {
-                      width: 13, height: 13, viewBox: '0 0 24 24', fill: 'none',
-                      stroke: iconColor, strokeWidth: 2, strokeLinecap: 'round', strokeLinejoin: 'round',
-                      dangerouslySetInnerHTML: { __html: iconPath }, 'aria-hidden': 'true',
-                    })
-                  ),
+                }
+                return React.createElement('div', {
+                  style: {
+                    width: 22, height: 22, borderRadius: 5,
+                    background: _isDk ? (iconColor + '14') : iconTint,
+                    border: _isDk ? ('1px solid ' + iconColor + '40') : 'none',
+                    boxSizing: 'border-box' as const,
+                    display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0,
+                  }
+                },
+                  React.createElement('svg', {
+                    width: 13, height: 13, viewBox: '0 0 24 24', fill: 'none',
+                    stroke: iconColor, strokeWidth: 2, strokeLinecap: 'round', strokeLinejoin: 'round',
+                    dangerouslySetInnerHTML: { __html: iconPath }, 'aria-hidden': 'true',
+                  })
+                )
+              })(),
               p.name,
               React.createElement('span', {
                 style: { marginLeft: 'auto', color: 'var(--muted, #9ca3af)', fontSize: 14 }

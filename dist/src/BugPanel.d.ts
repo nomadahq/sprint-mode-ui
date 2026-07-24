@@ -14,6 +14,8 @@ export interface BugPanelProps {
     onClose?: () => void;
     visible?: boolean;
     focusBugId?: string | null;
+    /** BUG-PANEL-STANDALONE-1: When true, renders as a full-viewport page instead of a side panel */
+    standalone?: boolean;
 }
 export interface BugPanelHeaderButtonProps {
     onClick?: React.MouseEventHandler<HTMLButtonElement>;

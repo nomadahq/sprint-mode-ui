@@ -884,12 +884,30 @@ function SidebarSection({ label, sectionIcon, sectionColor, items, color, tint, 
       {!flat && (
         <button className="ps-section-header" onClick={handleToggle}>
           {sectionIcon && (
-            <span className="ps-section-icon" style={{
-              display: 'flex', alignItems: 'center', justifyContent: 'center',
-              width: 20, height: 20, borderRadius: 5, flexShrink: 0,
-              background: sectionColor ? (sectionColor.includes('hsl') ? sectionColor.replace(')', ', 0.12)').replace('hsl(', 'hsla(') : sectionColor + '1f') : (color ? color + '1f' : 'transparent'),
-              color: sectionColor || color,
-            }}>{sectionIcon}</span>
+            <span className="ps-section-icon" style={(() => {
+              var sc = sectionColor || color
+              var isDark = typeof document !== 'undefined' && document.documentElement.getAttribute('data-theme') === 'dark'
+              var bg = 'transparent'
+              var border = 'none'
+              if (sc) {
+                if (isDark) {
+                  // Dark mode: subtle stroke container — transparent fill with faint brand-color border
+                  bg = sc.includes('hsl') ? sc.replace(')', ', 0.08)').replace('hsl(', 'hsla(') : sc + '14'
+                  border = '1px solid ' + (sc.includes('hsl') ? sc.replace(')', ', 0.25)').replace('hsl(', 'hsla(') : sc + '40')
+                } else {
+                  // Light mode: tint fill, no border
+                  bg = sc.includes('hsl') ? sc.replace(')', ', 0.12)').replace('hsl(', 'hsla(') : sc + '1f'
+                }
+              }
+              return {
+                display: 'flex', alignItems: 'center', justifyContent: 'center',
+                width: 20, height: 20, borderRadius: 5, flexShrink: 0,
+                background: bg,
+                border: border,
+                boxSizing: 'border-box' as const,
+                color: sc || color,
+              }
+            })()}>{sectionIcon}</span>
           )}
           {label}
           <svg className="ps-section-chevron" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><polyline points="6 9 12 15 18 9"/></svg>

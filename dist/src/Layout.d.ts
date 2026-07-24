@@ -153,7 +153,9 @@ export declare function useViewAs(): ViewAsUser | null;
 export declare var ViewAsTeamContext: React.Context<ViewAsUser | null>;
 export declare function useViewAsTeam(): ViewAsUser | null;
 export declare function useTheme(): {
+    mode: "auto" | "dark" | "light";
     isDark: boolean;
+    setMode: (m: "light" | "dark" | "auto") => void;
     toggle: () => void;
 };
 export declare function CmdK(props: CmdKProps): React.FunctionComponentElement<React.FragmentProps> | null;

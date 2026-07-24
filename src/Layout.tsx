@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useRef, createContext, useContext } from 'react'
 import { NavLink, useLocation, useNavigate, Outlet } from 'react-router-dom'
 import { getSession, SessionData, ACCESS_DENIED } from './api.js'
-import { IconSearch, IconMoon, IconSun } from './Icons.jsx'
+import { IconSearch, IconMoon, IconSun, IconDeviceDesktop } from './Icons.jsx'
 import { NotificationBellNav } from './NotificationBellNav.tsx'
 import { AccountSwitcher } from './AccountSwitcher.tsx'
 import { NoAccessScreen } from './NoAccessScreen.tsx'
@@ -161,28 +161,81 @@ export var ViewAsTeamContext = createContext<ViewAsUser | null>(null)
 export function useViewAsTeam() { return useContext(ViewAsTeamContext) }
 
 // ─── Theme ─────────────────────────────────────────────────────────────────
+// 3-state: 'light' | 'dark' | 'auto'
+// 'auto' = no data-theme attr on <html>, CSS @media handles it
+// 'light'/'dark' = set data-theme attr explicitly
 
-function getStoredTheme() {
-  try { return localStorage.getItem('sm-theme') } catch (_e) { return null }
+function getStoredTheme(): 'light' | 'dark' | 'auto' {
+  try {
+    var v = localStorage.getItem('sm-theme')
+    if (v === 'light' || v === 'dark') return v
+  } catch (_e) { /* noop */ }
+  return 'auto'
 }
-function setStoredTheme(t: string) {
-  try { localStorage.setItem('sm-theme', t) } catch (_e) {}
+function setStoredTheme(t: 'light' | 'dark' | 'auto') {
+  try {
+    if (t === 'auto') localStorage.removeItem('sm-theme')
+    else localStorage.setItem('sm-theme', t)
+  } catch (_e) { /* noop */ }
 }
+
+function applyThemeAttr(mode: 'light' | 'dark' | 'auto') {
+  if (mode === 'auto') {
+    document.documentElement.removeAttribute('data-theme')
+  } else {
+    document.documentElement.setAttribute('data-theme', mode)
+  }
+}
+
+function resolveIsDark(mode: 'light' | 'dark' | 'auto'): boolean {
+  if (mode === 'dark') return true
+  if (mode === 'light') return false
+  if (typeof window !== 'undefined' && window.matchMedia) {
+    return window.matchMedia('(prefers-color-scheme: dark)').matches
+  }
+  return false
+}
+
 export function useTheme() {
-  var _d = useState(function() {
-    var stored = getStoredTheme()
-    if (stored) return stored === 'dark'
-    if (typeof window !== 'undefined' && window.matchMedia) {
-      return window.matchMedia('(prefers-color-scheme: dark)').matches
-    }
-    return false
-  })
+  var _m = useState<'light' | 'dark' | 'auto'>(getStoredTheme)
+  var mode = _m[0]; var setMode = _m[1]
+  var _d = useState(function() { return resolveIsDark(mode) })
   var isDark = _d[0]; var setIsDark = _d[1]
+
+  // Apply data-theme attr + persist
   useEffect(function() {
-    document.documentElement.setAttribute('data-theme', isDark ? 'dark' : 'light')
-    setStoredTheme(isDark ? 'dark' : 'light')
-  }, [isDark])
-  return { isDark: isDark, toggle: function() { setIsDark(function(d) { return !d }) } }
+    applyThemeAttr(mode)
+    setStoredTheme(mode)
+    setIsDark(resolveIsDark(mode))
+  }, [mode])
+
+  // Listen for OS theme changes when in auto mode
+  useEffect(function() {
+    if (mode !== 'auto') return
+    if (typeof window === 'undefined' || !window.matchMedia) return
+    var mq = window.matchMedia('(prefers-color-scheme: dark)')
+    var handler = function(e: MediaQueryListEvent) { setIsDark(e.matches) }
+    if (mq.addEventListener) mq.addEventListener('change', handler)
+    else if (mq.addListener) mq.addListener(handler)
+    return function() {
+      if (mq.removeEventListener) mq.removeEventListener('change', handler)
+      else if (mq.removeListener) mq.removeListener(handler)
+    }
+  }, [mode])
+
+  return {
+    mode: mode,
+    isDark: isDark,
+    setMode: function(m: 'light' | 'dark' | 'auto') { setMode(m) },
+    // Legacy compat — toggle cycles light→dark→auto
+    toggle: function() {
+      setMode(function(cur) {
+        if (cur === 'light') return 'dark'
+        if (cur === 'dark') return 'auto'
+        return 'light'
+      })
+    }
+  }
 }
 
 // ─── CmdK ──────────────────────────────────────────────────────────────────
@@ -1464,9 +1517,10 @@ const Layout: React.FC<LayoutProps> = function Layout(props: LayoutProps) {
   var logo = logoSrc || '/logo-sprint-mode-horizontal.png'
   var alt = logoAlt || 'Sprint Mode'
   var themeLogo = logo
-  if (typeof document !== 'undefined') {
+  if (typeof document !== 'undefined' && logo.indexOf('.png') !== -1) {
     var dt = document.documentElement.getAttribute('data-theme')
-    if (dt === 'dark' && logo.indexOf('.png') !== -1) {
+    var _logoIsDark = dt === 'dark' || (!dt && window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches)
+    if (_logoIsDark) {
       themeLogo = logo.replace('.png', '-dark.png')
     }
   }
@@ -1545,10 +1599,28 @@ const Layout: React.FC<LayoutProps> = function Layout(props: LayoutProps) {
       React.createElement('span', null, 'Search'),
       React.createElement('kbd', { style: { fontSize: 11, padding: '1px 5px', border: '1px solid var(--border)', borderRadius: 4, background: 'var(--bg-subtle)', color: 'var(--muted)', lineHeight: 1.4 } }, (typeof navigator !== 'undefined' && navigator.platform && navigator.platform.indexOf('Mac') !== -1) ? '\u2318K' : 'Ctrl+K')
     ) : null,
-    React.createElement('button', {
-      onClick: theme.toggle, 'aria-label': 'Toggle theme',
-      style: { width: 34, height: 34, border: '1px solid var(--border)', borderRadius: 7, background: 'var(--bg-card)', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', transition: 'border-color .2s', flexShrink: 0, padding: 0, color: 'var(--foreground)' }
-    }, theme.isDark ? React.createElement(IconSun, null) : React.createElement(IconMoon, null)),
+    React.createElement('div', {
+      style: { display: 'flex', gap: 2, padding: 3, background: 'var(--bg-subtle)', borderRadius: 8, border: '1px solid var(--border)' }
+    },
+      ...(['light', 'auto', 'dark'] as const).map(function(m) {
+        var active = theme.mode === m
+        var Ic = m === 'light' ? IconSun : m === 'dark' ? IconMoon : IconDeviceDesktop
+        return React.createElement('button', {
+          key: m,
+          onClick: function() { theme.setMode(m) },
+          'aria-label': m.charAt(0).toUpperCase() + m.slice(1),
+          title: m.charAt(0).toUpperCase() + m.slice(1),
+          style: {
+            display: 'flex', alignItems: 'center', justifyContent: 'center',
+            width: 28, height: 28, borderRadius: 6, border: 'none', cursor: 'pointer',
+            padding: 0, flexShrink: 0,
+            background: active ? 'var(--accent)' : 'transparent',
+            color: active ? '#fff' : 'var(--muted)',
+            transition: 'background .15s, color .15s',
+          },
+        }, React.createElement(Ic, null))
+      })
+    ),
     notificationBellEnabled ? React.createElement(NotificationBellNav, { apiBase: notificationApiBase, href: notificationHref, onNavigate: function(href: string) { navigate(href) } }) : null,
     bugPanelEnabled ? React.createElement(BugPanelHeaderButton, { onClick: function() { setBugPanelOpen(function(v) { return !v }) } }) : null,
     React.createElement(HeaderUserMenu, { session: session, profilePath: profilePath, logoutHref: logoutHref, userMenuExtra: userMenuExtra })

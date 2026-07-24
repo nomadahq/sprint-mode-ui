@@ -98,6 +98,28 @@
   --blue-20:     hsla(221, 83%, 65%, 0.25);
 }
 
+/* ─── Auto dark mode (system preference, no data-theme attr) ────────────── */
+/* When sm-theme is 'auto' (default), no data-theme attr is set on <html>.   */
+/* This media query kicks in only when the OS is in dark mode AND the user   */
+/* hasn't explicitly chosen light or dark.                                    */
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme]) {
+    --foreground:  hsl(0, 0%, 93%);
+    --muted:       hsl(220, 9%, 58%);
+    --bg:          hsl(222, 14%, 10%);
+    --bg-subtle:   hsl(222, 14%, 13%);
+    --bg-card:     hsl(222, 14%, 13%);
+    --border:      hsl(220, 13%, 22%);
+    --green-light: hsl(142, 30%, 18%);
+    --red-light:   hsl(0, 30%, 18%);
+    --amber-light: hsl(38, 30%, 18%);
+    --blue:        hsl(221, 83%, 65%);
+    --blue-hover:  hsl(221, 83%, 72%);
+    --blue-10:     hsla(221, 83%, 65%, 0.15);
+    --blue-20:     hsla(221, 83%, 65%, 0.25);
+  }
+}
+
 /* Per-product accent overrides (set via data-product on <html>) */
 [data-product="sprint-mode"]  { --accent: #2362ea; --accent-10: rgba(35, 98, 234, 0.1); }
 [data-product="studios"]      { --accent: #7947d1; --accent-10: rgba(121, 71, 209, 0.1); }

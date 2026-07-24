@@ -233,15 +233,27 @@ function UserMenu(props: { session: Session; logoutHref: string }) {
                       onMouseEnter: function(e: React.MouseEvent<HTMLButtonElement>) { (e.currentTarget as HTMLButtonElement).style.background = 'var(--bg-subtle)' },
                       onMouseLeave: function(e: React.MouseEvent<HTMLButtonElement>) { (e.currentTarget as HTMLButtonElement).style.background = 'transparent' },
                     },
-                      p.logo_mark_url
-                        ? createElement('img', { src: p.logo_mark_url, alt: '',
-                            style: { width: 18, height: 18, borderRadius: 4, objectFit: 'contain' as const, flexShrink: 0 } })
-                        : createElement('div', {
-                            style: { width: 18, height: 18, borderRadius: 4,
-                              background: p.brand_tint || 'var(--accent-10)', color: p.brand_color || 'var(--accent)',
-                              display: 'flex', alignItems: 'center', justifyContent: 'center',
-                              fontSize: 8, fontWeight: 700, flexShrink: 0 }
-                          }, (p.name || p.subdomain).charAt(0).toUpperCase()),
+                      (function() {
+                        var _isDk = typeof document !== 'undefined' && (document.documentElement.getAttribute('data-theme') === 'dark' || (!document.documentElement.getAttribute('data-theme') && window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches))
+                        var _bc = p.brand_color || 'var(--accent)'
+                        if (p.logo_mark_url) {
+                          var _cs = _isDk
+                            ? { width: 18, height: 18, borderRadius: 4, flexShrink: 0, background: _bc + '14', border: '1px solid ' + _bc + '40', boxSizing: 'border-box' as const, display: 'flex', alignItems: 'center', justifyContent: 'center', overflow: 'hidden' }
+                            : { width: 18, height: 18, borderRadius: 4, flexShrink: 0 }
+                          return createElement('div', { style: _cs },
+                            createElement('img', { src: p.logo_mark_url, alt: '', style: { width: _isDk ? 14 : 18, height: _isDk ? 14 : 18, borderRadius: _isDk ? 0 : 4, objectFit: 'contain' as const, display: 'block' } })
+                          )
+                        }
+                        return createElement('div', {
+                          style: { width: 18, height: 18, borderRadius: 4,
+                            background: _isDk ? (_bc + '14') : (p.brand_tint || 'var(--accent-10)'),
+                            border: _isDk ? ('1px solid ' + _bc + '40') : 'none',
+                            boxSizing: 'border-box' as const,
+                            color: _bc,
+                            display: 'flex', alignItems: 'center', justifyContent: 'center',
+                            fontSize: 8, fontWeight: 700, flexShrink: 0 }
+                        }, (p.name || p.subdomain).charAt(0).toUpperCase())
+                      })(),
                       createElement('span', { style: { fontSize: 13 } }, p.name || p.subdomain)
                     )
                   })

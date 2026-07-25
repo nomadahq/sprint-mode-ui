@@ -129,7 +129,7 @@
 [data-product="privacyai"]    { --accent: #0891b2; --accent-10: rgba(8, 145, 178, 0.1); }
 [data-product="investor"]     { --accent: #2362ea; --accent-10: rgba(35, 98, 234, 0.1); }
 [data-product="dev-portal"]   { --accent: #4a4a52; --accent-10: rgba(74, 74, 82, 0.1); }
-[data-product="signal"]       { --accent: #c24576; --accent-hover: #a83b65; --accent-10: rgba(194,69,118,.1); --accent-20: rgba(194,69,118,.2); --accent-tint: #f9ecf1; }
+[data-product="signal"]       { --accent: #c94277; --accent-hover: #a83560; --accent-10: rgba(201,66,119,.1); --accent-20: rgba(201,66,119,.2); --accent-tint: #f9ecf1; }
 [data-product="api"]        { --accent: #c2410c; --accent-hover: #a3370a; --accent-10: rgba(194,65,12,.1); --accent-20: rgba(194,65,12,.2); --accent-tint: #faeadf; }
 [data-product="collect"]       { --accent: #dc2626; --accent-hover: #b91c1c; --accent-10: rgba(220,38,38,.1); --accent-20: rgba(220,38,38,.2); --accent-tint: #fce8e8; }
 

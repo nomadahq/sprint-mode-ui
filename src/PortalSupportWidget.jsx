@@ -80,6 +80,20 @@ export function PortalSupportWidget(props) {
 
   var _open = useState(false); var open = _open[0]; var setOpen = _open[1]
   var _tab = useState('chat'); var tab = _tab[0]; var setTab = _tab[1]
+
+  // Programmatic open: window.dispatchEvent(new CustomEvent('sm-support:open',
+  // { detail: { tab: 'chat' | 'tickets' | 'form' } })) — lets portal pages
+  // (e.g. Signal Connect support card) open the built widget instead of
+  // duplicating ticket UI.
+  useEffect(function() {
+    function onOpen(e) {
+      setOpen(true)
+      var t = e && e.detail && e.detail.tab
+      if (t) { setTab(t); if (t === 'tickets') loadTickets() }
+    }
+    window.addEventListener('sm-support:open', onOpen)
+    return function() { window.removeEventListener('sm-support:open', onOpen) }
+  }, [])
   var _chatEnabled = useState(null); var chatEnabled = _chatEnabled[0]; var setChatEnabled = _chatEnabled[1]
   var _messages = useState([]); var messages = _messages[0]; var setMessages = _messages[1]
   var _input = useState(''); var input = _input[0]; var setInput = _input[1]

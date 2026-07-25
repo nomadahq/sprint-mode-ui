@@ -252,6 +252,16 @@ function isDarkMode(): boolean {
   return !!(typeof window !== 'undefined' && window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches)
 }
 
+// ─── Dark mode brand mark URL ──────────────────────────────────────────
+// R2 dark marks live at /brand/{product}-mark-dark.svg
+// Returns the dark mark URL if available, null otherwise.
+var DARK_MARK_PRODUCTS = ['admin','studios','signal','mode','hub','privacyai','sprint-mode','sprint-capital','dev','docs','investors','nomada','safeshepherd'] as const
+function getDarkMarkUrl(product: string | undefined): string | null {
+  if (!product) return null
+  if ((DARK_MARK_PRODUCTS as readonly string[]).indexOf(product) === -1) return null
+  return 'https://api.sprintmode.ai/brand/' + product + '-mark-dark.svg'
+}
+
 // ─── CmdK ──────────────────────────────────────────────────────────────────
 
 var BADGE_COLORS: Record<string, { bg: string; color: string }> = {
@@ -954,11 +964,11 @@ function SidebarSection({ label, sectionIcon, sectionColor, items, color, tint, 
           {sectionIcon && (
             <span className="ps-section-icon" style={(() => {
               var sc = sectionColor || color
-              var isDark = isDarkMode()
+              var _dark = isDarkMode()
               var bg = 'transparent'
               var border = 'none'
               if (sc) {
-                if (isDark) {
+                if (_dark) {
                   // Dark mode: subtle stroke container — transparent fill with faint brand-color border
                   bg = sc.includes('hsl') ? sc.replace(')', ', 0.08)').replace('hsl(', 'hsla(') : sc + '14'
                   border = '1px solid ' + (sc.includes('hsl') ? sc.replace(')', ', 0.25)').replace('hsl(', 'hsla(') : sc + '40')
@@ -975,7 +985,16 @@ function SidebarSection({ label, sectionIcon, sectionColor, items, color, tint, 
                 boxSizing: 'border-box' as const,
                 color: sc || color,
               }
-            })()}>{sectionIcon}</span>
+            })()}>
+              {(() => {
+                // In dark mode, swap to dark mark SVG if available
+                var darkUrl = isDarkMode() ? getDarkMarkUrl(product) : null
+                if (darkUrl) {
+                  return React.createElement('img', { src: darkUrl, width: 14, height: 14, style: { objectFit: 'contain' as const, display: 'block' }, alt: '' })
+                }
+                return sectionIcon
+              })()}
+            </span>
           )}
           {label}
           <svg className="ps-section-chevron" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><polyline points="6 9 12 15 18 9"/></svg>
@@ -1654,9 +1673,17 @@ const Layout: React.FC<LayoutProps> = function Layout(props: LayoutProps) {
                 {title ? (
                   <>
                     <div className="shell-header-logo-icon">
-                      {headerIcon || <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" width="18" height="18">
-                        <rect x="3" y="3" width="18" height="18" rx="4"/><polyline points="10 8 14 12 10 16"/>
-                      </svg>}
+                      {(() => {
+                        // In dark mode, swap header mark to dark variant SVG
+                        var _sub = portalCfg.config && portalCfg.config.subdomain
+                        var _darkMark = isDarkMode() ? getDarkMarkUrl(_sub || undefined) : null
+                        if (_darkMark) {
+                          return React.createElement('img', { src: _darkMark, width: 22, height: 22, style: { objectFit: 'contain' as const, display: 'block' }, alt: '' })
+                        }
+                        return headerIcon || <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" width="18" height="18">
+                          <rect x="3" y="3" width="18" height="18" rx="4"/><polyline points="10 8 14 12 10 16"/>
+                        </svg>
+                      })()}
                     </div>
                     <span className="shell-header-title">{title}{showCompanyName && session && (session as any).company_name ? React.createElement('span', { className: 'shell-header-company' }, ' // ' + (session as any).company_name) : null}</span>
                     {byLine ? React.createElement('span', { className: 'shell-header-byline' }, byLine) : null}

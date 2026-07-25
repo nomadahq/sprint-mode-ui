@@ -238,6 +238,18 @@ export function useTheme() {
   }
 }
 
+// ─── Dark mode detection (shared helper) ───────────────────────────────
+// Checks data-theme attr first, then matchMedia for auto mode.
+// Use this everywhere instead of duplicating the check.
+function isDarkMode(): boolean {
+  if (typeof document === 'undefined') return false
+  var dt = document.documentElement.getAttribute('data-theme')
+  if (dt === 'dark') return true
+  if (dt === 'light') return false
+  // Auto mode: no attr, check OS preference
+  return !!(typeof window !== 'undefined' && window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches)
+}
+
 // ─── CmdK ──────────────────────────────────────────────────────────────────
 
 var BADGE_COLORS: Record<string, { bg: string; color: string }> = {
@@ -940,7 +952,7 @@ function SidebarSection({ label, sectionIcon, sectionColor, items, color, tint, 
           {sectionIcon && (
             <span className="ps-section-icon" style={(() => {
               var sc = sectionColor || color
-              var isDark = typeof document !== 'undefined' && document.documentElement.getAttribute('data-theme') === 'dark'
+              var isDark = isDarkMode()
               var bg = 'transparent'
               var border = 'none'
               if (sc) {
@@ -1515,13 +1527,18 @@ const Layout: React.FC<LayoutProps> = function Layout(props: LayoutProps) {
 
   var initials = session ? ((session.name || session.email || '?').split(' ').map(function(w) { return w[0] || '' }).join('').slice(0, 2).toUpperCase()) : '?'
   var sessionPhoto = session && (session as any).photo as string | undefined
-  var logo = logoSrc || '/logo-sprint-mode-horizontal.png'
-  var alt = logoAlt || 'Sprint Mode'
+  // Logo: prefer R2 URLs from portal config, fall back to prop, then local file
+  var _cfgLogo = portalCfg.config && (portalCfg.config as any).logo_horizontal_url
+  var _cfgLogoDark = portalCfg.config && (portalCfg.config as any).logo_dark_url
+  var logo = logoSrc || _cfgLogo || '/logo-sprint-mode-horizontal.png'
+  var alt = logoAlt || (portalCfg.config && portalCfg.config.name) || 'Sprint Mode'
   var themeLogo = logo
-  if (typeof document !== 'undefined' && logo.indexOf('.png') !== -1) {
-    var dt = document.documentElement.getAttribute('data-theme')
-    var _logoIsDark = dt === 'dark' || (!dt && window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches)
-    if (_logoIsDark) {
+  if (isDarkMode()) {
+    // Use explicit dark logo from portal config if available
+    if (_cfgLogoDark) {
+      themeLogo = _cfgLogoDark
+    } else if (logo.indexOf('.png') !== -1) {
+      // Fallback: swap .png → -dark.png (works for local files and R2 URLs)
       themeLogo = logo.replace('.png', '-dark.png')
     }
   }

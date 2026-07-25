@@ -109657,6 +109657,10 @@ var k9 = {
 		color: "#0891b2",
 		tint: "#e0f4f9"
 	},
+	signal: {
+		color: "#c94277",
+		tint: "#f9ecf1"
+	},
 	investor: {
 		color: "#2362ea",
 		tint: "#e9effc"
@@ -110541,10 +110545,10 @@ var gNe = function(t) {
 		"aria-label": Ue.mode === "auto" ? "Theme: System" : Ue.mode === "dark" ? "Theme: Dark" : "Theme: Light",
 		title: Ue.mode === "auto" ? "Theme: System" : Ue.mode === "dark" ? "Theme: Dark" : "Theme: Light",
 		style: {
-			background: "none",
+			background: "var(--bg)",
 			border: "1px solid var(--border)",
-			borderRadius: "var(--radius-sm)",
-			padding: "5px 8px",
+			borderRadius: 8,
+			padding: "6px 14px",
 			cursor: "pointer",
 			display: "flex",
 			alignItems: "center",
@@ -110552,7 +110556,8 @@ var gNe = function(t) {
 			fontSize: 13,
 			color: "var(--muted)",
 			fontFamily: "var(--font)",
-			flexShrink: 0
+			flexShrink: 0,
+			transition: "border-color .2s"
 		}
 	}, e.createElement(Ue.mode === "light" ? x7 : Ue.mode === "dark" ? K5 : GM, null), e.createElement("span", { style: {
 		fontSize: 11,

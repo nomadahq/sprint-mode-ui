@@ -109748,11 +109748,11 @@ function gNe({ label: t, sectionIcon: n, sectionColor: r, items: a, color: c, ti
 			className: "ps-section-header",
 			onClick: A,
 			children: [
-				n && /* @__PURE__ */ l("span", {
-					className: "ps-section-icon",
-					style: (() => {
-						var e = r || c, t = x9(), n = "transparent", i = "none";
-						return e && (t ? (n = e.includes("hsl") ? e.replace(")", ", 0.08)").replace("hsl(", "hsla(") : e + "14", i = "1px solid " + (e.includes("hsl") ? e.replace(")", ", 0.25)").replace("hsl(", "hsla(") : e + "40")) : n = e.includes("hsl") ? e.replace(")", ", 0.12)").replace("hsl(", "hsla(") : e + "1f"), {
+				n && (() => {
+					var t = r || c, i = x9(), a = i ? S9(h) : null;
+					if (a) return /* @__PURE__ */ l("span", {
+						className: "ps-section-icon",
+						style: {
 							display: "flex",
 							alignItems: "center",
 							justifyContent: "center",
@@ -109760,26 +109760,40 @@ function gNe({ label: t, sectionIcon: n, sectionColor: r, items: a, color: c, ti
 							height: 20,
 							borderRadius: 5,
 							flexShrink: 0,
-							background: n,
-							border: i,
-							boxSizing: "border-box",
-							color: e || c
-						};
-					})(),
-					children: (() => {
-						var t = x9() ? S9(h) : null;
-						return t ? e.createElement("img", {
-							src: t,
-							width: 14,
-							height: 14,
+							background: "transparent",
+							border: "none",
+							boxSizing: "border-box"
+						},
+						children: e.createElement("img", {
+							src: a,
+							width: 20,
+							height: 20,
 							style: {
 								objectFit: "contain",
 								display: "block"
 							},
 							alt: ""
-						}) : n;
-					})()
-				}),
+						})
+					});
+					var o = "transparent", s = "none";
+					return t && (i ? (o = t.includes("hsl") ? t.replace(")", ", 0.08)").replace("hsl(", "hsla(") : t + "14", s = "1px solid " + (t.includes("hsl") ? t.replace(")", ", 0.25)").replace("hsl(", "hsla(") : t + "40")) : o = t.includes("hsl") ? t.replace(")", ", 0.12)").replace("hsl(", "hsla(") : t + "1f"), /* @__PURE__ */ l("span", {
+						className: "ps-section-icon",
+						style: {
+							display: "flex",
+							alignItems: "center",
+							justifyContent: "center",
+							width: 20,
+							height: 20,
+							borderRadius: 5,
+							flexShrink: 0,
+							background: o,
+							border: s,
+							boxSizing: "border-box",
+							color: t || c
+						},
+						children: n
+					});
+				})(),
 				t,
 				/* @__PURE__ */ l("svg", {
 					className: "ps-section-chevron",
@@ -110638,12 +110652,13 @@ var yNe = function(t) {
 										children: y ? /* @__PURE__ */ u(c, { children: [
 											/* @__PURE__ */ l("div", {
 												className: "shell-header-logo-icon",
+												style: x9() ? { background: "transparent" } : void 0,
 												children: (() => {
 													var t = V.config && V.config.subdomain, n = x9() ? S9(t || void 0) : null;
 													return n ? e.createElement("img", {
 														src: n,
-														width: 22,
-														height: 22,
+														width: 36,
+														height: 36,
 														style: {
 															objectFit: "contain",
 															display: "block"

@@ -180,11 +180,13 @@ function setStoredTheme(t: 'light' | 'dark' | 'auto') {
 }
 
 function applyThemeAttr(mode: 'light' | 'dark' | 'auto') {
-  if (mode === 'auto') {
-    document.documentElement.removeAttribute('data-theme')
-  } else {
-    document.documentElement.setAttribute('data-theme', mode)
-  }
+  // Auto must RESOLVE to a concrete attribute: dark overrides across sm-ui and
+  // portal CSS are keyed on [data-theme="dark"] with no @media twins, so
+  // "no attribute = auto" left auto+OS-dark half-light (Signal tint cards,
+  // sidebar accents rendered light on dark). The stored PREFERENCE stays
+  // 'auto'; only the applied attribute is resolved.
+  var applied = mode === 'auto' ? (resolveIsDark('auto') ? 'dark' : 'light') : mode
+  document.documentElement.setAttribute('data-theme', applied)
 }
 
 function resolveIsDark(mode: 'light' | 'dark' | 'auto'): boolean {
@@ -214,7 +216,7 @@ export function useTheme() {
     if (mode !== 'auto') return
     if (typeof window === 'undefined' || !window.matchMedia) return
     var mq = window.matchMedia('(prefers-color-scheme: dark)')
-    var handler = function(e: MediaQueryListEvent) { setIsDark(e.matches) }
+    var handler = function(e: MediaQueryListEvent) { setIsDark(e.matches); applyThemeAttr('auto') }
     if (mq.addEventListener) mq.addEventListener('change', handler)
     else if (mq.addListener) mq.addListener(handler)
     return function() {

@@ -110545,10 +110545,11 @@ var gNe = function(t) {
 		"aria-label": Ue.mode === "auto" ? "Theme: System" : Ue.mode === "dark" ? "Theme: Dark" : "Theme: Light",
 		title: Ue.mode === "auto" ? "Theme: System" : Ue.mode === "dark" ? "Theme: Dark" : "Theme: Light",
 		style: {
+			height: 34,
 			background: "var(--bg)",
 			border: "1px solid var(--border)",
-			borderRadius: 8,
-			padding: "6px 14px",
+			borderRadius: 7,
+			padding: "0 10px",
 			cursor: "pointer",
 			display: "flex",
 			alignItems: "center",
@@ -110557,7 +110558,8 @@ var gNe = function(t) {
 			color: "var(--muted)",
 			fontFamily: "var(--font)",
 			flexShrink: 0,
-			transition: "border-color .2s"
+			transition: "border-color .2s",
+			boxSizing: "border-box"
 		}
 	}, e.createElement(Ue.mode === "light" ? x7 : Ue.mode === "dark" ? K5 : GM, null), e.createElement("span", { style: {
 		fontSize: 11,

@@ -1605,9 +1605,10 @@ const Layout: React.FC<LayoutProps> = function Layout(props: LayoutProps) {
       'aria-label': theme.mode === 'auto' ? 'Theme: System' : theme.mode === 'dark' ? 'Theme: Dark' : 'Theme: Light',
       title: theme.mode === 'auto' ? 'Theme: System' : theme.mode === 'dark' ? 'Theme: Dark' : 'Theme: Light',
       style: {
-        background: 'none', border: '1px solid var(--border)', borderRadius: 'var(--radius-sm)',
-        padding: '5px 8px', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 6,
+        background: 'var(--bg)', border: '1px solid var(--border)', borderRadius: 8,
+        padding: '6px 14px', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 6,
         fontSize: 13, color: 'var(--muted)', fontFamily: 'var(--font)', flexShrink: 0,
+        transition: 'border-color .2s',
       },
     },
       React.createElement(theme.mode === 'light' ? IconSun : theme.mode === 'dark' ? IconMoon : IconDeviceDesktop, null),

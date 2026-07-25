@@ -108896,7 +108896,7 @@ function S9() {
 		},
 		toggle: function() {
 			n(function(e) {
-				return e === "light" ? "dark" : e === "dark" ? "auto" : "light";
+				return e === "auto" ? "dark" : e === "dark" ? "light" : "auto";
 			});
 		}
 	};
@@ -110536,43 +110536,29 @@ var gNe = function(t) {
 		background: "var(--bg-subtle)",
 		color: "var(--muted)",
 		lineHeight: 1.4
-	} }, typeof navigator < "u" && navigator.platform && navigator.platform.indexOf("Mac") !== -1 ? "⌘K" : "Ctrl+K")) : null, e.createElement("div", { style: {
-		display: "flex",
-		gap: 2,
-		padding: 3,
-		background: "var(--bg-subtle)",
-		borderRadius: 8,
-		border: "1px solid var(--border)"
-	} }, ...[
-		"light",
-		"auto",
-		"dark"
-	].map(function(t) {
-		var n = Ue.mode === t, r = t === "light" ? x7 : t === "dark" ? K5 : GM;
-		return e.createElement("button", {
-			key: t,
-			onClick: function() {
-				Ue.setMode(t);
-			},
-			"aria-label": t.charAt(0).toUpperCase() + t.slice(1),
-			title: t.charAt(0).toUpperCase() + t.slice(1),
-			style: {
-				display: "flex",
-				alignItems: "center",
-				justifyContent: "center",
-				width: 28,
-				height: 28,
-				borderRadius: 6,
-				border: "none",
-				cursor: "pointer",
-				padding: 0,
-				flexShrink: 0,
-				background: n ? "var(--accent)" : "transparent",
-				color: n ? "#fff" : "var(--muted)",
-				transition: "background .15s, color .15s"
-			}
-		}, e.createElement(r, null));
-	})), pe ? e.createElement(M7, {
+	} }, typeof navigator < "u" && navigator.platform && navigator.platform.indexOf("Mac") !== -1 ? "⌘K" : "Ctrl+K")) : null, e.createElement("button", {
+		onClick: Ue.toggle,
+		"aria-label": Ue.mode === "auto" ? "Theme: System" : Ue.mode === "dark" ? "Theme: Dark" : "Theme: Light",
+		title: Ue.mode === "auto" ? "Theme: System" : Ue.mode === "dark" ? "Theme: Dark" : "Theme: Light",
+		style: {
+			background: "none",
+			border: "1px solid var(--border)",
+			borderRadius: "var(--radius-sm)",
+			padding: "5px 8px",
+			cursor: "pointer",
+			display: "flex",
+			alignItems: "center",
+			gap: 6,
+			fontSize: 13,
+			color: "var(--muted)",
+			fontFamily: "var(--font)",
+			flexShrink: 0
+		}
+	}, e.createElement(Ue.mode === "light" ? x7 : Ue.mode === "dark" ? K5 : GM, null), e.createElement("span", { style: {
+		fontSize: 11,
+		fontWeight: 500,
+		letterSpacing: "0.3px"
+	} }, Ue.mode === "auto" ? "Auto" : Ue.mode === "dark" ? "Dark" : "Light")), pe ? e.createElement(M7, {
 		apiBase: L,
 		href: R,
 		onNavigate: function(e) {

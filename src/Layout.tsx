@@ -227,12 +227,12 @@ export function useTheme() {
     mode: mode,
     isDark: isDark,
     setMode: function(m: 'light' | 'dark' | 'auto') { setMode(m) },
-    // Legacy compat — toggle cycles light→dark→auto
+    // Cycle: auto → dark → light → auto (matches PAI toggle)
     toggle: function() {
       setMode(function(cur) {
-        if (cur === 'light') return 'dark'
-        if (cur === 'dark') return 'auto'
-        return 'light'
+        if (cur === 'auto') return 'dark'
+        if (cur === 'dark') return 'light'
+        return 'auto'
       })
     }
   }
@@ -1599,27 +1599,20 @@ const Layout: React.FC<LayoutProps> = function Layout(props: LayoutProps) {
       React.createElement('span', null, 'Search'),
       React.createElement('kbd', { style: { fontSize: 11, padding: '1px 5px', border: '1px solid var(--border)', borderRadius: 4, background: 'var(--bg-subtle)', color: 'var(--muted)', lineHeight: 1.4 } }, (typeof navigator !== 'undefined' && navigator.platform && navigator.platform.indexOf('Mac') !== -1) ? '\u2318K' : 'Ctrl+K')
     ) : null,
-    React.createElement('div', {
-      style: { display: 'flex', gap: 2, padding: 3, background: 'var(--bg-subtle)', borderRadius: 8, border: '1px solid var(--border)' }
+    React.createElement('button', {
+      onClick: theme.toggle,
+      'aria-label': theme.mode === 'auto' ? 'Theme: System' : theme.mode === 'dark' ? 'Theme: Dark' : 'Theme: Light',
+      title: theme.mode === 'auto' ? 'Theme: System' : theme.mode === 'dark' ? 'Theme: Dark' : 'Theme: Light',
+      style: {
+        background: 'none', border: '1px solid var(--border)', borderRadius: 'var(--radius-sm)',
+        padding: '5px 8px', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 6,
+        fontSize: 13, color: 'var(--muted)', fontFamily: 'var(--font)', flexShrink: 0,
+      },
     },
-      ...(['light', 'auto', 'dark'] as const).map(function(m) {
-        var active = theme.mode === m
-        var Ic = m === 'light' ? IconSun : m === 'dark' ? IconMoon : IconDeviceDesktop
-        return React.createElement('button', {
-          key: m,
-          onClick: function() { theme.setMode(m) },
-          'aria-label': m.charAt(0).toUpperCase() + m.slice(1),
-          title: m.charAt(0).toUpperCase() + m.slice(1),
-          style: {
-            display: 'flex', alignItems: 'center', justifyContent: 'center',
-            width: 28, height: 28, borderRadius: 6, border: 'none', cursor: 'pointer',
-            padding: 0, flexShrink: 0,
-            background: active ? 'var(--accent)' : 'transparent',
-            color: active ? '#fff' : 'var(--muted)',
-            transition: 'background .15s, color .15s',
-          },
-        }, React.createElement(Ic, null))
-      })
+      React.createElement(theme.mode === 'light' ? IconSun : theme.mode === 'dark' ? IconMoon : IconDeviceDesktop, null),
+      React.createElement('span', { style: { fontSize: 11, fontWeight: 500, letterSpacing: '0.3px' } },
+        theme.mode === 'auto' ? 'Auto' : theme.mode === 'dark' ? 'Dark' : 'Light'
+      )
     ),
     notificationBellEnabled ? React.createElement(NotificationBellNav, { apiBase: notificationApiBase, href: notificationHref, onNavigate: function(href: string) { navigate(href) } }) : null,
     bugPanelEnabled ? React.createElement(BugPanelHeaderButton, { onClick: function() { setBugPanelOpen(function(v) { return !v }) } }) : null,

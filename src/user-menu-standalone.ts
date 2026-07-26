@@ -235,23 +235,21 @@ function UserMenu(props: { session: Session; logoutHref: string }) {
                     },
                       (function() {
                         var _isDk = typeof document !== 'undefined' && (document.documentElement.getAttribute('data-theme') === 'dark' || (!document.documentElement.getAttribute('data-theme') && window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches))
-                        if (_isDk && p.logo_mark_url) {
+                        if (p.logo_mark_url) {
                           var _sub = p.logo_mark_url.match(/\/portals\/([^/]+)\//)
-                          var _prods = ['admin','studios','signal','mode','hub','privacyai','sprint-mode','sprint-capital','dev','docs','investors','nomada','safeshepherd']
-                          var _darkUrl = _sub && _prods.indexOf(_sub[1]) !== -1 ? 'https://api.sprintmode.ai/brand/' + _sub[1] + '-mark-dark.svg' : null
-                          if (_darkUrl) {
-                            return createElement('img', { src: _darkUrl, alt: '', style: { width: 18, height: 18, display: 'block' } })
+                          var _prods = ['admin','studios','signal','mode','hub','privacyai','sprint-mode','sprint-capital','platform','dev','docs','investors','nomada']
+                          if (_sub && _prods.indexOf(_sub[1]) !== -1) {
+                            var _themedUrl = _isDk
+                              ? 'https://api.sprintmode.ai/brand/' + _sub[1] + '-mark-dark.svg?v=3'
+                              : 'https://api.sprintmode.ai/portals/' + _sub[1] + '/logo_mark.svg?v=3'
+                            return createElement('img', { src: _themedUrl, alt: '', style: { width: 18, height: 18, display: 'block' } })
                           }
+                          return createElement('img', { src: p.logo_mark_url, alt: '', style: { width: 18, height: 18, borderRadius: 4, objectFit: 'contain' as const, display: 'block', flexShrink: 0 } })
                         }
                         var _bc = p.brand_color || 'var(--accent)'
-                        if (p.logo_mark_url) {
-                          return createElement('div', { style: { width: 18, height: 18, borderRadius: 4, flexShrink: 0 } },
-                            createElement('img', { src: p.logo_mark_url, alt: '', style: { width: 18, height: 18, borderRadius: 4, objectFit: 'contain' as const, display: 'block' } })
-                          )
-                        }
                         return createElement('div', {
                           style: { width: 18, height: 18, borderRadius: 4,
-                            background: _isDk ? 'transparent' : (p.brand_tint || 'var(--accent-10)'),
+                            background: p.brand_tint || 'var(--accent-10)',
                             color: _bc,
                             display: 'flex', alignItems: 'center', justifyContent: 'center',
                             fontSize: 8, fontWeight: 700, flexShrink: 0 }

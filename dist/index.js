@@ -108886,7 +108886,7 @@ function h9() {
 	return e === "dark" ? !0 : e === "light" ? !1 : !!(typeof window < "u" && window.matchMedia && window.matchMedia("(prefers-color-scheme: dark)").matches);
 }
 function g9(e) {
-	return !e || oNe.indexOf(e) === -1 ? null : "https://api.sprintmode.ai/brand/" + e + "-mark-dark.svg";
+	return !e || oNe.indexOf(e) === -1 ? null : "https://api.sprintmode.ai/brand/" + e + "-mark-dark.svg?v=2";
 }
 function sNe(e) {
 	if (!e) return null;

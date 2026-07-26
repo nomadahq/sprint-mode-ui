@@ -196,21 +196,27 @@ export function AccountSwitcher(props: AccountSwitcherProps) {
             },
               (() => {
                 var _isDark = typeof document !== 'undefined' && (document.documentElement.getAttribute('data-theme') === 'dark' || (!document.documentElement.getAttribute('data-theme') && window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches))
-                var bc = p.brand_color || 'var(--accent)'
+                // In dark mode, swap to dark mark SVG if available
+                if (_isDark && p.logo_mark_url) {
+                  var _sub = p.logo_mark_url.match(/\/portals\/([^/]+)\//)
+                  var _darkUrl = _sub ? (function() {
+                    var _prods = ['admin','studios','signal','mode','hub','privacyai','sprint-mode','sprint-capital','dev','docs','investors','nomada','safeshepherd']
+                    return _prods.indexOf(_sub[1]) !== -1 ? 'https://api.sprintmode.ai/brand/' + _sub[1] + '-mark-dark.svg' : null
+                  })() : null
+                  if (_darkUrl) {
+                    return React.createElement('img', { src: _darkUrl, alt: '', style: { width: 18, height: 18, display: 'block' } })
+                  }
+                }
                 if (p.logo_mark_url) {
-                  var containerStyle: React.CSSProperties = _isDark
-                    ? { width: 18, height: 18, borderRadius: 4, flexShrink: 0, background: bc + '14', border: '1px solid ' + bc + '40', boxSizing: 'border-box' as const, display: 'flex', alignItems: 'center', justifyContent: 'center', overflow: 'hidden' }
-                    : { width: 18, height: 18, borderRadius: 4, flexShrink: 0 }
-                  return React.createElement('div', { style: containerStyle },
-                    React.createElement('img', { src: p.logo_mark_url, alt: '', style: { width: _isDark ? 14 : 18, height: _isDark ? 14 : 18, borderRadius: _isDark ? 0 : 4, objectFit: 'contain' as const, display: 'block' } })
+                  return React.createElement('div', { style: { width: 18, height: 18, borderRadius: 4, flexShrink: 0 } },
+                    React.createElement('img', { src: p.logo_mark_url, alt: '', style: { width: 18, height: 18, borderRadius: 4, objectFit: 'contain' as const, display: 'block' } })
                   )
                 }
+                var bc = p.brand_color || 'var(--accent)'
                 return React.createElement('div', {
                   style: {
                     width: 18, height: 18, borderRadius: 4,
-                    background: _isDark ? (bc + '14') : (p.brand_tint || 'var(--accent-10)'),
-                    border: _isDark ? ('1px solid ' + bc + '40') : 'none',
-                    boxSizing: 'border-box' as const,
+                    background: _isDark ? 'transparent' : (p.brand_tint || 'var(--accent-10)'),
                     color: bc,
                     display: 'flex', alignItems: 'center', justifyContent: 'center',
                     fontSize: 8, fontWeight: 700, flexShrink: 0,

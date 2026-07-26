@@ -240,28 +240,7 @@ export function useTheme() {
   }
 }
 
-// ─── Dark mode detection (shared helper) ───────────────────────────────
-// Checks data-theme attr first, then matchMedia for auto mode.
-// Use this everywhere instead of duplicating the check.
-function isDarkMode(): boolean {
-  if (typeof document === 'undefined') return false
-  var dt = document.documentElement.getAttribute('data-theme')
-  if (dt === 'dark') return true
-  if (dt === 'light') return false
-  // Auto mode: no attr, check OS preference
-  return !!(typeof window !== 'undefined' && window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches)
-}
-
-// ─── Dark mode brand mark URL ──────────────────────────────────────────
-// R2 dark marks at /brand/{product}-mark-dark.svg use the subtle stroke
-// treatment: 8% brand-color fill + 1px 25% border. Self-contained SVGs
-// that handle their own background — render in a transparent container.
-var DARK_MARK_PRODUCTS = ['admin','studios','signal','mode','hub','privacyai','sprint-mode','sprint-capital','dev','docs','investors','nomada','safeshepherd'] as const
-function getDarkMarkUrl(product: string | undefined): string | null {
-  if (!product) return null
-  if ((DARK_MARK_PRODUCTS as readonly string[]).indexOf(product) === -1) return null
-  return 'https://api.sprintmode.ai/brand/' + product + '-mark-dark.svg'
-}
+import { isDarkMode, getDarkMarkUrl } from './dark-mode'
 
 // ─── CmdK ──────────────────────────────────────────────────────────────────
 
@@ -1671,7 +1650,7 @@ const Layout: React.FC<LayoutProps> = function Layout(props: LayoutProps) {
                         var _sub = portalCfg.config && portalCfg.config.subdomain
                         var _darkMark = isDarkMode() ? getDarkMarkUrl(_sub || undefined) : null
                         if (_darkMark) {
-                          return React.createElement('img', { src: _darkMark, width: 36, height: 36, style: { display: 'block' }, alt: '' })
+                          return React.createElement('img', { src: _darkMark, width: 28, height: 28, style: { display: 'block' }, alt: '' })
                         }
                         return headerIcon || <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" width="18" height="18">
                           <rect x="3" y="3" width="18" height="18" rx="4"/><polyline points="10 8 14 12 10 16"/>

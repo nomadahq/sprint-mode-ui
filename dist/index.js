@@ -104053,10 +104053,10 @@ function k7() {
 	return e === "dark" ? !0 : e === "light" ? !1 : !!(typeof window < "u" && window.matchMedia && window.matchMedia("(prefers-color-scheme: dark)").matches);
 }
 function xMe(e) {
-	return !e || O7.indexOf(e) === -1 ? null : "https://api.sprintmode.ai/brand/" + e + "-mark-dark.svg?v=3";
+	return !e || O7.indexOf(e) === -1 ? null : "https://api.sprintmode.ai/brand/" + e + "-mark-dark.svg?v=4";
 }
 function SMe(e) {
-	return !e || O7.indexOf(e) === -1 ? null : "https://api.sprintmode.ai/portals/" + e + "/logo_mark.svg?v=3";
+	return !e || O7.indexOf(e) === -1 ? null : "https://api.sprintmode.ai/portals/" + e + "/logo_mark.svg?v=4";
 }
 function A7(e) {
 	return !e || O7.indexOf(e) === -1 ? null : k7() ? xMe(e) : SMe(e);

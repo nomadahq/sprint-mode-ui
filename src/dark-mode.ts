@@ -14,13 +14,13 @@ export function isDarkMode(): boolean {
 export function getDarkMarkUrl(product: string | undefined): string | null {
   if (!product) return null
   if (SVG_MARK_PRODUCTS.indexOf(product) === -1) return null
-  return 'https://api.sprintmode.ai/brand/' + product + '-mark-dark.svg?v=3'
+  return 'https://api.sprintmode.ai/brand/' + product + '-mark-dark.svg?v=4'
 }
 
 export function getLightMarkUrl(product: string | undefined): string | null {
   if (!product) return null
   if (SVG_MARK_PRODUCTS.indexOf(product) === -1) return null
-  return 'https://api.sprintmode.ai/portals/' + product + '/logo_mark.svg?v=3'
+  return 'https://api.sprintmode.ai/portals/' + product + '/logo_mark.svg?v=4'
 }
 
 // Get the appropriate mark URL (light or dark) for the current mode

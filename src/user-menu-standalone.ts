@@ -240,8 +240,8 @@ function UserMenu(props: { session: Session; logoutHref: string }) {
                           var _prods = ['admin','studios','signal','mode','hub','privacyai','sprint-mode','sprint-capital','platform','dev','docs','investors','nomada']
                           if (_sub && _prods.indexOf(_sub[1]) !== -1) {
                             var _themedUrl = _isDk
-                              ? 'https://api.sprintmode.ai/brand/' + _sub[1] + '-mark-dark.svg?v=3'
-                              : 'https://api.sprintmode.ai/portals/' + _sub[1] + '/logo_mark.svg?v=3'
+                              ? 'https://api.sprintmode.ai/brand/' + _sub[1] + '-mark-dark.svg?v=4'
+                              : 'https://api.sprintmode.ai/portals/' + _sub[1] + '/logo_mark.svg?v=4'
                             return createElement('img', { src: _themedUrl, alt: '', style: { width: 18, height: 18, display: 'block' } })
                           }
                           return createElement('img', { src: p.logo_mark_url, alt: '', style: { width: 18, height: 18, borderRadius: 4, objectFit: 'contain' as const, display: 'block', flexShrink: 0 } })

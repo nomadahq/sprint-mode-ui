@@ -14,7 +14,7 @@ export function isDarkMode(): boolean {
 export function getDarkMarkUrl(product: string | undefined): string | null {
   if (!product) return null
   if (DARK_MARK_PRODUCTS.indexOf(product) === -1) return null
-  return 'https://api.sprintmode.ai/brand/' + product + '-mark-dark.svg'
+  return 'https://api.sprintmode.ai/brand/' + product + '-mark-dark.svg?v=2'
 }
 
 // Extract subdomain from a logo_mark_url like:

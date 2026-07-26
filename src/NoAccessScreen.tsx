@@ -5,6 +5,7 @@
 //   no_access_switch_available.html (Variant B)
 
 import React, { useState, useEffect } from 'react'
+import { themedMarkFromLogoUrl } from './dark-mode'
 
 interface PortalInfo {
   subdomain: string
@@ -270,17 +271,11 @@ export function NoAccessScreen(props: NoAccessScreenProps) {
               },
               onMouseEnter: hoverBg, onMouseLeave: unhoverBg,
             },
-              // Portal icon — R2 logo or SVG fallback
+              // Portal icon — themed SVG mark or fallback
               (() => {
-                var _isDk = typeof document !== 'undefined' && (document.documentElement.getAttribute('data-theme') === 'dark' || (!document.documentElement.getAttribute('data-theme') && window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches))
-                // In dark mode, swap to dark mark SVG if available
-                if (_isDk && p.logo_mark_url) {
-                  var _sub = p.logo_mark_url.match(/\/portals\/([^/]+)\//)
-                  var _prods = ['admin','studios','signal','mode','hub','privacyai','sprint-mode','sprint-capital','dev','docs','investors','nomada','safeshepherd']
-                  var _darkUrl = _sub && _prods.indexOf(_sub[1]) !== -1 ? 'https://api.sprintmode.ai/brand/' + _sub[1] + '-mark-dark.svg' : null
-                  if (_darkUrl) {
-                    return React.createElement('img', { src: _darkUrl, alt: '', width: 22, height: 22, style: { display: 'block', flexShrink: 0 } })
-                  }
+                var _themed = themedMarkFromLogoUrl(p.logo_mark_url)
+                if (_themed) {
+                  return React.createElement('img', { src: _themed, alt: '', width: 22, height: 22, style: { display: 'block', flexShrink: 0 } })
                 }
                 if (p.logo_mark_url) {
                   return React.createElement('div', { style: { width: 22, height: 22, borderRadius: 5, overflow: 'hidden', flexShrink: 0 } },
@@ -290,7 +285,7 @@ export function NoAccessScreen(props: NoAccessScreenProps) {
                 return React.createElement('div', {
                   style: {
                     width: 22, height: 22, borderRadius: 5,
-                    background: _isDk ? 'transparent' : iconTint,
+                    background: iconTint,
                     display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0,
                   }
                 },

@@ -240,7 +240,7 @@ export function useTheme() {
   }
 }
 
-import { isDarkMode, getDarkMarkUrl } from './dark-mode'
+import { isDarkMode, getThemedMarkUrl } from './dark-mode'
 
 // ─── CmdK ──────────────────────────────────────────────────────────────────
 
@@ -943,20 +943,20 @@ function SidebarSection({ label, sectionIcon, sectionColor, items, color, tint, 
         <button className="ps-section-header" onClick={handleToggle}>
           {sectionIcon && (
             (() => {
-              var sc = sectionColor || color
-              var _dark = isDarkMode()
-              var _darkUrl = _dark ? getDarkMarkUrl(product) : null
+              var _themedUrl = getThemedMarkUrl(product)
 
-              if (_darkUrl) {
+              if (_themedUrl) {
                 return <span className="ps-section-icon" style={{
                   display: 'flex', alignItems: 'center', justifyContent: 'center',
                   width: 20, height: 20, flexShrink: 0,
                   background: 'transparent', border: 'none',
                 }}>
-                  {React.createElement('img', { src: _darkUrl, width: 20, height: 20, style: { display: 'block' }, alt: '' })}
+                  {React.createElement('img', { src: _themedUrl, width: 20, height: 20, style: { display: 'block' }, alt: '' })}
                 </span>
               }
 
+              var sc = sectionColor || color
+              var _dark = isDarkMode()
               var bg = 'transparent'
               if (sc && !_dark) {
                 bg = sc.includes('hsl') ? sc.replace(')', ', 0.12)').replace('hsl(', 'hsla(') : sc + '1f'
@@ -1648,9 +1648,9 @@ const Layout: React.FC<LayoutProps> = function Layout(props: LayoutProps) {
                     <div className="shell-header-logo-icon" style={isDarkMode() ? { background: 'transparent', border: 'none' } : undefined}>
                       {(() => {
                         var _sub = portalCfg.config && portalCfg.config.subdomain
-                        var _darkMark = isDarkMode() ? getDarkMarkUrl(_sub || undefined) : null
-                        if (_darkMark) {
-                          return React.createElement('img', { src: _darkMark, width: 28, height: 28, style: { display: 'block' }, alt: '' })
+                        var _themedMark = getThemedMarkUrl(_sub || undefined)
+                        if (_themedMark) {
+                          return React.createElement('img', { src: _themedMark, width: 28, height: 28, style: { display: 'block' }, alt: '' })
                         }
                         return headerIcon || <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" width="18" height="18">
                           <rect x="3" y="3" width="18" height="18" rx="4"/><polyline points="10 8 14 12 10 16"/>

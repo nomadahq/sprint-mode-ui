@@ -1,5 +1,5 @@
 import React, { useState, ReactNode } from 'react'
-import { isDarkMode, darkMarkFromLogoUrl } from './dark-mode'
+import { isDarkMode, themedMarkFromLogoUrl } from './dark-mode'
 import { usePortalConfig } from './usePortalConfig.jsx'
 
 export interface LoginProps {
@@ -205,10 +205,10 @@ const Login: React.FC<LoginProps> = function Login({ productName, _logoSrc: _ls,
             {(() => {
               var _dark = isDarkMode()
               var _markUrl = _portalCfg.config && (_portalCfg.config as any).logo_mark_url
-              var _darkMark = _dark ? darkMarkFromLogoUrl(_markUrl) : null
-              if (_darkMark) {
+              var _themedMark = themedMarkFromLogoUrl(_markUrl)
+              if (_themedMark) {
                 return <div style={{ width: 36, height: 36, borderRadius: 9, background: 'transparent', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
-                  <img src={_darkMark} width={28} height={28} style={{ display: 'block' }} alt="" />
+                  <img src={_themedMark} width={28} height={28} style={{ display: 'block' }} alt="" />
                 </div>
               }
               return <div style={{ width: 36, height: 36, borderRadius: 9, background: _dark ? 'transparent' : badgeBg, display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>

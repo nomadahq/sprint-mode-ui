@@ -1,4 +1,6 @@
 import React, { useState, ReactNode } from 'react'
+import { isDarkMode, darkMarkFromLogoUrl } from './dark-mode'
+import { usePortalConfig } from './usePortalConfig.jsx'
 
 export interface LoginProps {
   productName?: string
@@ -59,6 +61,7 @@ function MailIcon() {
 }
 
 const Login: React.FC<LoginProps> = function Login({ productName, _logoSrc: _ls, authBase, icon, title, byLine, iconBg, iconColor, signupParams, companyField, linkTo, cancelHref }: LoginProps) {
+  var _portalCfg = usePortalConfig()
   var _showEmail = useState(false)
   var showEmail = _showEmail[0]; var setShowEmail = _showEmail[1]
   var _email = useState('')
@@ -199,9 +202,19 @@ const Login: React.FC<LoginProps> = function Login({ productName, _logoSrc: _ls,
       <div style={{ width: '100%', maxWidth: 400 }}>
         <div style={{ textAlign: 'center', marginBottom: 32 }}>
           <div style={{ display: 'inline-flex', alignItems: 'center', gap: 10 }}>
-            <div style={{ width: 36, height: 36, borderRadius: 9, background: badgeBg, display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
-              {icon || <svg viewBox="0 0 24 24" fill="none" stroke={iconColor || 'var(--accent)'} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" width="20" height="20"><rect x="3" y="3" width="18" height="18" rx="4"/><polyline points="10 8 14 12 10 16"/></svg>}
-            </div>
+            {(() => {
+              var _dark = isDarkMode()
+              var _markUrl = _portalCfg.config && (_portalCfg.config as any).logo_mark_url
+              var _darkMark = _dark ? darkMarkFromLogoUrl(_markUrl) : null
+              if (_darkMark) {
+                return <div style={{ width: 36, height: 36, borderRadius: 9, background: 'transparent', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+                  <img src={_darkMark} width={28} height={28} style={{ display: 'block' }} alt="" />
+                </div>
+              }
+              return <div style={{ width: 36, height: 36, borderRadius: 9, background: _dark ? 'transparent' : badgeBg, display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+                {icon || <svg viewBox="0 0 24 24" fill="none" stroke={iconColor || 'var(--accent)'} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" width="20" height="20"><rect x="3" y="3" width="18" height="18" rx="4"/><polyline points="10 8 14 12 10 16"/></svg>}
+              </div>
+            })()}
             <div style={{ display: 'flex', alignItems: 'baseline', gap: 8 }}>
               <span style={{ fontSize: 17, fontWeight: 500, color: 'var(--foreground)' }}>{displayTitle}</span>
               {byLine && <span style={{ fontSize: 13, fontWeight: 400, color: 'hsl(220, 9%, 40%)' }}>{byLine}</span>}

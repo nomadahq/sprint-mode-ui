@@ -1,6 +1,9 @@
-import type { SVGProps } from 'react'
+import type { SVGProps, JSX } from 'react'
 
-type IconProps = SVGProps<SVGSVGElement>
+// size is accepted by every icon (spread onto the svg). NOTE: at runtime it is
+// currently inert — icons render at the 16px default; honoring size (mapping to
+// width/height) is a cross-portal visual change tracked separately.
+type IconProps = SVGProps<SVGSVGElement> & { size?: number | string }
 
 export declare const IconAB2: (props: IconProps) => JSX.Element
 export declare const IconABOff: (props: IconProps) => JSX.Element

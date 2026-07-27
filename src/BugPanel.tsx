@@ -70,6 +70,11 @@ export interface Bug {
   verification_results?: VerificationResult[] | null
   comments?: BugComment[]
   attachments?: BugAttachment[]
+  // WAFFLE-0 work board fields
+  assigned_to?: string | null
+  subsystem?: string | null
+  due_date?: string | null
+  tags?: string | null
 }
 
 export interface ThreadItem {
@@ -87,6 +92,9 @@ export interface ThreadItem {
 var STATUS_META: Record<string, { color: string; bg: string; label: string }> = {
   open:        { color: 'var(--red)',    bg: 'var(--red-light)',    label: 'open' },
   in_progress: { color: 'var(--blue)',   bg: 'var(--blue-10)',      label: 'in progress' },
+  blocked:     { color: '#e67700',       bg: '#fff3e0',             label: 'blocked' },
+  fixed:       { color: 'var(--green)',  bg: 'var(--green-light)',  label: 'fixed' },
+  deferred:    { color: 'var(--muted)',  bg: 'var(--bg-subtle)',    label: 'deferred' },
   closed:      { color: 'var(--muted)',  bg: 'var(--bg-subtle)',    label: 'closed' },
   // Legacy statuses (pre-migration fallback)
   triaged:     { color: 'var(--blue)',   bg: 'var(--blue-10)',      label: 'in progress' },
@@ -95,7 +103,18 @@ var STATUS_META: Record<string, { color: string; bg: string; label: string }> = 
   verified:    { color: 'var(--muted)',  bg: 'var(--bg-subtle)',    label: 'closed' },
 }
 
-var TYPES = ['bug', 'feature', 'ux', 'task']
+var TYPES = ['bug', 'feature', 'ux', 'task', 'human_action']
+
+// WAFFLE-0: seed subsystem vocabulary for the edit datalist, so the first
+// user of a subsystem gets a suggestion before any rows exist. The filter
+// dropdown uses the live DISTINCT list from /api/bugs/subsystems instead.
+var SUBSYSTEM_SUGGESTIONS = [
+  'bookkeeper', 'launchpad', 'support', 'portal_manager', 'bug_panel', 'analytics', 'finance',
+  'signal_core', 'signal_billing', 'signal_integrations', 'signal_gtm',
+  'pai_engine', 'pai_dashboard', 'pai_billing',
+  'ss_auth', 'ss_email', 'ss_billing', 'ss_portal',
+  'website', 'investors',
+]
 
 var VERIFIED_META: Record<string, { color: string; bg: string; label: string }> = {
   pw_verifying: { color: '#e67700', bg: '#fff3e0', label: 'verifying' },
@@ -121,9 +140,10 @@ var PRODUCTS_FALLBACK: Record<string, string[]> = {
 }
 
 var ADMIN_TABS = [
-  { id: 'queue',    label: 'Queue',       statuses: ['open', 'in_progress'] },
-  { id: 'closed',   label: 'Fixed/Unverified', statuses: ['closed'], excludeVerified: true },
-  { id: 'verified', label: 'Verified',    statuses: ['closed'], verified: true },
+  { id: 'queue',    label: 'Queue',       statuses: ['open', 'in_progress', 'blocked'] },
+  { id: 'closed',   label: 'Fixed/Unverified', statuses: ['closed', 'fixed'], excludeVerified: true },
+  { id: 'verified', label: 'Verified',    statuses: ['closed', 'fixed'], verified: true },
+  { id: 'deferred', label: 'Deferred',    statuses: ['deferred'] },
 ]
 
 var REPORTER_FILTERS = [
@@ -310,7 +330,7 @@ function CommentAttThumb({ att, bugId, isImage, apiBase, product }: { att: BugAt
   )
 }
 
-function BugCard({ bug, isAdmin, expanded, onToggle, onAction, onComment, onDelete, onFire, onFireTerminal, onVerify, apiBase, product, searchQuery }: {
+function BugCard({ bug, isAdmin, expanded, onToggle, onAction, onComment, onDelete, onFire, onFireTerminal, onVerify, apiBase, product, searchQuery, assignees }: {
   bug: Bug
   isAdmin?: boolean
   expanded: boolean
@@ -324,7 +344,17 @@ function BugCard({ bug, isAdmin, expanded, onToggle, onAction, onComment, onDele
   apiBase: string
   product: string
   searchQuery?: string
+  assignees?: Array<{ id: string; name: string }>
 }) {
+  // WAFFLE-0: resolve assigned_to contact_id -> display name
+  var assignedName = ''
+  if (bug.assigned_to && assignees) {
+    var _match = assignees.find(function(a) { return a.id === bug.assigned_to })
+    assignedName = _match ? _match.name : bug.assigned_to
+  } else if (bug.assigned_to) {
+    assignedName = bug.assigned_to
+  }
+  var isOverdue = !!(bug.due_date && bug.status !== 'closed' && bug.status !== 'fixed' && bug.due_date < new Date().toISOString().slice(0, 10))
   var _comment = useState(''); var comment = _comment[0]; var setComment = _comment[1]
   var _copied = useState(false); var copied = _copied[0]; var setCopied = _copied[1]
   var _posting = useState(false); var posting = _posting[0]; var setPosting = _posting[1]
@@ -337,7 +367,7 @@ function BugCard({ bug, isAdmin, expanded, onToggle, onAction, onComment, onDele
   var commentFileIdRef = useRef(0)
 
   var sm = STATUS_META[bug.status] || STATUS_META['open']
-  var TYPE_COLORS: Record<string, string> = { feature: 'var(--blue)', ux: 'var(--amber)', task: 'var(--green)' }
+  var TYPE_COLORS: Record<string, string> = { feature: 'var(--blue)', ux: 'var(--amber)', task: 'var(--green)', human_action: '#e67700' }
   var dotColor = (bug.status === 'open' && bug.type && TYPE_COLORS[bug.type]) ? TYPE_COLORS[bug.type] : sm.color
   var ai: AiClassification | null = null
   try { ai = typeof bug.ai_classification === 'string' ? JSON.parse(bug.ai_classification) : (bug.ai_classification as AiClassification) || null } catch(_e) {}
@@ -381,7 +411,9 @@ function BugCard({ bug, isAdmin, expanded, onToggle, onAction, onComment, onDele
         <span style={S.dot(dotColor)} />
         <span style={S.typeBadge}>{bug.type || 'bug'}</span>
         <span style={S.productBadge}>{bug.product}</span>
+        {bug.subsystem && <span style={Object.assign({}, S.productBadge, { color: 'var(--accent)' })}>{bug.subsystem}</span>}
         {isAdmin && bug.submitted_by_name && <span style={S.submittedBy}>{bug.submitted_by_name.split(' ')[0].toLowerCase()}</span>}
+        {isAdmin && assignedName && <span style={Object.assign({}, S.submittedBy, { color: 'var(--accent)' })} title={'Assigned to ' + assignedName}>{'\u2192 ' + assignedName.split(' ')[0].toLowerCase()}</span>}
         {isAdmin ? <span style={{ fontSize: 10, fontFamily: 'var(--font-mono)', marginLeft: 'auto', color: sm.color }}>{bug.status}</span>
                  : <span style={S.statusPill(bug.status)}>{sm.label}</span>}
         {bug.verified_status && VERIFIED_META[bug.verified_status] && (
@@ -397,7 +429,19 @@ function BugCard({ bug, isAdmin, expanded, onToggle, onAction, onComment, onDele
 
       {bug.description && <div style={S.bugDesc}>{bug.description.length > 120 ? bug.description.slice(0, 120) + '...' : bug.description}</div>}
       {bug.page_url && <div style={S.bugUrl}>{bug.page_url}</div>}
-      <div style={S.bugTime}>{relTime(bug.created_at)}</div>
+      <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' as const }}>
+        <div style={S.bugTime}>{relTime(bug.created_at)}</div>
+        {bug.due_date && (
+          <span style={{ fontSize: 10, fontFamily: 'var(--font-mono)', fontWeight: isOverdue ? 700 : 400, color: isOverdue ? 'var(--red)' : 'var(--muted)' }}>
+            {isOverdue ? 'overdue ' : 'due '}{bug.due_date}
+          </span>
+        )}
+        {bug.tags && bug.tags.split(',').map(function(t) {
+          var tag = t.trim()
+          if (!tag) return null
+          return <span key={tag} style={{ fontSize: 9, fontFamily: 'var(--font-mono)', padding: '1px 6px', borderRadius: 999, background: 'var(--bg-subtle)', color: 'var(--muted)' }}>{tag}</span>
+        })}
+      </div>
 
       {expanded && (
         <div style={S.detail}>
@@ -528,6 +572,47 @@ function BugCard({ bug, isAdmin, expanded, onToggle, onAction, onComment, onDele
           </div>
 
           {isAdmin && (
+            <div style={{ display: 'flex', gap: 6, marginTop: 10, flexWrap: 'wrap' as const, alignItems: 'center' }} onClick={function(e) { e.stopPropagation() }}>
+              <select
+                style={Object.assign({}, S.btnSm('transparent', 'var(--foreground)', '1px solid var(--border)'), { cursor: 'pointer', fontSize: 11, maxWidth: 140 })}
+                value={bug.assigned_to || ''}
+                onChange={function(e) { onAction(bug.id, { assigned_to: e.target.value }) }}
+                title="Assigned to"
+              >
+                <option value="">Unassigned</option>
+                {(assignees || []).map(function(a) { return <option key={a.id} value={a.id}>{a.name}</option> })}
+              </select>
+              <datalist id={'wfl-subsystems-' + bug.id}>
+                {SUBSYSTEM_SUGGESTIONS.map(function(ss) { return <option key={ss} value={ss} /> })}
+              </datalist>
+              <input
+                list={'wfl-subsystems-' + bug.id}
+                placeholder="subsystem"
+                defaultValue={bug.subsystem || ''}
+                onBlur={function(e) { var v = e.target.value.trim(); if (v !== (bug.subsystem || '')) onAction(bug.id, { subsystem: v }) }}
+                onKeyDown={function(e) { if (e.key === 'Enter') (e.target as HTMLInputElement).blur() }}
+                style={Object.assign({}, S.btnSm('transparent', 'var(--foreground)', '1px solid var(--border)'), { fontSize: 11, width: 110 })}
+                title="Subsystem"
+              />
+              <input
+                type="date"
+                defaultValue={bug.due_date || ''}
+                onChange={function(e) { onAction(bug.id, { due_date: e.target.value }) }}
+                style={Object.assign({}, S.btnSm('transparent', 'var(--foreground)', '1px solid var(--border)'), { fontSize: 11 })}
+                title="Due date"
+              />
+              <input
+                placeholder="tags, comma,separated"
+                defaultValue={bug.tags || ''}
+                onBlur={function(e) { var v = e.target.value.trim(); if (v !== (bug.tags || '')) onAction(bug.id, { tags: v }) }}
+                onKeyDown={function(e) { if (e.key === 'Enter') (e.target as HTMLInputElement).blur() }}
+                style={Object.assign({}, S.btnSm('transparent', 'var(--foreground)', '1px solid var(--border)'), { fontSize: 11, width: 130 })}
+                title="Tags (comma-separated)"
+              />
+            </div>
+          )}
+
+          {isAdmin && (
             <div style={{ display: 'flex', gap: 6, marginTop: 10, flexWrap: 'wrap', alignItems: 'center' }}>
               {bug.status === 'open' && (
                 <>
@@ -650,53 +735,6 @@ function BugCard({ bug, isAdmin, expanded, onToggle, onAction, onComment, onDele
   )
 }
 
-function ThreadCard({ item, expanded, onToggle, searchQuery }: { item: ThreadItem; expanded: boolean; onToggle: () => void; searchQuery?: string }) {
-  var _copied = useState(false); var copied = _copied[0]; var setCopied = _copied[1]
-
-  function copyId(e: React.MouseEvent) {
-    e.stopPropagation()
-    navigator.clipboard.writeText(item.id).then(function() { setCopied(true); setTimeout(function() { setCopied(false) }, 1200) })
-  }
-
-  var pb = priorityBadge(item.priority)
-
-  return (
-    <div style={S.card(expanded)} onClick={onToggle}>
-      <div style={S.meta}>
-        <span style={S.dot('var(--red)')} />
-        <span style={S.threadBadge}>{item.thread_id || 'unknown'}</span>
-        <span style={S.productBadge}>{item.product}</span>
-        <span style={S.aiBadge(pb.bg, pb.color)}>{pb.label}</span>
-        <span style={{ fontSize: 10, fontFamily: 'var(--font-mono)', marginLeft: 'auto', color: 'var(--red)' }}>{item.status}</span>
-      </div>
-      <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginBottom: 4 }}>
-        <span style={S.bugId} onClick={copyId} title="Click to copy ID">PS-{(item.id || '').slice(0, 6)}</span>
-        {copied && <span style={{ fontSize: 9, fontFamily: 'var(--font-mono)', color: 'var(--green)' }}>copied</span>}
-      </div>
-      <div style={S.bugTitle}>{highlightText(item.title, searchQuery || '')}</div>
-      {item.body && <div style={S.bugDesc}>{item.body.length > 100 ? item.body.slice(0, 100) + '...' : item.body}</div>}
-      <div style={S.bugTime}>Logged {relTime(item.created_at)}</div>
-      {expanded && (
-        <div style={S.detail}>
-          {item.body && item.body.length > 100 && (
-            <>
-              <div style={Object.assign({}, S.sectionLabel, { marginTop: 0 })}>Full Description</div>
-              <div style={S.bugDesc}>{item.body}</div>
-            </>
-          )}
-          {item.tags && (
-            <div style={{ display: 'flex', gap: 4, flexWrap: 'wrap', marginTop: 6 }}>
-              {item.tags.split(',').map(function(t, i) {
-                return <span key={i} style={{ fontSize: 9, fontFamily: 'var(--font-mono)', padding: '1px 5px', borderRadius: 3, background: 'var(--bg)', border: '1px solid var(--border)', color: 'var(--muted)' }}>{t.trim()}</span>
-              })}
-            </div>
-          )}
-        </div>
-      )}
-    </div>
-  )
-}
-
 export function BugPanel(props: BugPanelProps) {
   var isAdmin = props.isAdmin
   var apiBase = props.apiBase || ''
@@ -719,10 +757,10 @@ export function BugPanel(props: BugPanelProps) {
   var setOpen = visible !== undefined ? function() {} : setSelfOpen
 
   var _bugs = useState<Bug[]>([]); var bugs = _bugs[0]; var setBugs = _bugs[1]
-  var _threads = useState<ThreadItem[]>([]); var threads = _threads[0]; var setThreads = _threads[1]
-  var _threadTotal = useState(0); var threadTotal = _threadTotal[0]; var setThreadTotal = _threadTotal[1]
   var _loading = useState(false); var loading = _loading[0]; var setLoading = _loading[1]
-  var _source = useState('reports'); var source = _source[0]; var setSource = _source[1]
+  // WAFFLE-0: Threads tab removed — project_state merged into bugs. Source is
+  // now a filter over one list (pm_state_id discriminates claude vs human).
+  var _filterSource = useState('all'); var filterSource = _filterSource[0]; var setFilterSource = _filterSource[1]
   var _tab = useState('queue'); var tab = _tab[0]; var setTab = _tab[1]
   var _rFilter = useState('all'); var rFilter = _rFilter[0]; var setRFilter = _rFilter[1]
   var _expanded = useState<string | null>(null); var expanded = _expanded[0]; var setExpanded = _expanded[1]
@@ -738,6 +776,11 @@ export function BugPanel(props: BugPanelProps) {
   var _filterType = useState('all'); var filterType = _filterType[0]; var setFilterType = _filterType[1]
   var _filterPriority = useState('all'); var filterPriority = _filterPriority[0]; var setFilterPriority = _filterPriority[1]
   var _filterPerson = useState('all'); var filterPerson = _filterPerson[0]; var setFilterPerson = _filterPerson[1]
+  // WAFFLE-0: work board filters + vocab
+  var _filterAssignee = useState('all'); var filterAssignee = _filterAssignee[0]; var setFilterAssignee = _filterAssignee[1]
+  var _filterSubsystem = useState('all'); var filterSubsystem = _filterSubsystem[0]; var setFilterSubsystem = _filterSubsystem[1]
+  var _assignees = useState<Array<{ id: string; name: string }>>([]); var assignees = _assignees[0]; var setAssignees = _assignees[1]
+  var _subsystems = useState<string[]>([]); var subsystems = _subsystems[0]; var setSubsystems = _subsystems[1]
   var _sortBy = useState('newest'); var sortBy = _sortBy[0]; var setSortBy = _sortBy[1]
   var _searchQuery = useState(''); var searchQuery = _searchQuery[0]; var setSearchQuery = _searchQuery[1]
   var _debouncedSearch = useState(''); var debouncedSearch = _debouncedSearch[0]; var setDebouncedSearch = _debouncedSearch[1]
@@ -791,6 +834,22 @@ export function BugPanel(props: BugPanelProps) {
       }, 100)
     }
   }, [bugs])
+
+  // WAFFLE-0: vocab fetches for work board filters.
+  // Subsystems: any bugs-access level. Assignees: admin only (route 403s otherwise).
+  useEffect(function() {
+    if (!open) return
+    apiFetch(apiBase + '/api/bugs/subsystems')
+      .then(function(r) { return r.json() })
+      .then(function(d: { ok: boolean; data?: string[] }) { if (d.ok && Array.isArray(d.data)) setSubsystems(d.data) })
+      .catch(function() {})
+    if (isAdmin) {
+      apiFetch(apiBase + '/api/bugs/assignees')
+        .then(function(r) { return r.json() })
+        .then(function(d: { ok: boolean; data?: Array<{ id: string; name: string }> }) { if (d.ok && Array.isArray(d.data)) setAssignees(d.data) })
+        .catch(function() {})
+    }
+  }, [open, isAdmin, apiBase])
 
   useEffect(function() {
     if (!showForm) return
@@ -855,6 +914,9 @@ export function BugPanel(props: BugPanelProps) {
     if (filterProduct !== 'all') params.push('product=' + filterProduct)
     if (filterType !== 'all') params.push('type=' + filterType)
     if (filterPriority !== 'all') params.push('priority=' + filterPriority)
+    if (filterAssignee !== 'all') params.push('assigned_to=' + encodeURIComponent(filterAssignee))
+    if (filterSubsystem !== 'all') params.push('subsystem=' + encodeURIComponent(filterSubsystem))
+    if (filterSource !== 'all') params.push('source=' + filterSource)
     if (debouncedSearch.trim()) params.push('q=' + encodeURIComponent(debouncedSearch.trim()))
     params.push('limit=200')
 
@@ -868,40 +930,15 @@ export function BugPanel(props: BugPanelProps) {
         setLoading(false)
       })
       .catch(function() { setLoading(false) })
-  }, [apiBase, filterProduct, filterType, filterPriority, debouncedSearch])
-
-  var _threadLimit = useState(50); var threadLimit = _threadLimit[0]; var setThreadLimit = _threadLimit[1]
-
-  var loadThreads = useCallback(function() {
-    if (!isAdmin) return
-    setLoading(true)
-    var params = ['status=open', 'limit=' + threadLimit]
-    if (filterProduct !== 'all') params.push('product=' + filterProduct)
-    if (filterPriority !== 'all') params.push('priority=' + filterPriority)
-    if (debouncedSearch.trim()) params.push('q=' + encodeURIComponent(debouncedSearch.trim()))
-    apiFetch(apiBase + '/api/bugs/threads?' + params.join('&'), { credentials: 'include' })
-      .then(function(r) { return r.json() })
-      .then(function(d: { data?: ThreadItem[]; total?: number }) { setThreads(Array.isArray(d.data) ? d.data : []); setThreadTotal(d.total || (d.data ? d.data.length : 0)); setLoading(false) })
-      .catch(function() { setLoading(false) })
-  }, [apiBase, isAdmin, filterProduct, filterPriority, threadLimit, debouncedSearch])
+  }, [apiBase, filterProduct, filterType, filterPriority, filterAssignee, filterSubsystem, filterSource, debouncedSearch])
 
   useEffect(function() {
     if (!open) return
-    if (source === 'reports') loadBugs()
-    else loadThreads()
-    if (isAdmin) {
-      var params = ['status=open', 'limit=1']
-      if (filterProduct !== 'all') params.push('product=' + filterProduct)
-      if (filterPriority !== 'all') params.push('priority=' + filterPriority)
-      apiFetch(apiBase + '/api/bugs/threads?' + params.join('&'), { credentials: 'include' })
-        .then(function(r) { return r.json() })
-        .then(function(d: { total?: number }) { if (d.total !== undefined) setThreadTotal(d.total) })
-        .catch(function() {})
-    }
-  }, [open, source, filterProduct, filterType, filterPriority, debouncedSearch, loadBugs, loadThreads, isAdmin, apiBase])
+    loadBugs()
+  }, [open, filterProduct, filterType, filterPriority, filterAssignee, filterSubsystem, filterSource, debouncedSearch, loadBugs, isAdmin, apiBase])
 
   useEffect(function() {
-    if (!expanded || source !== 'reports') return
+    if (!expanded) return
     apiFetch(apiBase + '/api/bugs/' + expanded, { credentials: 'include' })
       .then(function(r) { return r.json() })
       .then(function(d: { ok: boolean; data?: Bug }) {
@@ -930,7 +967,7 @@ export function BugPanel(props: BugPanelProps) {
         }
       })
       .catch(function() {})
-  }, [expanded, apiBase, source])
+  }, [expanded, apiBase])
 
   // BUG-PANEL-STANDALONE-1: Set browser tab title in standalone mode
   useEffect(function() { if (props.standalone) document.title = 'Bug Catcher' }, [props.standalone])
@@ -1126,7 +1163,7 @@ export function BugPanel(props: BugPanelProps) {
 
   var isMobile = typeof window !== 'undefined' && window.innerWidth < 640
   var isStandalone = props.standalone
-  var items = source === 'reports' ? bugs : threads
+  var items = bugs
 
   var panelStyle = isStandalone
     ? Object.assign({}, S.panel, { position: 'relative' as const, width: '100%', maxWidth: 720, margin: '0 auto', height: '100vh', borderLeft: 'none', boxShadow: 'none', zIndex: 1 })
@@ -1149,17 +1186,6 @@ export function BugPanel(props: BugPanelProps) {
           {!isStandalone && <button style={S.closeBtn} onClick={closePanel}><CloseIcon /></button>}
         </div>
 
-        {isAdmin && (
-          <div style={S.sourceToggle}>
-            <button style={Object.assign({}, S.sourceBtn(source === 'reports'), S.sourceBtnFirst)} onClick={function() { setSource('reports') }}>
-              Reports <span style={{ fontSize: 10, fontWeight: 700, marginLeft: 4, opacity: 0.8 }}>{bugs.length}</span>
-            </button>
-            <button style={Object.assign({}, S.sourceBtn(source === 'threads'), S.sourceBtnLast)} onClick={function() { setSource('threads') }}>
-              Claude Threads <span style={{ fontSize: 10, fontWeight: 700, marginLeft: 4, opacity: 0.8 }}>{threadTotal}</span>
-            </button>
-          </div>
-        )}
-
         {!isAdmin && (
           <div style={S.rpills}>
             {REPORTER_FILTERS.map(function(f) {
@@ -1168,8 +1194,7 @@ export function BugPanel(props: BugPanelProps) {
           </div>
         )}
 
-        {source === 'reports' && (
-          <div style={S.filterBar}>
+        <div style={S.filterBar}>
             <select style={S.filterSelect} value={filterProduct} onChange={function(e) { setFilterProduct(e.target.value) }}>
               <option value="all">Portals</option>
               {Object.keys(products).map(function(group) {
@@ -1180,6 +1205,13 @@ export function BugPanel(props: BugPanelProps) {
               <option value="all">Types</option>
               {TYPES.map(function(t) { return <option key={t} value={t}>{t}</option> })}
             </select>
+            {isAdmin && (
+              <select style={S.filterSelect} value={filterSource} onChange={function(e) { setFilterSource(e.target.value) }}>
+                <option value="all">All Sources</option>
+                <option value="human">Human</option>
+                <option value="claude">Claude</option>
+              </select>
+            )}
             <select style={S.filterSelect} value={filterPriority} onChange={function(e) { setFilterPriority(e.target.value) }}>
               <option value="all">Priorities</option>
               <option value="critical">P0 Critical</option>
@@ -1193,6 +1225,19 @@ export function BugPanel(props: BugPanelProps) {
                 {Array.from(new Set(bugs.map(function(b) { return b.submitted_by_name }).filter(Boolean))).sort().map(function(name) {
                   return <option key={name} value={name}>{name}</option>
                 })}
+              </select>
+            )}
+            {isAdmin && (
+              <select style={S.filterSelect} value={filterAssignee} onChange={function(e) { setFilterAssignee(e.target.value) }}>
+                <option value="all">Assignee</option>
+                <option value="unassigned">Unassigned</option>
+                {assignees.map(function(a) { return <option key={a.id} value={a.id}>{a.name}</option> })}
+              </select>
+            )}
+            {subsystems.length > 0 && (
+              <select style={S.filterSelect} value={filterSubsystem} onChange={function(e) { setFilterSubsystem(e.target.value) }}>
+                <option value="all">Subsystems</option>
+                {subsystems.map(function(ss) { return <option key={ss} value={ss}>{ss}</option> })}
               </select>
             )}
             <div style={{ position: 'relative', display: 'flex', alignItems: 'center', flex: '1 1 120px', minWidth: 100 }}>
@@ -1218,9 +1263,8 @@ export function BugPanel(props: BugPanelProps) {
               <option value="oldest">Oldest</option>
             </select>
           </div>
-        )}
 
-        {isAdmin && source === 'reports' && (
+        {isAdmin && (
           <div style={S.tabBar}>
             {ADMIN_TABS.map(function(t) {
               var count = bugs.filter(function(b) {
@@ -1237,7 +1281,7 @@ export function BugPanel(props: BugPanelProps) {
         <div style={S.list}>
           {loading && <div style={S.empty}>Loading...</div>}
           {!loading && items.length === 0 && <div style={S.empty}>No items.</div>}
-          {!loading && source === 'reports' && bugs.filter(function(b) {
+          {!loading && bugs.filter(function(b) {
             // Status filter: admin uses tab, reporter uses pill
             if (isAdmin) {
               var at = ADMIN_TABS.find(function(t) { return t.id === tab }) as any
@@ -1260,20 +1304,10 @@ export function BugPanel(props: BugPanelProps) {
             if (sortBy === 'oldest') return (a.created_at || '').localeCompare(b.created_at || '')
             return (b.created_at || '').localeCompare(a.created_at || '')
           }).map(function(bug) {
-            return <BugCard key={bug.id} bug={bug} isAdmin={isAdmin} expanded={expanded === bug.id}
+            return <BugCard key={bug.id} bug={bug} isAdmin={isAdmin} assignees={assignees} expanded={expanded === bug.id}
               onToggle={function() { setExpanded(expanded === bug.id ? null : bug.id) }}
               onAction={handleAction} onComment={handleComment} onDelete={isAdmin ? handleDelete : undefined} onFire={handleFire} onFireTerminal={handleFireTerminal} onVerify={isAdmin ? handleVerify : undefined} apiBase={apiBase} product={product} searchQuery={debouncedSearch} />
           })}
-          {!loading && source === 'threads' && threads.map(function(item) {
-            return <ThreadCard key={item.id} item={item} expanded={expanded === item.id}
-              onToggle={function() { setExpanded(expanded === item.id ? null : item.id) }} searchQuery={debouncedSearch} />
-          })}
-          {!loading && source === 'threads' && threads.length < threadTotal && (
-            <button onClick={function() { setThreadLimit(threadLimit + 50) }}
-              style={{ width: '100%', padding: '10px', border: '1px solid var(--border)', borderRadius: 6, background: 'none', cursor: 'pointer', fontSize: 12, fontFamily: 'var(--font-mono)', color: 'var(--accent)', marginTop: 4 }}>
-              Load more ({threads.length} of {threadTotal})
-            </button>
-          )}
         </div>
 
         {showForm ? (

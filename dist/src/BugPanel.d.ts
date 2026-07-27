@@ -62,6 +62,10 @@ export interface Bug {
     verification_results?: VerificationResult[] | null;
     comments?: BugComment[];
     attachments?: BugAttachment[];
+    assigned_to?: string | null;
+    subsystem?: string | null;
+    due_date?: string | null;
+    tags?: string | null;
 }
 export interface ThreadItem {
     id: string;

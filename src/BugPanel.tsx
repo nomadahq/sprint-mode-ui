@@ -918,7 +918,7 @@ export function BugPanel(props: BugPanelProps) {
     if (filterSubsystem !== 'all') params.push('subsystem=' + encodeURIComponent(filterSubsystem))
     if (filterSource !== 'all') params.push('source=' + filterSource)
     if (debouncedSearch.trim()) params.push('q=' + encodeURIComponent(debouncedSearch.trim()))
-    params.push('limit=200')
+    params.push('limit=1000')
 
     var url = apiBase + '/api/bugs?' + params.join('&')
 

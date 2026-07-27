@@ -107981,7 +107981,7 @@ function p9(e) {
 	var Z = n(function() {
 		E(!0);
 		var e = [];
-		pe !== "all" && e.push("product=" + pe), ge !== "all" && e.push("type=" + ge), ye !== "all" && e.push("priority=" + ye), Te !== "all" && e.push("assigned_to=" + encodeURIComponent(Te)), Oe !== "all" && e.push("subsystem=" + encodeURIComponent(Oe)), O !== "all" && e.push("source=" + O), Ue.trim() && e.push("q=" + encodeURIComponent(Ue.trim())), e.push("limit=200"), m(r + "/api/bugs?" + e.join("&"), { credentials: "include" }).then(function(e) {
+		pe !== "all" && e.push("product=" + pe), ge !== "all" && e.push("type=" + ge), ye !== "all" && e.push("priority=" + ye), Te !== "all" && e.push("assigned_to=" + encodeURIComponent(Te)), Oe !== "all" && e.push("subsystem=" + encodeURIComponent(Oe)), O !== "all" && e.push("source=" + O), Ue.trim() && e.push("q=" + encodeURIComponent(Ue.trim())), e.push("limit=1000"), m(r + "/api/bugs?" + e.join("&"), { credentials: "include" }).then(function(e) {
 			return e.json();
 		}).then(function(e) {
 			C(Array.isArray(e.data) ? e.data : []), E(!1);

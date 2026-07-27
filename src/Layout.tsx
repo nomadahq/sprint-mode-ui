@@ -1155,17 +1155,21 @@ const Layout: React.FC<LayoutProps> = function Layout(props: LayoutProps) {
   var _ad = useState(false); var accessDenied = _ad[0]; var setAccessDenied = _ad[1]
   var _adEmail = useState(''); var accessDeniedEmail = _adEmail[0]; var setAccessDeniedEmail = _adEmail[1]
 
-  // Bug panel RBAC: requires both the portal-level flag AND the user's bugs permission.
-  // Clients (no permissions object) never see the panel.
-  // Exception: SM team members (super_admin/admin/is_sm_team) see it when the flag is on,
-  // even if their RBAC permissions object has no bugs.view entry (team viewing a client portal).
+  // Bug panel RBAC (WAFFLE-0): sm-api /auth/me returns bugs_access
+  // (0 none / 1 reporting / 2 triage) from the central access model
+  // (portal_roles bug_panel keys + admin-row bugs perm — see sm-api
+  // src/lib/bug-access.ts). The portal-level flag stays as an AND-gate.
+  // Legacy fallback (older sm-api without bugs_access): per-portal bugs
+  // permission + SM-team exception, as before.
+  var _bugsAccess = session ? (session as any).bugs_access : undefined
   var _bugPerms = session && (session as any).permissions && (session as any).permissions.bugs
   var _isSmTeamUser = session && ((session as any).is_sm_team || (session as any).role === 'super_admin' || (session as any).role === 'admin' || (session as any).portal_role === 'super_admin' || (session as any).portal_role === 'admin')
-  var bugPanelEnabled = !!bugPanelFlag && bugPanelFlag !== 0 && (!!(_bugPerms && _bugPerms.view) || !!_isSmTeamUser)
+  var _legacyEnabled = (!!(_bugPerms && _bugPerms.view) || !!_isSmTeamUser)
+  var bugPanelEnabled = !!bugPanelFlag && bugPanelFlag !== 0 && (_bugsAccess !== undefined ? _bugsAccess >= 1 : _legacyEnabled)
   // Default to shown while config is still loading (backward compat for portals
   // that haven't set this field yet / config fetch hasn't resolved).
   var notificationBellEnabled = portalCfg.config ? (portalCfg.config as any).notification_bell !== 0 : true
-  var bugPanelAdmin = props.bugPanelAdmin || !!(_bugPerms && _bugPerms.edit)
+  var bugPanelAdmin = props.bugPanelAdmin || (_bugsAccess !== undefined ? _bugsAccess >= 2 : !!(_bugPerms && _bugPerms.edit))
   var _m = useState(false); var mobileOpen = _m[0]; var setMobileOpen = _m[1]
   var _d = useState(false); var dropdownOpen = _d[0]; var setDropdownOpen = _d[1]
   // Sidebar rail collapse (desktop): narrow to icons; sections reveal a flyout on

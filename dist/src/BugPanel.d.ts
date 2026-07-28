@@ -78,6 +78,24 @@ export interface ThreadItem {
     tags?: string;
     created_at?: string;
 }
+export interface BugCounts {
+    queue: number;
+    mine: number;
+    closed: number;
+    verified: number;
+    deferred: number;
+    total: number;
+}
+export interface ProductCount {
+    product: string;
+    queue: number;
+    open: number;
+    in_progress: number;
+    blocked: number;
+    verified: number;
+    deferred: number;
+    total: number;
+}
 export declare function BugPanel(props: BugPanelProps): React.JSX.Element | null;
 export declare function BugPanelHeaderButton({ onClick }: BugPanelHeaderButtonProps): React.DetailedReactHTMLElement<{
     onClick: React.MouseEventHandler<HTMLButtonElement> | undefined;

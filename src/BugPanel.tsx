@@ -1699,7 +1699,13 @@ export function BugPanel(props: BugPanelProps) {
           <span style={S.title}>{isAdmin ? 'Waffle' : label}</span>
           <kbd style={{ fontSize: 10, padding: '1px 5px', border: '1px solid var(--border)', borderRadius: 4, background: 'var(--bg-subtle,var(--bg))', color: 'var(--muted)', lineHeight: 1.4, marginLeft: 6, fontFamily: 'var(--font-mono,monospace)' }}>{typeof navigator !== 'undefined' && navigator.platform && navigator.platform.indexOf('Mac') !== -1 ? '\u2318B' : 'Ctrl+B'}</kbd>
           <span style={{ flex: 1 }} />
-          {isAdmin && <button style={S.closeBtn} title="Waffle MCP keys" onClick={function() { setShowKeys(true); setMintedKey(null); loadMcpKeys() }}><KeyIcon /></button>}
+          {isAdmin && (
+            <button
+              style={isStandalone ? Object.assign({}, S.closeBtn, { width: 'auto', gap: 5, padding: '0 9px', fontSize: 11, fontWeight: 600 }) : S.closeBtn}
+              title="Waffle MCP keys"
+              onClick={function() { setShowKeys(true); setMintedKey(null); loadMcpKeys() }}
+            ><KeyIcon />{isStandalone && <span>MCP Keys</span>}</button>
+          )}
           {!isStandalone && <button style={S.closeBtn} title="Open in new tab" onClick={function() {
             var url = 'https://admin.sprintmode.ai/bugs?product=' + encodeURIComponent(product)
             window.open(url, '_blank')

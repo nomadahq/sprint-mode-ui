@@ -109078,13 +109078,19 @@ function p9(t) {
 						children: typeof navigator < "u" && navigator.platform && navigator.platform.indexOf("Mac") !== -1 ? "⌘B" : "Ctrl+B"
 					}),
 					/* @__PURE__ */ l("span", { style: { flex: 1 } }),
-					r && /* @__PURE__ */ l("button", {
-						style: Q.closeBtn,
+					r && /* @__PURE__ */ u("button", {
+						style: mn ? Object.assign({}, Q.closeBtn, {
+							width: "auto",
+							gap: 5,
+							padding: "0 9px",
+							fontSize: 11,
+							fontWeight: 600
+						}) : Q.closeBtn,
 						title: "Waffle MCP keys",
 						onClick: function() {
 							Ht(!0), Jt(null), an();
 						},
-						children: /* @__PURE__ */ l(aNe, {})
+						children: [/* @__PURE__ */ l(aNe, {}), mn && /* @__PURE__ */ l("span", { children: "MCP Keys" })]
 					}),
 					!Tn && /* @__PURE__ */ l("button", {
 						style: Q.closeBtn,

@@ -86,6 +86,16 @@ export interface BugCounts {
     deferred: number;
     total: number;
 }
+export interface MyDayData {
+    overdue: Bug[];
+    due_today: Bug[];
+    in_progress_mine: Bug[];
+    newly_assigned: Bug[];
+    recent_activity: Array<Bug & {
+        kind?: string;
+    }>;
+    unassigned_on_my_products: Bug[];
+}
 export interface ProductCount {
     product: string;
     queue: number;

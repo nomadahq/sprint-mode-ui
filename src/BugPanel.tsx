@@ -277,8 +277,8 @@ var S = {
   sourceBtnLast: { borderRadius: '0 6px 6px 0' } as CSSProperties,
   filterBar: { display: 'flex', gap: 6, padding: '8px 16px', borderBottom: '1px solid var(--border)', flexShrink: 0, flexWrap: 'wrap', alignItems: 'center' } as CSSProperties,
   filterSelect: { fontSize: 11, fontFamily: 'var(--font-mono)', padding: '4px 8px', borderRadius: 4, border: '1px solid var(--border)', background: 'var(--bg-subtle)', color: 'var(--foreground)', outline: 'none' } as CSSProperties,
-  tabBar: { display: 'flex', borderBottom: '1px solid var(--border)', flexShrink: 0 } as CSSProperties,
-  tabBtn: function(active: boolean): CSSProperties { return { flex: 1, padding: '8px 4px', fontSize: 11, fontFamily: 'var(--font-mono)', fontWeight: active ? 700 : 400, color: active ? 'var(--accent)' : 'var(--muted)', background: 'none', border: 'none', borderBottom: active ? '2px solid var(--accent)' : '2px solid transparent', cursor: 'pointer', textAlign: 'center' } },
+  tabBar: { display: 'flex', borderBottom: '1px solid var(--border)', flexShrink: 0, overflowX: 'auto' as const, scrollbarWidth: 'thin' as const } as CSSProperties,
+  tabBtn: function(active: boolean): CSSProperties { return { flex: '1 0 auto', whiteSpace: 'nowrap', padding: '8px 8px', fontSize: 11, fontFamily: 'var(--font-mono)', fontWeight: active ? 700 : 400, color: active ? 'var(--accent)' : 'var(--muted)', background: 'none', border: 'none', borderBottom: active ? '2px solid var(--accent)' : '2px solid transparent', cursor: 'pointer', textAlign: 'center' } },
   list: { flex: 1, overflowY: 'auto', padding: 8 } as CSSProperties,
   rpills: { display: 'flex', gap: 4, padding: '8px 16px', borderBottom: '1px solid var(--border)', flexShrink: 0 } as CSSProperties,
   rpill: function(active: boolean): CSSProperties { return { padding: '4px 10px', fontSize: 11, fontFamily: 'var(--font-mono)', fontWeight: 600, borderRadius: 999, border: '1px solid', borderColor: active ? 'var(--accent)' : 'var(--border)', background: active ? 'var(--accent)' : 'transparent', color: active ? '#fff' : 'var(--muted)', cursor: 'pointer' } },
@@ -1121,27 +1121,34 @@ export function BugPanel(props: BugPanelProps) {
 
   // Rollup cards: per-product server counts (rollup=1); fetch when expanded
   useEffect(function() {
-    if (!managerViews || collapsed.rollup || !open) return
-    setProductCounts(null)
+    if (!managerViews || collapsed.rollup || !open || productCounts) return
     apiFetch(apiBase + '/api/bugs?tab=queue&rollup=1&limit=1')
       .then(function(r) { return r.json() })
       .then(function(d: { product_counts?: ProductCount[] }) { setProductCounts(Array.isArray(d.product_counts) ? d.product_counts : []) })
       .catch(function() { setProductCounts([]) })
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [managerViews, collapsed.rollup, open, apiBase])
+  }, [managerViews, collapsed.rollup, open, apiBase, productCounts])
 
   // Delegation: full queue fetch — assignee grouping needs the whole set, not
   // a page (2000 cap = sm-api ceiling). NOT cheap, so only when expanded;
   // collapsed headline shows the count once loaded.
   useEffect(function() {
-    if (!managerViews || collapsed.delegation || !open) return
+    if (!managerViews || collapsed.delegation || !open || delegationBugs) return
     setDelegationLoading(true)
     apiFetch(apiBase + '/api/bugs?tab=queue&limit=2000')
       .then(function(r) { return r.json() })
       .then(function(d: { data?: Bug[] }) { setDelegationBugs(Array.isArray(d.data) ? d.data : []); setDelegationLoading(false) })
       .catch(function() { setDelegationBugs([]); setDelegationLoading(false) })
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [managerViews, collapsed.delegation, open, apiBase])
+  }, [managerViews, collapsed.delegation, open, apiBase, delegationBugs])
+
+  // Reset section caches on close so the next open refreshes data
+  useEffect(function() {
+    if (open) return
+    setDelegationBugs(null)
+    setProductCounts(null)
+    setMyDay(null)
+  }, [open])
 
   function reassignDelegated(bugId: string, contactId: string) {
     apiFetch(apiBase + '/api/bugs/' + bugId, {
@@ -1551,7 +1558,7 @@ export function BugPanel(props: BugPanelProps) {
       {sectionHeader('delegation', 'Delegation', delegationUnassignedN === null ? '' : delegationUnassignedN + ' unassigned')}
       {!collapsed.delegation && (
       <div style={{ maxHeight: 320, overflowY: 'auto' as const, borderBottom: '1px solid var(--border)' }}>
-      {delegationLoading && <div style={S.empty}>Loading...</div>}
+      {(delegationBugs === null || delegationLoading) && <div style={S.empty}>Loading...</div>}
       {!delegationLoading && delegationBugs && delegationBugs.length === 0 && <div style={S.empty}>Queue is empty.</div>}
       {!delegationLoading && delegationBugs && delegationBugs.length > 0 && (function() {
         var groups: Record<string, Bug[]> = {}

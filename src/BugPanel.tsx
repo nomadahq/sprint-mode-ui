@@ -159,6 +159,17 @@ export interface BugCounts {
   total: number
 }
 
+// WAFFLE-1 GET /api/bugs/my-day response sections (bug rows; recent_activity
+// rows carry kind: 'comment' | 'update')
+export interface MyDayData {
+  overdue: Bug[]
+  due_today: Bug[]
+  in_progress_mine: Bug[]
+  newly_assigned: Bug[]
+  recent_activity: Array<Bug & { kind?: string }>
+  unassigned_on_my_products: Bug[]
+}
+
 export interface ProductCount {
   product: string
   queue: number
@@ -846,7 +857,21 @@ export function BugPanel(props: BugPanelProps) {
   var _total = useState(0); var total = _total[0]; var setTotal = _total[1]
   var _loadingMore = useState(false); var loadingMore = _loadingMore[0]; var setLoadingMore = _loadingMore[1]
   // WAFFLE-2: standalone manager views
-  var _viewMode = useState('list'); var viewMode = _viewMode[0]; var setViewMode = _viewMode[1]
+  // WAFFLE-2 addendum: manager sections stack above the list with per-section
+  // collapse persisted in localStorage (standalone runs in real browsers;
+  // same try/catch pattern Layout uses for sm-theme/recentKey).
+  var _collapsed = useState<Record<string, boolean>>(function() {
+    try { return JSON.parse(localStorage.getItem('waffle-sections-collapsed') || '{}') } catch (_e) { return {} }
+  })
+  var collapsed = _collapsed[0]; var setCollapsed = _collapsed[1]
+  function toggleSection(key: string) {
+    setCollapsed(function(prev) {
+      var next = { ...prev, [key]: !prev[key] }
+      try { localStorage.setItem('waffle-sections-collapsed', JSON.stringify(next)) } catch (_e) { /* storage unavailable — state still works in-memory */ }
+      return next
+    })
+  }
+  var _myDay = useState<MyDayData | null>(null); var myDay = _myDay[0]; var setMyDay = _myDay[1]
   var _groupBy = useState('none'); var groupBy = _groupBy[0]; var setGroupBy = _groupBy[1]
   var _productCounts = useState<ProductCount[] | null>(null); var productCounts = _productCounts[0]; var setProductCounts = _productCounts[1]
   var _delegationBugs = useState<Bug[] | null>(null); var delegationBugs = _delegationBugs[0]; var setDelegationBugs = _delegationBugs[1]
@@ -1084,28 +1109,39 @@ export function BugPanel(props: BugPanelProps) {
   // ── WAFFLE-2: standalone manager view data ────────────────────────────────
   var managerViews = Boolean(props.standalone && isAdmin)
 
-  // Rollup cards: per-product server counts (rollup=1)
+  // My Day: one cheap call on open — headline count stays live even collapsed
   useEffect(function() {
-    if (!managerViews || viewMode !== 'rollup' || !open) return
+    if (!managerViews || !open) return
+    apiFetch(apiBase + '/api/bugs/my-day')
+      .then(function(r) { return r.json() })
+      .then(function(d: { ok?: boolean; data?: MyDayData }) { if (d && d.data) setMyDay(d.data) })
+      .catch(function() {})
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [managerViews, open, apiBase])
+
+  // Rollup cards: per-product server counts (rollup=1); fetch when expanded
+  useEffect(function() {
+    if (!managerViews || collapsed.rollup || !open) return
     setProductCounts(null)
     apiFetch(apiBase + '/api/bugs?tab=queue&rollup=1&limit=1')
       .then(function(r) { return r.json() })
       .then(function(d: { product_counts?: ProductCount[] }) { setProductCounts(Array.isArray(d.product_counts) ? d.product_counts : []) })
       .catch(function() { setProductCounts([]) })
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [managerViews, viewMode, open, apiBase])
+  }, [managerViews, collapsed.rollup, open, apiBase])
 
-  // Delegation: full queue fetch — assignee grouping needs the whole set,
-  // not a page. 2000 cap matches the sm-api limit ceiling.
+  // Delegation: full queue fetch — assignee grouping needs the whole set, not
+  // a page (2000 cap = sm-api ceiling). NOT cheap, so only when expanded;
+  // collapsed headline shows the count once loaded.
   useEffect(function() {
-    if (!managerViews || viewMode !== 'delegation' || !open) return
+    if (!managerViews || collapsed.delegation || !open) return
     setDelegationLoading(true)
     apiFetch(apiBase + '/api/bugs?tab=queue&limit=2000')
       .then(function(r) { return r.json() })
       .then(function(d: { data?: Bug[] }) { setDelegationBugs(Array.isArray(d.data) ? d.data : []); setDelegationLoading(false) })
       .catch(function() { setDelegationBugs([]); setDelegationLoading(false) })
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [managerViews, viewMode, open, apiBase])
+  }, [managerViews, collapsed.delegation, open, apiBase])
 
   function reassignDelegated(bugId: string, contactId: string) {
     apiFetch(apiBase + '/api/bugs/' + bugId, {
@@ -1363,7 +1399,7 @@ export function BugPanel(props: BugPanelProps) {
   var items = bugs
 
   // ── WAFFLE-2: manager views render helpers (standalone admin only) ────────
-  var showListChrome = !managerViews || viewMode === 'list'
+  var showListChrome = true // WAFFLE-2 addendum: sections stack above the list; chrome always visible
 
   function renderCard(bug: Bug) {
     return <BugCard key={bug.id} bug={bug} isAdmin={isAdmin} assignees={assignees} expanded={expanded === bug.id}
@@ -1426,35 +1462,67 @@ export function BugPanel(props: BugPanelProps) {
     )
   }
 
-  var viewSwitcher = managerViews ? (
-    <div style={S.viewBar}>
-      {[{ id: 'list', label: 'List' }, { id: 'rollup', label: 'Rollup' }, { id: 'delegation', label: 'Delegation' }].map(function(v) {
-        return <button key={v.id} style={S.rpill(viewMode === v.id)} onClick={function() { setViewMode(v.id); setExpanded(null) }}>{v.label}</button>
-      })}
-      {viewMode === 'list' && (
-        <>
-          <span style={{ fontSize: 10, fontFamily: 'var(--font-mono)', color: 'var(--muted)', marginLeft: 'auto' }}>Group:</span>
-          <select style={S.filterSelect} value={groupBy} onChange={function(e) { setGroupBy(e.target.value) }}>
-            <option value="none">Newest</option>
-            <option value="assignee">By Assignee</option>
-            <option value="product">By Product</option>
-            <option value="subsystem">By Subsystem</option>
-            <option value="overdue">Overdue First</option>
-          </select>
-        </>
+  // WAFFLE-2 addendum: slim collapsible section header (chevron + headline)
+  function sectionHeader(key: string, title: string, headline: string) {
+    var isCollapsed = !!collapsed[key]
+    return (
+      <button onClick={function() { toggleSection(key) }} title={isCollapsed ? 'Expand' : 'Collapse'}
+        style={{ display: 'flex', alignItems: 'center', gap: 8, width: '100%', padding: '8px 16px', background: 'var(--bg-subtle)', border: 'none', borderBottom: '1px solid var(--border)', cursor: 'pointer', textAlign: 'left' as const }}>
+        <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"
+          style={{ color: 'var(--muted)', transform: isCollapsed ? 'rotate(-90deg)' : 'none', transition: 'transform .15s', flexShrink: 0 }}>
+          <path d="M6 9l6 6 6-6" />
+        </svg>
+        <span style={{ fontSize: 11, fontFamily: 'var(--font-mono)', fontWeight: 700, textTransform: 'uppercase' as const, letterSpacing: 0.5, color: 'var(--foreground)' }}>{title}</span>
+        {headline ? <span style={{ fontSize: 11, fontFamily: 'var(--font-mono)', color: 'var(--muted)' }}>{'\u00b7'} {headline}</span> : null}
+      </button>
+    )
+  }
+
+  function myDayRow(b: Bug, tag: string, tagColor: string) {
+    return (
+      <div key={tag + b.id} style={S.delRow}>
+        <span style={{ fontSize: 9, fontFamily: 'var(--font-mono)', fontWeight: 700, textTransform: 'uppercase' as const, color: tagColor, flexShrink: 0, width: 88 }}>{tag}</span>
+        <span style={{ flex: 1, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' as const, color: 'var(--foreground)', cursor: 'pointer' }}
+          onClick={function() { setExpanded(b.id) }}>{b.title}</span>
+        <span style={{ fontSize: 10, fontFamily: 'var(--font-mono)', color: 'var(--muted)', flexShrink: 0 }}>{b.product}{b.due_date ? ' \u00b7 ' + b.due_date.slice(0, 10) : ''}</span>
+      </div>
+    )
+  }
+
+  // My Day strip (WAFFLE-1 route /api/bugs/my-day; UI = WAFFLE-2 item 4)
+  var myDayOverdueN = myDay ? myDay.overdue.length : 0
+  var myDaySection = managerViews ? (
+    <div>
+      {sectionHeader('myday', 'My Day', myDay ? (myDayOverdueN + ' overdue \u00b7 ' + myDay.due_today.length + ' due today') : '')}
+      {!collapsed.myday && (
+        <div style={{ maxHeight: 260, overflowY: 'auto' as const, borderBottom: '1px solid var(--border)' }}>
+          {!myDay && <div style={{ padding: '14px 16px', fontSize: 12, color: 'var(--muted)' }}>Loading...</div>}
+          {myDay && myDayOverdueN === 0 && myDay.due_today.length === 0 && myDay.in_progress_mine.length === 0 && myDay.newly_assigned.length === 0 && myDay.unassigned_on_my_products.length === 0 && (
+            <div style={{ padding: '14px 16px', fontSize: 12, color: 'var(--muted)' }}>Clear for today. Nothing overdue, due, in progress, or newly assigned.</div>
+          )}
+          {myDay && myDay.overdue.map(function(b) { return myDayRow(b, 'overdue', 'var(--red)') })}
+          {myDay && myDay.due_today.map(function(b) { return myDayRow(b, 'due today', 'var(--amber, #b45309)') })}
+          {myDay && myDay.in_progress_mine.map(function(b) { return myDayRow(b, 'in progress', 'var(--accent)') })}
+          {myDay && myDay.newly_assigned.map(function(b) { return myDayRow(b, 'new for you', 'var(--accent)') })}
+          {myDay && myDay.unassigned_on_my_products.map(function(b) { return myDayRow(b, 'unassigned', 'var(--muted)') })}
+        </div>
       )}
     </div>
   ) : null
 
-  var rollupView = managerViews && viewMode === 'rollup' ? (
-    <div style={S.list}>
+  var rollupHeadline = counts ? counts.queue + ' open' : (productCounts ? productCounts.reduce(function(a, p) { return a + p.queue }, 0) + ' open' : '')
+  var rollupView = managerViews ? (
+    <div>
+      {sectionHeader('rollup', 'Products', rollupHeadline)}
+      {!collapsed.rollup && (
+      <div style={{ borderBottom: '1px solid var(--border)' }}>
       {productCounts === null && <div style={S.empty}>Loading...</div>}
       {productCounts !== null && productCounts.length === 0 && <div style={S.empty}>No items.</div>}
       {productCounts !== null && productCounts.length > 0 && (
         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(160px, 1fr))', gap: 12, padding: 8 }}>
           {productCounts.map(function(p) {
             return (
-              <button key={p.product} style={S.rollupCard} title={'Filter list to ' + p.product} onClick={function() { setFilterProduct(p.product); setTab('queue'); setViewMode('list') }}>
+              <button key={p.product} style={S.rollupCard} title={'Filter list to ' + p.product} onClick={function() { setFilterProduct(p.product); setTab('queue') }}>
                 <span style={{ fontSize: 12, fontWeight: 700, color: 'var(--foreground)', fontFamily: 'var(--font-mono)' }}>{p.product}</span>
                 <span style={{ fontSize: 26, fontWeight: 800, color: 'var(--foreground)', lineHeight: 1.1 }}>{p.queue}</span>
                 <span style={{ fontSize: 11, color: 'var(--muted)' }}>{p.open} open {'\u00b7'} {p.in_progress} in progress</span>
@@ -1464,11 +1532,17 @@ export function BugPanel(props: BugPanelProps) {
           })}
         </div>
       )}
+      </div>
+      )}
     </div>
   ) : null
 
-  var delegationView = managerViews && viewMode === 'delegation' ? (
-    <div style={S.list}>
+  var delegationUnassignedN = delegationBugs ? delegationBugs.filter(function(b) { return !b.assigned_to }).length : null
+  var delegationView = managerViews ? (
+    <div>
+      {sectionHeader('delegation', 'Delegation', delegationUnassignedN === null ? '' : delegationUnassignedN + ' unassigned')}
+      {!collapsed.delegation && (
+      <div style={{ maxHeight: 320, overflowY: 'auto' as const, borderBottom: '1px solid var(--border)' }}>
       {delegationLoading && <div style={S.empty}>Loading...</div>}
       {!delegationLoading && delegationBugs && delegationBugs.length === 0 && <div style={S.empty}>Queue is empty.</div>}
       {!delegationLoading && delegationBugs && delegationBugs.length > 0 && (function() {
@@ -1512,6 +1586,8 @@ export function BugPanel(props: BugPanelProps) {
           )
         })
       })()}
+      </div>
+      )}
     </div>
   ) : null
 
@@ -1597,7 +1673,7 @@ export function BugPanel(props: BugPanelProps) {
             </div>
           </div>
         )}
-        {viewSwitcher}
+        {myDaySection}
         {rollupView}
         {delegationView}
 
@@ -1648,6 +1724,15 @@ export function BugPanel(props: BugPanelProps) {
                 <option value="all">Assignee</option>
                 <option value="unassigned">Unassigned</option>
                 {assignees.map(function(a) { return <option key={a.id} value={a.id}>{a.name}</option> })}
+              </select>
+            )}
+            {managerViews && (
+              <select style={S.filterSelect} value={groupBy} onChange={function(e) { setGroupBy(e.target.value) }} title="Group the list">
+                <option value="none">Newest</option>
+                <option value="assignee">By Assignee</option>
+                <option value="product">By Product</option>
+                <option value="subsystem">By Subsystem</option>
+                <option value="overdue">Overdue First</option>
               </select>
             )}
             {isAdmin && (

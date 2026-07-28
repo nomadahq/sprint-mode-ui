@@ -82,19 +82,34 @@ export function PortalSupportWidget(props) {
   var _tab = useState(props.initialTab || 'chat'); var tab = _tab[0]; var setTab = _tab[1]
 
   // Programmatic open: window.dispatchEvent(new CustomEvent('sm-support:open',
-  // { detail: { tab: 'chat' | 'tickets' | 'form' } })) — lets portal pages
-  // (e.g. Signal Connect support card) open the built widget instead of
-  // duplicating ticket UI.
+  // { detail: { tab: 'chat' | 'tickets' | 'form', message?, source? } })) —
+  // lets portal pages (e.g. Signal Connect support card, Ask Signal billing
+  // handoff) open the built widget instead of duplicating ticket UI.
+  // SIGNAL-ASK-CONTEXT-1: detail.message auto-sends into support chat (or
+  // prefills the ticket form when chat is disabled) so a handed-off user
+  // never re-asks; detail.source rides the POST for support-side automation.
   useEffect(function() {
     function onOpen(e) {
       setOpen(true)
       var t = e && e.detail && e.detail.tab
       if (t) { setTab(t); if (t === 'tickets') loadTickets() }
+      var msg = e && e.detail && e.detail.message
+      if (msg) setPendingHandoff({ message: String(msg), source: (e.detail && e.detail.source) || null })
     }
     if (props.initialTab === 'tickets') loadTickets()
     window.addEventListener('sm-support:open', onOpen)
     return function() { window.removeEventListener('sm-support:open', onOpen) }
   }, [])
+  var _pendingHandoff = useState(null); var pendingHandoff = _pendingHandoff[0]; var setPendingHandoff = _pendingHandoff[1]
+  // Fire the handoff once chat readiness is known: auto-send when chat is
+  // enabled, prefill the ticket form when it is not.
+  useEffect(function() {
+    if (!pendingHandoff || chatEnabled === null) return
+    var h = pendingHandoff
+    setPendingHandoff(null)
+    if (chatEnabled) { setTab('chat'); sendMessage(h.message, h.source) }
+    else { setTab('form'); setTicketBody(h.message) }
+  }, [pendingHandoff, chatEnabled])
   var _chatEnabled = useState(null); var chatEnabled = _chatEnabled[0]; var setChatEnabled = _chatEnabled[1]
   var _messages = useState([]); var messages = _messages[0]; var setMessages = _messages[1]
   var _input = useState(''); var input = _input[0]; var setInput = _input[1]
@@ -153,9 +168,10 @@ export function PortalSupportWidget(props) {
   }
 
   // Send chat message
-  function sendMessage() {
-    if (!input.trim() || sending) return
-    var userMsg = { role: 'user', content: input.trim(), id: 'u_' + Date.now() }
+  function sendMessage(textArg, sourceArg) {
+    var text = (typeof textArg === 'string' ? textArg : input).trim()
+    if (!text || sending) return
+    var userMsg = { role: 'user', content: text, id: 'u_' + Date.now() }
     var updatedMessages = messages.concat([userMsg])
     setMessages(updatedMessages)
     setInput('')
@@ -170,7 +186,7 @@ export function PortalSupportWidget(props) {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       credentials: 'include',
-      body: JSON.stringify({ messages: chatMessages }),
+      body: JSON.stringify(sourceArg ? { messages: chatMessages, source: sourceArg } : { messages: chatMessages }),
     })
       .then(function(r) { return r.json() })
       .then(function(d) {

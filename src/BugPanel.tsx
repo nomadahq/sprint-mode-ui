@@ -181,6 +181,14 @@ function PopoutIcon() {
   )
 }
 
+// WAFFLE-1: Waffle MCP key management (tabler key outline)
+function KeyIcon() {
+  return React.createElement('svg', { width: 14, height: 14, viewBox: '0 0 24 24', fill: 'none', stroke: 'currentColor', strokeWidth: 2, strokeLinecap: 'round', strokeLinejoin: 'round' },
+    React.createElement('path', { d: 'M16.555 3.843l3.602 3.602a2.877 2.877 0 0 1 0 4.069l-2.643 2.643a2.877 2.877 0 0 1 -4.069 0l-.301 -.301l-6.558 6.558a2 2 0 0 1 -1.239 .578l-.175 .008h-1.172a1 1 0 0 1 -.993 -.883l-.007 -.117v-1.172a2 2 0 0 1 .467 -1.284l.119 -.13l.414 -.414h2v-2h2v-2l2.144 -2.144l-.301 -.301a2.877 2.877 0 0 1 0 -4.069l2.643 -2.643a2.877 2.877 0 0 1 4.069 0z' }),
+    React.createElement('path', { d: 'M15 9h.01' })
+  )
+}
+
 function UploadIcon() {
   return React.createElement('svg', { width: 14, height: 14, viewBox: '0 0 24 24', fill: 'none', stroke: 'currentColor', strokeWidth: 2, strokeLinecap: 'round', strokeLinejoin: 'round' },
     React.createElement('path', { d: 'M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4' }),
@@ -798,6 +806,60 @@ export function BugPanel(props: BugPanelProps) {
     setFormAttachments(function(prev) { return prev.filter(function(a) { return a.id !== id }) })
   }
 
+  // ── WAFFLE-1: MCP key management (admin/triage only) ─────────────────────
+  var _showKeys = useState(false); var showKeys = _showKeys[0]; var setShowKeys = _showKeys[1]
+  var _mcpKeys = useState<Array<{ id: string; name: string; key_prefix: string; key_suffix: string; created_at?: string; last_used_at?: string | null }>>([])
+  var mcpKeys = _mcpKeys[0]; var setMcpKeys = _mcpKeys[1]
+  var _mintedKey = useState<{ name: string; key: string } | null>(null); var mintedKey = _mintedKey[0]; var setMintedKey = _mintedKey[1]
+  var _keyName = useState(''); var keyName = _keyName[0]; var setKeyName = _keyName[1]
+  var _keyBusy = useState(false); var keyBusy = _keyBusy[0]; var setKeyBusy = _keyBusy[1]
+  var _keyCopied = useState(false); var keyCopied = _keyCopied[0]; var setKeyCopied = _keyCopied[1]
+
+  function loadMcpKeys() {
+    apiFetch(apiBase + '/api/bugs/mcp-keys')
+      .then(function(r) { return r.json() })
+      .then(function(d: { ok: boolean; data?: Array<{ id: string; name: string; key_prefix: string; key_suffix: string; created_at?: string; last_used_at?: string | null }> }) {
+        if (d.ok && d.data) setMcpKeys(d.data)
+      })
+      .catch(function() { /* keep current list */ })
+  }
+
+  function mintMcpKey() {
+    if (keyBusy) return
+    setKeyBusy(true)
+    apiFetch(apiBase + '/api/bugs/mcp-keys', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(keyName.trim() ? { name: keyName.trim() } : {}),
+    })
+      .then(function(r) { return r.json() })
+      .then(function(d: { ok: boolean; data?: { name: string; key: string } }) {
+        if (d.ok && d.data) {
+          setMintedKey({ name: d.data.name, key: d.data.key })
+          setKeyName('')
+          setKeyCopied(false)
+          loadMcpKeys()
+        }
+      })
+      .catch(function() { /* leave modal open */ })
+      .then(function() { setKeyBusy(false) })
+  }
+
+  function revokeMcpKey(id: string) {
+    if (!window.confirm('Revoke this MCP key? Anything using it stops working immediately.')) return
+    apiFetch(apiBase + '/api/bugs/mcp-keys/' + id, { method: 'DELETE' })
+      .then(function() { loadMcpKeys() })
+      .catch(function() { /* ignore */ })
+  }
+
+  function copyMintedKey() {
+    if (!mintedKey) return
+    try {
+      navigator.clipboard.writeText(mintedKey.key).then(function() { setKeyCopied(true) })
+    } catch (_e) { /* clipboard unavailable */ }
+  }
+
+
   // Deep link: focusBugId prop or ?bug=bug_xxx in URL
   var deepLinkBugId = useRef<string | null>(null)
   useEffect(function() {
@@ -1178,6 +1240,7 @@ export function BugPanel(props: BugPanelProps) {
           <span style={S.title}>{isAdmin ? 'Bug Catcher' : label}</span>
           <kbd style={{ fontSize: 10, padding: '1px 5px', border: '1px solid var(--border)', borderRadius: 4, background: 'var(--bg-subtle,var(--bg))', color: 'var(--muted)', lineHeight: 1.4, marginLeft: 6, fontFamily: 'var(--font-mono,monospace)' }}>{typeof navigator !== 'undefined' && navigator.platform && navigator.platform.indexOf('Mac') !== -1 ? '\u2318B' : 'Ctrl+B'}</kbd>
           <span style={{ flex: 1 }} />
+          {isAdmin && <button style={S.closeBtn} title="Waffle MCP keys" onClick={function() { setShowKeys(true); setMintedKey(null); loadMcpKeys() }}><KeyIcon /></button>}
           {!isStandalone && <button style={S.closeBtn} title="Open in new tab" onClick={function() {
             var url = 'https://admin.sprintmode.ai/bugs?product=' + encodeURIComponent(product)
             window.open(url, '_blank')
@@ -1185,6 +1248,67 @@ export function BugPanel(props: BugPanelProps) {
           }}><PopoutIcon /></button>}
           {!isStandalone && <button style={S.closeBtn} onClick={closePanel}><CloseIcon /></button>}
         </div>
+
+        {showKeys && (
+          <div onClick={function() { if (!mintedKey) setShowKeys(false) }}
+            style={{ position: 'fixed', inset: 0, zIndex: 10000, background: 'rgba(0,0,0,0.5)', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 24 }}>
+            <div onClick={function(e) { e.stopPropagation() }}
+              style={{ background: 'var(--bg-card,var(--bg))', border: '1px solid var(--border)', borderRadius: 12, width: '100%', maxWidth: 460, padding: '20px 24px', boxShadow: '0 8px 32px rgba(0,0,0,0.25)' }}>
+              <div style={{ display: 'flex', alignItems: 'center', marginBottom: 12 }}>
+                <span style={{ fontSize: 15, fontWeight: 700, color: 'var(--foreground)' }}>Waffle MCP Keys</span>
+                <span style={{ flex: 1 }} />
+                <button style={S.closeBtn} onClick={function() { setShowKeys(false); setMintedKey(null) }}><CloseIcon /></button>
+              </div>
+              <div style={{ fontSize: 12, color: 'var(--muted)', marginBottom: 14 }}>
+                Personal keys for the Waffle MCP server (VS Code / Claude Code). Keys act as you: items you create or comment on carry your name.
+              </div>
+              {mintedKey ? (
+                <div>
+                  <div style={{ fontSize: 12, fontWeight: 600, color: 'var(--foreground)', marginBottom: 6 }}>{mintedKey.name}</div>
+                  <div style={{ fontSize: 11, color: 'hsl(0,84%,40%)', fontWeight: 600, marginBottom: 8 }}>
+                    Copy this key now — it is shown only once.
+                  </div>
+                  <div style={{ fontFamily: 'var(--font-mono,monospace)', fontSize: 11, background: 'var(--bg-subtle,var(--bg))', border: '1px solid var(--border)', borderRadius: 8, padding: '10px 12px', wordBreak: 'break-all', color: 'var(--foreground)', marginBottom: 10 }}>
+                    {mintedKey.key}
+                  </div>
+                  <div style={{ display: 'flex', gap: 6 }}>
+                    <button style={S.submitBtn} onClick={copyMintedKey}>{keyCopied ? 'Copied' : 'Copy key'}</button>
+                    <button style={S.cancelBtn} onClick={function() { setMintedKey(null) }}>Done</button>
+                  </div>
+                </div>
+              ) : (
+                <div>
+                  <div style={{ maxHeight: 220, overflowY: 'auto', marginBottom: 14 }}>
+                    {mcpKeys.length === 0 && <div style={{ fontSize: 12, color: 'var(--muted)', padding: '8px 0' }}>No active keys.</div>}
+                    {mcpKeys.map(function(k) {
+                      return (
+                        <div key={k.id} style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '8px 0', borderBottom: '1px solid var(--border)' }}>
+                          <div style={{ flex: 1, minWidth: 0 }}>
+                            <div style={{ fontSize: 12, fontWeight: 600, color: 'var(--foreground)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{k.name}</div>
+                            <div style={{ fontSize: 10, fontFamily: 'var(--font-mono,monospace)', color: 'var(--muted)' }}>
+                              {k.key_prefix + '\u2022\u2022\u2022\u2022' + k.key_suffix}
+                              {k.last_used_at ? ' \u00b7 used ' + String(k.last_used_at).slice(0, 10) : ' \u00b7 never used'}
+                            </div>
+                          </div>
+                          <button style={Object.assign({}, S.cancelBtn, { fontSize: 11, padding: '4px 10px' })} onClick={function() { revokeMcpKey(k.id) }}>Revoke</button>
+                        </div>
+                      )
+                    })}
+                  </div>
+                  <div style={{ display: 'flex', gap: 6 }}>
+                    <input
+                      style={{ flex: 1, fontSize: 12, padding: '8px 10px', border: '1px solid var(--border)', borderRadius: 8, background: 'var(--bg,transparent)', color: 'var(--foreground)' }}
+                      placeholder="Key name (optional)"
+                      value={keyName}
+                      onChange={function(e) { setKeyName(e.target.value) }}
+                    />
+                    <button style={S.submitBtn} onClick={mintMcpKey} disabled={keyBusy}>{keyBusy ? 'Minting\u2026' : 'New key'}</button>
+                  </div>
+                </div>
+              )}
+            </div>
+          </div>
+        )}
 
         {!isAdmin && (
           <div style={S.rpills}>

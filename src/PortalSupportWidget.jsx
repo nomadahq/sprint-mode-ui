@@ -79,7 +79,7 @@ export function PortalSupportWidget(props) {
   var brandColor = props.brandColor || 'var(--accent, #2362ea)'
 
   var _open = useState(false); var open = _open[0]; var setOpen = _open[1]
-  var _tab = useState('chat'); var tab = _tab[0]; var setTab = _tab[1]
+  var _tab = useState(props.initialTab || 'chat'); var tab = _tab[0]; var setTab = _tab[1]
 
   // Programmatic open: window.dispatchEvent(new CustomEvent('sm-support:open',
   // { detail: { tab: 'chat' | 'tickets' | 'form' } })) — lets portal pages
@@ -91,6 +91,7 @@ export function PortalSupportWidget(props) {
       var t = e && e.detail && e.detail.tab
       if (t) { setTab(t); if (t === 'tickets') loadTickets() }
     }
+    if (props.initialTab === 'tickets') loadTickets()
     window.addEventListener('sm-support:open', onOpen)
     return function() { window.removeEventListener('sm-support:open', onOpen) }
   }, [])
@@ -240,15 +241,24 @@ export function PortalSupportWidget(props) {
     'aria-label': open ? 'Close support' : 'Open support',
   }, open ? React.createElement(CloseIcon) : React.createElement(ChatIcon))
 
-  if (!open) return fab
+  if (props.hideLauncher || props.embedded) fab = null
+
+  if (!props.embedded && !open) return fab
 
   // Panel
+  // Embedded mode (SIGNAL-UX-MOCKS-2 single-shell consolidation): render only
+  // the inner contents (tabs + body) with no fab, no fixed panel, no header --
+  // the host (e.g. the Ask Signal drawer) provides shell, title, and close.
+  var wrapStyle = props.embedded
+    ? { display:'flex', flexDirection:'column', flex:1, minHeight:0, background:'transparent', color: text1 }
+    : Object.assign({}, s.panel, { background: bg, color: text1 })
+
   return React.createElement(React.Fragment, null,
     fab,
-    React.createElement('div', { style: Object.assign({}, s.panel, { background: bg, color: text1 }) },
+    React.createElement('div', { style: wrapStyle },
 
-      // Header
-      React.createElement('div', { style: s.hdr },
+      // Header (standalone panel only)
+      !props.embedded && React.createElement('div', { style: s.hdr },
         React.createElement('span', { style: { fontSize:13, fontWeight:500 } },
           chatEnabled ? 'Support' : 'Contact support'
         ),

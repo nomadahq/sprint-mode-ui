@@ -1194,14 +1194,22 @@ export function BugPanel(props: BugPanelProps) {
     if (!props.standalone) return
     document.title = 'Waffle'
     try {
-      var link = document.querySelector('link[rel~="icon"]') as HTMLLinkElement | null
-      if (!link) {
-        link = document.createElement('link')
+      var links = document.querySelectorAll('link[rel*="icon"]')
+      if (links.length === 0) {
+        var link = document.createElement('link')
         link.rel = 'icon'
+        link.type = 'image/svg+xml'
+        link.href = WAFFLE_FAVICON
         document.head.appendChild(link)
+      } else {
+        // Replace every icon variant (rel="icon", rel="shortcut icon") so no
+        // stale-cached PNG wins over the Waffle mark
+        links.forEach(function(el) {
+          var l = el as HTMLLinkElement
+          l.type = 'image/svg+xml'
+          l.href = WAFFLE_FAVICON
+        })
       }
-      link.type = 'image/svg+xml'
-      link.href = WAFFLE_FAVICON
     } catch (_e) { /* favicon swap is cosmetic — never block render */ }
   }, [props.standalone])
 
@@ -1601,6 +1609,7 @@ export function BugPanel(props: BugPanelProps) {
       <div data-bug-panel="" style={panelStyle}>
 
         <div style={S.header}>
+          {isAdmin && <span style={{ display: 'inline-flex', color: 'var(--accent)', marginRight: 7 }}><WaffleIcon size={15} /></span>}
           <span style={S.title}>{isAdmin ? 'Waffle' : label}</span>
           <kbd style={{ fontSize: 10, padding: '1px 5px', border: '1px solid var(--border)', borderRadius: 4, background: 'var(--bg-subtle,var(--bg))', color: 'var(--muted)', lineHeight: 1.4, marginLeft: 6, fontFamily: 'var(--font-mono,monospace)' }}>{typeof navigator !== 'undefined' && navigator.platform && navigator.platform.indexOf('Mac') !== -1 ? '\u2318B' : 'Ctrl+B'}</kbd>
           <span style={{ flex: 1 }} />

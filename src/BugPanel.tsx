@@ -216,9 +216,9 @@ function WaffleIcon({ size }: { size?: number }) {
 }
 
 // WAFFLE-2: standalone favicon (grid-4x4, Sprint Mode blue)
-var WAFFLE_FAVICON = 'data:image/svg+xml,' + encodeURIComponent(
-  '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="%s" stroke-width="2" stroke-linecap="round"><path d="M6 4v16"/><path d="M12 4v16"/><path d="M18 4v16"/><path d="M4 6h16"/><path d="M4 12h16"/><path d="M4 18h16"/></svg>'.replace('%s', '#2362ea')
-)
+var WAFFLE_FAVICON =
+  'data:image/svg+xml,%3Csvg%20width%3D%2232%22%20height%3D%2232%22%20viewBox%3D%220%200%2024%2024%22%20fill%3D%22none%22%20xmlns%3D%22http%3A//www.w3.org/2000/svg%22%3E%20%3Crect%20x%3D%220%22%20y%3D%220%22%20width%3D%2224%22%20height%3D%2224%22%20rx%3D%226%22%20fill%3D%22rgba%28232%2C161%2C60%2C0.1%29%22/%3E%20%3Cg%20transform%3D%22translate%282.4%2C%202.4%29%20scale%280.8%29%22%20stroke%3D%22%23E8A13C%22%20stroke-width%3D%222.5%22%20stroke-linecap%3D%22round%22%20stroke-linejoin%3D%22round%22%20fill%3D%22none%22%3E%20%3Cpath%20d%3D%22M3%206h18%22/%3E%3Cpath%20d%3D%22M3%2012h18%22/%3E%3Cpath%20d%3D%22M3%2018h18%22/%3E%20%3Cpath%20d%3D%22M6%203v18%22/%3E%3Cpath%20d%3D%22M12%203v18%22/%3E%3Cpath%20d%3D%22M18%203v18%22/%3E%20%3C/g%3E%20%3C/svg%3E'
+
 
 function CloseIcon() {
   return React.createElement('svg', { width: 14, height: 14, viewBox: '0 0 24 24', fill: 'none', stroke: 'currentColor', strokeWidth: 2.5, strokeLinecap: 'round' },

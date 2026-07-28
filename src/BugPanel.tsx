@@ -179,6 +179,7 @@ export interface ProductCount {
   verified: number
   deferred: number
   total: number
+  oldest_queue_at?: string | null
 }
 
 var PAGE_SIZE = 100
@@ -876,6 +877,10 @@ export function BugPanel(props: BugPanelProps) {
   var _productCounts = useState<ProductCount[] | null>(null); var productCounts = _productCounts[0]; var setProductCounts = _productCounts[1]
   var _delegationBugs = useState<Bug[] | null>(null); var delegationBugs = _delegationBugs[0]; var setDelegationBugs = _delegationBugs[1]
   var _delegationLoading = useState(false); var delegationLoading = _delegationLoading[0]; var setDelegationLoading = _delegationLoading[1]
+  // WAFFLE-2 triage tools: bulk selection in Delegation
+  var _bulkSel = useState<Record<string, boolean>>({}); var bulkSel = _bulkSel[0]; var setBulkSel = _bulkSel[1]
+  var _bulkTarget = useState(''); var bulkTarget = _bulkTarget[0]; var setBulkTarget = _bulkTarget[1]
+  var _bulkSaving = useState(false); var bulkSaving = _bulkSaving[0]; var setBulkSaving = _bulkSaving[1]
   var _searchQuery = useState(''); var searchQuery = _searchQuery[0]; var setSearchQuery = _searchQuery[1]
   var _debouncedSearch = useState(''); var debouncedSearch = _debouncedSearch[0]; var setDebouncedSearch = _debouncedSearch[1]
   var searchTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
@@ -1160,6 +1165,42 @@ export function BugPanel(props: BugPanelProps) {
         if (!prev) return prev
         return prev.map(function(b) { return b.id === bugId ? Object.assign({}, b, { assigned_to: contactId || null }) : b })
       })
+    })
+  }
+
+  // WAFFLE-2: bulk assign — sequential-chunked PATCHes, optimistic local update
+  function bulkAssign() {
+    var ids = Object.keys(bulkSel).filter(function(id) { return bulkSel[id] })
+    if (ids.length === 0 || bulkSaving) return
+    setBulkSaving(true)
+    var chunks: string[][] = []
+    for (var i = 0; i < ids.length; i += 8) chunks.push(ids.slice(i, i + 8))
+    var run = Promise.resolve()
+    chunks.forEach(function(chunk) {
+      run = run.then(function() {
+        return Promise.all(chunk.map(function(id) {
+          return apiFetch(apiBase + '/api/bugs/' + id, {
+            method: 'PATCH', credentials: 'include',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ assigned_to: bulkTarget })
+          })
+        })).then(function() { return undefined })
+      })
+    })
+    run.then(function() {
+      setDelegationBugs(function(prev) {
+        if (!prev) return prev
+        return prev.map(function(b) { return bulkSel[b.id] ? Object.assign({}, b, { assigned_to: bulkTarget || null }) : b })
+      })
+      setBulkSel({}); setBulkSaving(false)
+    }).catch(function() { setBulkSaving(false); alert('Some assignments failed — reopen the panel to refresh.') })
+  }
+
+  function toggleGroupSel(groupIds: string[], on: boolean) {
+    setBulkSel(function(prev) {
+      var next = { ...prev }
+      groupIds.forEach(function(id) { next[id] = on })
+      return next
     })
   }
 
@@ -1506,20 +1547,25 @@ export function BugPanel(props: BugPanelProps) {
 
   // My Day strip (WAFFLE-1 route /api/bugs/my-day; UI = WAFFLE-2 item 4)
   var myDayOverdueN = myDay ? myDay.overdue.length : 0
+  var myDayMineEmpty = !!myDay && myDay.overdue.length === 0 && myDay.due_today.length === 0 && myDay.in_progress_mine.length === 0 && myDay.newly_assigned.length === 0
   var myDaySection = managerViews ? (
     <div>
-      {sectionHeader('myday', 'My Day', myDay ? (myDayOverdueN + ' overdue \u00b7 ' + myDay.due_today.length + ' due today') : '')}
+      {sectionHeader('myday', 'My Day', myDay ? (myDayMineEmpty && myDay.unassigned_on_my_products.length > 0 ? myDay.unassigned_on_my_products.length + ' in intake' : myDayOverdueN + ' overdue \u00b7 ' + myDay.due_today.length + ' due today') : '')}
       {!collapsed.myday && (
         <div style={{ maxHeight: 260, overflowY: 'auto' as const, borderBottom: '1px solid var(--border)' }}>
           {!myDay && <div style={{ padding: '14px 16px', fontSize: 12, color: 'var(--muted)' }}>Loading...</div>}
           {myDay && myDayOverdueN === 0 && myDay.due_today.length === 0 && myDay.in_progress_mine.length === 0 && myDay.newly_assigned.length === 0 && myDay.unassigned_on_my_products.length === 0 && (
             <div style={{ padding: '14px 16px', fontSize: 12, color: 'var(--muted)' }}>Clear for today. Nothing overdue, due, in progress, or newly assigned.</div>
           )}
+          {myDay && myDayMineEmpty && myDay.unassigned_on_my_products.length > 0 && (
+            <div style={{ padding: '8px 16px 2px', fontSize: 10, fontFamily: 'var(--font-mono)', fontWeight: 700, letterSpacing: 0.5, color: 'var(--muted)' }}>INTAKE {'\u2014'} UNASSIGNED ON YOUR PRODUCTS</div>
+          )}
+          {myDay && myDayMineEmpty && myDay.unassigned_on_my_products.map(function(b) { return myDayRow(b, 'intake', 'var(--accent)') })}
           {myDay && myDay.overdue.map(function(b) { return myDayRow(b, 'overdue', 'var(--red)') })}
           {myDay && myDay.due_today.map(function(b) { return myDayRow(b, 'due today', 'var(--amber, #b45309)') })}
           {myDay && myDay.in_progress_mine.map(function(b) { return myDayRow(b, 'in progress', 'var(--accent)') })}
           {myDay && myDay.newly_assigned.map(function(b) { return myDayRow(b, 'new for you', 'var(--accent)') })}
-          {myDay && myDay.unassigned_on_my_products.map(function(b) { return myDayRow(b, 'unassigned', 'var(--muted)') })}
+          {myDay && !myDayMineEmpty && myDay.unassigned_on_my_products.map(function(b) { return myDayRow(b, 'unassigned', 'var(--muted)') })}
         </div>
       )}
     </div>
@@ -1542,6 +1588,10 @@ export function BugPanel(props: BugPanelProps) {
                 <span style={{ fontSize: 26, fontWeight: 800, color: 'var(--foreground)', lineHeight: 1.1 }}>{p.queue}</span>
                 <span style={{ fontSize: 11, color: 'var(--muted)' }}>{p.open} open {'\u00b7'} {p.in_progress} in progress</span>
                 <span style={{ fontSize: 11, color: 'var(--muted)' }}>{p.verified} verified {'\u00b7'} {p.deferred} deferred</span>
+                {p.oldest_queue_at && (function() {
+                  var days = Math.max(0, Math.floor((Date.now() - new Date(p.oldest_queue_at.replace(' ', 'T') + 'Z').getTime()) / 86400000))
+                  return <span style={{ fontSize: 10, fontFamily: 'var(--font-mono)', color: days >= 30 ? 'var(--red)' : 'var(--muted)' }}>oldest {days}d</span>
+                })()}
               </button>
             )
           })}
@@ -1556,8 +1606,25 @@ export function BugPanel(props: BugPanelProps) {
   var delegationView = managerViews ? (
     <div>
       {sectionHeader('delegation', 'Delegation', delegationUnassignedN === null ? '' : delegationUnassignedN + ' unassigned')}
-      {!collapsed.delegation && (
-      <div style={{ maxHeight: 320, overflowY: 'auto' as const, borderBottom: '1px solid var(--border)' }}>
+      {!collapsed.delegation && (function() {
+        var selCount = Object.keys(bulkSel).filter(function(id) { return bulkSel[id] }).length
+        return (
+      <div style={{ borderBottom: '1px solid var(--border)' }}>
+        {/* WAFFLE-2 triage tools: bulk assign bar */}
+        {selCount > 0 && (
+          <div style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '6px 16px', background: 'var(--blue-10, rgba(35,98,234,0.08))', borderBottom: '1px solid var(--border)', fontSize: 12 }}>
+            <span style={{ fontFamily: 'var(--font-mono)', fontWeight: 700 }}>{selCount} selected</span>
+            <select style={S.filterSelect} value={bulkTarget} onChange={function(e) { setBulkTarget(e.target.value) }}>
+              <option value="">Assign to{'\u2026'}</option>
+              {assignees.map(function(a) { return <option key={a.id} value={a.id}>{a.name}</option> })}
+            </select>
+            <button style={Object.assign({}, S.loadMore, { width: 'auto', margin: 0, padding: '5px 14px', opacity: bulkTarget && !bulkSaving ? 1 : 0.5 })} disabled={!bulkTarget || bulkSaving} onClick={bulkAssign}>
+              {bulkSaving ? 'Assigning\u2026' : 'Apply'}
+            </button>
+            <button style={{ background: 'none', border: 'none', color: 'var(--muted)', fontSize: 11, cursor: 'pointer' }} onClick={function() { setBulkSel({}) }}>Clear</button>
+          </div>
+        )}
+      <div style={{ maxHeight: 320, overflowY: 'auto' as const }}>
       {(delegationBugs === null || delegationLoading) && <div style={S.empty}>Loading...</div>}
       {!delegationLoading && delegationBugs && delegationBugs.length === 0 && <div style={S.empty}>Queue is empty.</div>}
       {!delegationLoading && delegationBugs && delegationBugs.length > 0 && (function() {
@@ -1579,10 +1646,20 @@ export function BugPanel(props: BugPanelProps) {
             <div key={k || '__unassigned__'} style={{ marginBottom: 12 }}>
               <div style={Object.assign({}, S.groupHeader, isUnassigned ? { color: 'var(--red)', fontSize: 12 } : {})}>
                 {isUnassigned ? 'Unassigned' : groupLabelForAssignee(k)} <span style={S.groupCount}>{groups[k].length}</span>
+                <button style={{ marginLeft: 'auto', background: 'none', border: 'none', color: 'var(--accent)', fontSize: 10, fontFamily: 'var(--font-mono)', cursor: 'pointer' }}
+                  onClick={function() {
+                    var ids = groups[k].map(function(b) { return b.id })
+                    var allOn = ids.every(function(id) { return bulkSel[id] })
+                    toggleGroupSel(ids, !allOn)
+                  }}>
+                  {groups[k].every(function(b) { return bulkSel[b.id] }) ? 'deselect all' : 'select all'}
+                </button>
               </div>
               {groups[k].map(function(b) {
                 return (
                   <div key={b.id} style={S.delRow}>
+                    <input type="checkbox" checked={!!bulkSel[b.id]} style={{ flexShrink: 0, accentColor: 'var(--accent)', cursor: 'pointer' }}
+                      onChange={function() { setBulkSel(function(prev) { return { ...prev, [b.id]: !prev[b.id] } }) }} />
                     <span style={{ flex: 1, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' as const, color: 'var(--foreground)' }}>{b.title}</span>
                     <span style={{ fontSize: 10, fontFamily: 'var(--font-mono)', color: 'var(--muted)', flexShrink: 0 }}>{b.product}</span>
                     <select
@@ -1602,7 +1679,9 @@ export function BugPanel(props: BugPanelProps) {
         })
       })()}
       </div>
-      )}
+      </div>
+        )
+      })()}
     </div>
   ) : null
 

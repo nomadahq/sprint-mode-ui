@@ -105,6 +105,7 @@ export interface ProductCount {
     verified: number;
     deferred: number;
     total: number;
+    oldest_queue_at?: string | null;
 }
 export declare function BugPanel(props: BugPanelProps): React.JSX.Element | null;
 export declare function BugPanelHeaderButton({ onClick }: BugPanelHeaderButtonProps): React.DetailedReactHTMLElement<{

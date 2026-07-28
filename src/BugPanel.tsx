@@ -141,10 +141,36 @@ var PRODUCTS_FALLBACK: Record<string, string[]> = {
 
 var ADMIN_TABS = [
   { id: 'queue',    label: 'Queue',       statuses: ['open', 'in_progress', 'blocked'] },
+  // WAFFLE-2: My Tasks — queue statuses assigned to the current session
+  // contact. Server-side via tab=mine; client fallback filters assigned_to.
+  { id: 'mine',     label: 'My Tasks',    statuses: ['open', 'in_progress', 'blocked'], mine: true },
   { id: 'closed',   label: 'Fixed/Unverified', statuses: ['closed', 'fixed'], excludeVerified: true },
   { id: 'verified', label: 'Verified',    statuses: ['closed', 'fixed'], verified: true },
   { id: 'deferred', label: 'Deferred',    statuses: ['deferred'] },
 ]
+
+// WAFFLE-2: server counts shape from GET /api/bugs (see sm-api PR #968)
+export interface BugCounts {
+  queue: number
+  mine: number
+  closed: number
+  verified: number
+  deferred: number
+  total: number
+}
+
+export interface ProductCount {
+  product: string
+  queue: number
+  open: number
+  in_progress: number
+  blocked: number
+  verified: number
+  deferred: number
+  total: number
+}
+
+var PAGE_SIZE = 100
 
 var REPORTER_FILTERS = [
   { id: 'all',      label: 'All' },
@@ -165,6 +191,23 @@ function BugIcon({ size }: { size?: number }) {
     React.createElement('path', { d: 'M20 7l-3.75 2.4' })
   )
 }
+
+// WAFFLE-2: Waffle icon — tabler grid-4x4
+function WaffleIcon({ size }: { size?: number }) {
+  return React.createElement('svg', { width: size || 18, height: size || 18, viewBox: '0 0 24 24', fill: 'none', stroke: 'currentColor', strokeWidth: 2, strokeLinecap: 'round', strokeLinejoin: 'round' },
+    React.createElement('path', { d: 'M6 4v16' }),
+    React.createElement('path', { d: 'M12 4v16' }),
+    React.createElement('path', { d: 'M18 4v16' }),
+    React.createElement('path', { d: 'M4 6h16' }),
+    React.createElement('path', { d: 'M4 12h16' }),
+    React.createElement('path', { d: 'M4 18h16' })
+  )
+}
+
+// WAFFLE-2: standalone favicon (grid-4x4, Sprint Mode blue)
+var WAFFLE_FAVICON = 'data:image/svg+xml,' + encodeURIComponent(
+  '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="%s" stroke-width="2" stroke-linecap="round"><path d="M6 4v16"/><path d="M12 4v16"/><path d="M18 4v16"/><path d="M4 6h16"/><path d="M4 12h16"/><path d="M4 18h16"/></svg>'.replace('%s', '#2362ea')
+)
 
 function CloseIcon() {
   return React.createElement('svg', { width: 14, height: 14, viewBox: '0 0 24 24', fill: 'none', stroke: 'currentColor', strokeWidth: 2.5, strokeLinecap: 'round' },
@@ -257,6 +300,13 @@ var S = {
   fab: { position: 'fixed', bottom: 24, right: 24, zIndex: 9000, display: 'inline-flex', alignItems: 'center', gap: 6, padding: '10px 16px', borderRadius: 999, background: 'var(--accent)', color: '#fff', fontSize: 13, fontWeight: 600, fontFamily: 'var(--font)', border: 'none', cursor: 'pointer', boxShadow: '0 2px 12px rgba(0,0,0,0.15)' } as CSSProperties,
   fabOffset: { bottom: 80 } as CSSProperties,
   empty: { textAlign: 'center', padding: '40px 20px', color: 'var(--muted)', fontSize: 13 } as CSSProperties,
+  // WAFFLE-2 manager view styles
+  groupHeader: { padding: '10px 8px 4px', fontSize: 11, fontFamily: 'var(--font-mono)', fontWeight: 700, textTransform: 'uppercase' as const, letterSpacing: 0.5, color: 'var(--muted)', display: 'flex', alignItems: 'center', gap: 6 } as CSSProperties,
+  groupCount: { fontWeight: 400 } as CSSProperties,
+  loadMore: { display: 'block', width: '100%', margin: '8px 0', padding: 8, fontSize: 11, fontFamily: 'var(--font-mono)', fontWeight: 600, color: 'var(--accent)', background: 'var(--bg-subtle)', border: '1px solid var(--border)', borderRadius: 6, cursor: 'pointer' } as CSSProperties,
+  viewBar: { display: 'flex', gap: 4, padding: '8px 16px', borderBottom: '1px solid var(--border)', flexShrink: 0, alignItems: 'center' } as CSSProperties,
+  rollupCard: { textAlign: 'left' as const, padding: '14px 16px', background: 'var(--bg-card)', border: '1px solid var(--border)', borderRadius: 8, cursor: 'pointer', display: 'flex', flexDirection: 'column' as const, gap: 4 } as CSSProperties,
+  delRow: { display: 'flex', alignItems: 'center', gap: 8, padding: '7px 8px', borderBottom: '1px solid var(--border)', fontSize: 12 } as CSSProperties,
   threadBadge: { fontSize: 10, fontFamily: 'var(--font-mono)', fontWeight: 700, padding: '2px 6px', borderRadius: 4, background: 'var(--blue-10)', color: 'var(--blue)' } as CSSProperties,
 }
 
@@ -742,6 +792,7 @@ export function BugPanel(props: BugPanelProps) {
   var label = props.label || 'Report Bug'
   var offsetFab = props.offsetFab
   var onClose = props.onClose
+  var session = props.session
 
   // PORTAL-PERMISSIONS-1: Send X-SM-Product so the API reads the correct
   // per-portal session cookie (e.g. sm_session_admin) instead of falling
@@ -782,6 +833,16 @@ export function BugPanel(props: BugPanelProps) {
   var _assignees = useState<Array<{ id: string; name: string }>>([]); var assignees = _assignees[0]; var setAssignees = _assignees[1]
   var _subsystems = useState<string[]>([]); var subsystems = _subsystems[0]; var setSubsystems = _subsystems[1]
   var _sortBy = useState('newest'); var sortBy = _sortBy[0]; var setSortBy = _sortBy[1]
+  // WAFFLE-2: server counts + pagination state
+  var _counts = useState<BugCounts | null>(null); var counts = _counts[0]; var setCounts = _counts[1]
+  var _total = useState(0); var total = _total[0]; var setTotal = _total[1]
+  var _loadingMore = useState(false); var loadingMore = _loadingMore[0]; var setLoadingMore = _loadingMore[1]
+  // WAFFLE-2: standalone manager views
+  var _viewMode = useState('list'); var viewMode = _viewMode[0]; var setViewMode = _viewMode[1]
+  var _groupBy = useState('none'); var groupBy = _groupBy[0]; var setGroupBy = _groupBy[1]
+  var _productCounts = useState<ProductCount[] | null>(null); var productCounts = _productCounts[0]; var setProductCounts = _productCounts[1]
+  var _delegationBugs = useState<Bug[] | null>(null); var delegationBugs = _delegationBugs[0]; var setDelegationBugs = _delegationBugs[1]
+  var _delegationLoading = useState(false); var delegationLoading = _delegationLoading[0]; var setDelegationLoading = _delegationLoading[1]
   var _searchQuery = useState(''); var searchQuery = _searchQuery[0]; var setSearchQuery = _searchQuery[1]
   var _debouncedSearch = useState(''); var debouncedSearch = _debouncedSearch[0]; var setDebouncedSearch = _debouncedSearch[1]
   var searchTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
@@ -908,8 +969,12 @@ export function BugPanel(props: BugPanelProps) {
     document.head.appendChild(script)
   }
 
-  var loadBugs = useCallback(function() {
-    setLoading(true)
+  // WAFFLE-2: server-side tabs + pagination. offset 0 (default) replaces the
+  // list; offset > 0 appends (load-more). Counts arrive in the same response
+  // and are true totals for the active filter set (tab-independent).
+  var loadBugs = useCallback(function(nextOffset?: number) {
+    var off = nextOffset || 0
+    if (off === 0) setLoading(true); else setLoadingMore(true)
     var params: string[] = []
     if (filterProduct !== 'all') params.push('product=' + filterProduct)
     if (filterType !== 'all') params.push('type=' + filterType)
@@ -918,24 +983,80 @@ export function BugPanel(props: BugPanelProps) {
     if (filterSubsystem !== 'all') params.push('subsystem=' + encodeURIComponent(filterSubsystem))
     if (filterSource !== 'all') params.push('source=' + filterSource)
     if (debouncedSearch.trim()) params.push('q=' + encodeURIComponent(debouncedSearch.trim()))
-    params.push('limit=1000')
+    if (isAdmin) {
+      params.push('tab=' + tab)
+      params.push('sort=' + sortBy)
+      if (filterPerson !== 'all') params.push('submitted_by_name=' + encodeURIComponent(filterPerson))
+      params.push('limit=' + PAGE_SIZE)
+      params.push('offset=' + off)
+    } else {
+      // Reporter view: own bugs only (small set) — keep the full fetch +
+      // client-side pills, unchanged from pre-WAFFLE-2 behavior.
+      params.push('limit=1000')
+    }
 
     var url = apiBase + '/api/bugs?' + params.join('&')
 
     apiFetch(url, { credentials: 'include' })
       .then(function(r) { return r.json() })
-      .then(function(d: { data?: Bug[] }) {
+      .then(function(d: { data?: Bug[]; counts?: BugCounts; total?: number }) {
         var items: Bug[] = Array.isArray(d.data) ? d.data : []
-        setBugs(items)
-        setLoading(false)
+        if (off === 0) setBugs(items)
+        else setBugs(function(prev) {
+          var seen: Record<string, boolean> = {}
+          prev.forEach(function(b) { seen[b.id] = true })
+          return prev.concat(items.filter(function(b) { return !seen[b.id] }))
+        })
+        if (d.counts) setCounts(d.counts)
+        if (typeof d.total === 'number') setTotal(d.total)
+        setLoading(false); setLoadingMore(false)
       })
-      .catch(function() { setLoading(false) })
-  }, [apiBase, filterProduct, filterType, filterPriority, filterAssignee, filterSubsystem, filterSource, debouncedSearch])
+      .catch(function() { setLoading(false); setLoadingMore(false) })
+  }, [apiBase, isAdmin, tab, sortBy, filterPerson, filterProduct, filterType, filterPriority, filterAssignee, filterSubsystem, filterSource, debouncedSearch])
 
   useEffect(function() {
     if (!open) return
     loadBugs()
   }, [open, filterProduct, filterType, filterPriority, filterAssignee, filterSubsystem, filterSource, debouncedSearch, loadBugs, isAdmin, apiBase])
+
+  // ── WAFFLE-2: standalone manager view data ────────────────────────────────
+  var managerViews = Boolean(props.standalone && isAdmin)
+
+  // Rollup cards: per-product server counts (rollup=1)
+  useEffect(function() {
+    if (!managerViews || viewMode !== 'rollup' || !open) return
+    setProductCounts(null)
+    apiFetch(apiBase + '/api/bugs?tab=queue&rollup=1&limit=1')
+      .then(function(r) { return r.json() })
+      .then(function(d: { product_counts?: ProductCount[] }) { setProductCounts(Array.isArray(d.product_counts) ? d.product_counts : []) })
+      .catch(function() { setProductCounts([]) })
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [managerViews, viewMode, open, apiBase])
+
+  // Delegation: full queue fetch — assignee grouping needs the whole set,
+  // not a page. 2000 cap matches the sm-api limit ceiling.
+  useEffect(function() {
+    if (!managerViews || viewMode !== 'delegation' || !open) return
+    setDelegationLoading(true)
+    apiFetch(apiBase + '/api/bugs?tab=queue&limit=2000')
+      .then(function(r) { return r.json() })
+      .then(function(d: { data?: Bug[] }) { setDelegationBugs(Array.isArray(d.data) ? d.data : []); setDelegationLoading(false) })
+      .catch(function() { setDelegationBugs([]); setDelegationLoading(false) })
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [managerViews, viewMode, open, apiBase])
+
+  function reassignDelegated(bugId: string, contactId: string) {
+    apiFetch(apiBase + '/api/bugs/' + bugId, {
+      method: 'PATCH', credentials: 'include',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ assigned_to: contactId })
+    }).then(function() {
+      setDelegationBugs(function(prev) {
+        if (!prev) return prev
+        return prev.map(function(b) { return b.id === bugId ? Object.assign({}, b, { assigned_to: contactId || null }) : b })
+      })
+    })
+  }
 
   useEffect(function() {
     if (!expanded) return
@@ -970,7 +1091,21 @@ export function BugPanel(props: BugPanelProps) {
   }, [expanded, apiBase])
 
   // BUG-PANEL-STANDALONE-1: Set browser tab title in standalone mode
-  useEffect(function() { if (props.standalone) document.title = 'Bug Catcher' }, [props.standalone])
+  // WAFFLE-2: standalone tab title + grid-4x4 favicon (Bug Catcher -> Waffle)
+  useEffect(function() {
+    if (!props.standalone) return
+    document.title = 'Waffle'
+    try {
+      var link = document.querySelector('link[rel~="icon"]') as HTMLLinkElement | null
+      if (!link) {
+        link = document.createElement('link')
+        link.rel = 'icon'
+        document.head.appendChild(link)
+      }
+      link.type = 'image/svg+xml'
+      link.href = WAFFLE_FAVICON
+    } catch (_e) { /* favicon swap is cosmetic — never block render */ }
+  }, [props.standalone])
 
   // BUG-PANEL-STANDALONE-1: Apply theme in standalone mode (no Layout to do it)
   useEffect(function() {
@@ -1165,6 +1300,159 @@ export function BugPanel(props: BugPanelProps) {
   var isStandalone = props.standalone
   var items = bugs
 
+  // ── WAFFLE-2: manager views render helpers (standalone admin only) ────────
+  var showListChrome = !managerViews || viewMode === 'list'
+
+  function renderCard(bug: Bug) {
+    return <BugCard key={bug.id} bug={bug} isAdmin={isAdmin} assignees={assignees} expanded={expanded === bug.id}
+      onToggle={function() { setExpanded(expanded === bug.id ? null : bug.id) }}
+      onAction={handleAction} onComment={handleComment} onDelete={isAdmin ? handleDelete : undefined} onFire={handleFire} onFireTerminal={handleFireTerminal} onVerify={isAdmin ? handleVerify : undefined} apiBase={apiBase} product={product} searchQuery={debouncedSearch} />
+  }
+
+  function groupLabelForAssignee(id: string): string {
+    if (!id) return 'Unassigned'
+    var m = assignees.find(function(a) { return a.id === id })
+    return m ? m.name : id
+  }
+
+  // Group-by: client-side over the fetched page(s) — accepted v1 scope.
+  function renderListBody(list: Bug[]) {
+    if (!managerViews || groupBy === 'none') return list.map(renderCard)
+    if (groupBy === 'overdue') {
+      var today = new Date().toISOString().slice(0, 10)
+      var overdue = list.filter(function(b) { return Boolean(b.due_date && b.due_date.slice(0, 10) < today) }).sort(function(a, b) { return (a.due_date || '').localeCompare(b.due_date || '') })
+      var rest = list.filter(function(b) { return !(b.due_date && b.due_date.slice(0, 10) < today) })
+      return (
+        <>
+          {overdue.length > 0 && <div style={S.groupHeader}><span style={{ color: 'var(--red)' }}>Overdue</span> <span style={S.groupCount}>{overdue.length}</span></div>}
+          {overdue.map(renderCard)}
+          <div style={S.groupHeader}>Everything else <span style={S.groupCount}>{rest.length}</span></div>
+          {rest.map(renderCard)}
+        </>
+      )
+    }
+    var keyFn = groupBy === 'assignee'
+      ? function(b: Bug) { return b.assigned_to || '' }
+      : groupBy === 'product'
+        ? function(b: Bug) { return b.product || '' }
+        : function(b: Bug) { return b.subsystem || '' }
+    var groups: Record<string, Bug[]> = {}
+    var order: string[] = []
+    list.forEach(function(b) {
+      var k = keyFn(b)
+      if (!groups[k]) { groups[k] = []; order.push(k) }
+      groups[k].push(b)
+    })
+    // Empty key (Unassigned / no subsystem) first, then by count desc
+    order.sort(function(a, b) {
+      if (a === '' && b !== '') return -1
+      if (b === '' && a !== '') return 1
+      return groups[b].length - groups[a].length
+    })
+    return (
+      <>
+        {order.map(function(k) {
+          var groupTitle = groupBy === 'assignee' ? groupLabelForAssignee(k) : (k || (groupBy === 'subsystem' ? '(no subsystem)' : '(no product)'))
+          return (
+            <React.Fragment key={k || '__none__'}>
+              <div style={S.groupHeader}>{groupTitle} <span style={S.groupCount}>{groups[k].length}</span></div>
+              {groups[k].map(renderCard)}
+            </React.Fragment>
+          )
+        })}
+      </>
+    )
+  }
+
+  var viewSwitcher = managerViews ? (
+    <div style={S.viewBar}>
+      {[{ id: 'list', label: 'List' }, { id: 'rollup', label: 'Rollup' }, { id: 'delegation', label: 'Delegation' }].map(function(v) {
+        return <button key={v.id} style={S.rpill(viewMode === v.id)} onClick={function() { setViewMode(v.id); setExpanded(null) }}>{v.label}</button>
+      })}
+      {viewMode === 'list' && (
+        <>
+          <span style={{ fontSize: 10, fontFamily: 'var(--font-mono)', color: 'var(--muted)', marginLeft: 'auto' }}>Group:</span>
+          <select style={S.filterSelect} value={groupBy} onChange={function(e) { setGroupBy(e.target.value) }}>
+            <option value="none">Newest</option>
+            <option value="assignee">By Assignee</option>
+            <option value="product">By Product</option>
+            <option value="subsystem">By Subsystem</option>
+            <option value="overdue">Overdue First</option>
+          </select>
+        </>
+      )}
+    </div>
+  ) : null
+
+  var rollupView = managerViews && viewMode === 'rollup' ? (
+    <div style={S.list}>
+      {productCounts === null && <div style={S.empty}>Loading...</div>}
+      {productCounts !== null && productCounts.length === 0 && <div style={S.empty}>No items.</div>}
+      {productCounts !== null && productCounts.length > 0 && (
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(160px, 1fr))', gap: 12, padding: 8 }}>
+          {productCounts.map(function(p) {
+            return (
+              <button key={p.product} style={S.rollupCard} title={'Filter list to ' + p.product} onClick={function() { setFilterProduct(p.product); setTab('queue'); setViewMode('list') }}>
+                <span style={{ fontSize: 12, fontWeight: 700, color: 'var(--foreground)', fontFamily: 'var(--font-mono)' }}>{p.product}</span>
+                <span style={{ fontSize: 26, fontWeight: 800, color: 'var(--foreground)', lineHeight: 1.1 }}>{p.queue}</span>
+                <span style={{ fontSize: 11, color: 'var(--muted)' }}>{p.open} open {'\u00b7'} {p.in_progress} in progress</span>
+                <span style={{ fontSize: 11, color: 'var(--muted)' }}>{p.verified} verified {'\u00b7'} {p.deferred} deferred</span>
+              </button>
+            )
+          })}
+        </div>
+      )}
+    </div>
+  ) : null
+
+  var delegationView = managerViews && viewMode === 'delegation' ? (
+    <div style={S.list}>
+      {delegationLoading && <div style={S.empty}>Loading...</div>}
+      {!delegationLoading && delegationBugs && delegationBugs.length === 0 && <div style={S.empty}>Queue is empty.</div>}
+      {!delegationLoading && delegationBugs && delegationBugs.length > 0 && (function() {
+        var groups: Record<string, Bug[]> = {}
+        var order: string[] = []
+        delegationBugs.forEach(function(b) {
+          var k = b.assigned_to || ''
+          if (!groups[k]) { groups[k] = []; order.push(k) }
+          groups[k].push(b)
+        })
+        order.sort(function(a, b) {
+          if (a === '' && b !== '') return -1
+          if (b === '' && a !== '') return 1
+          return groups[b].length - groups[a].length
+        })
+        return order.map(function(k) {
+          var isUnassigned = k === ''
+          return (
+            <div key={k || '__unassigned__'} style={{ marginBottom: 12 }}>
+              <div style={Object.assign({}, S.groupHeader, isUnassigned ? { color: 'var(--red)', fontSize: 12 } : {})}>
+                {isUnassigned ? 'Unassigned' : groupLabelForAssignee(k)} <span style={S.groupCount}>{groups[k].length}</span>
+              </div>
+              {groups[k].map(function(b) {
+                return (
+                  <div key={b.id} style={S.delRow}>
+                    <span style={{ flex: 1, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' as const, color: 'var(--foreground)' }}>{b.title}</span>
+                    <span style={{ fontSize: 10, fontFamily: 'var(--font-mono)', color: 'var(--muted)', flexShrink: 0 }}>{b.product}</span>
+                    <select
+                      style={Object.assign({}, S.filterSelect, { flexShrink: 0 })}
+                      value={b.assigned_to || ''}
+                      onChange={function(e) { reassignDelegated(b.id, e.target.value) }}
+                      title="Reassign"
+                    >
+                      <option value="">Unassigned</option>
+                      {assignees.map(function(a) { return <option key={a.id} value={a.id}>{a.name}</option> })}
+                    </select>
+                  </div>
+                )
+              })}
+            </div>
+          )
+        })
+      })()}
+    </div>
+  ) : null
+
   var panelStyle = isStandalone
     ? Object.assign({}, S.panel, { position: 'relative' as const, width: '100%', maxWidth: 720, margin: '0 auto', height: '100vh', borderLeft: 'none', boxShadow: 'none', zIndex: 1 })
     : Object.assign({}, S.panel, isMobile ? S.panelMobile : {})
@@ -1175,7 +1463,7 @@ export function BugPanel(props: BugPanelProps) {
       <div data-bug-panel="" style={panelStyle}>
 
         <div style={S.header}>
-          <span style={S.title}>{isAdmin ? 'Bug Catcher' : label}</span>
+          <span style={S.title}>{isAdmin ? 'Waffle' : label}</span>
           <kbd style={{ fontSize: 10, padding: '1px 5px', border: '1px solid var(--border)', borderRadius: 4, background: 'var(--bg-subtle,var(--bg))', color: 'var(--muted)', lineHeight: 1.4, marginLeft: 6, fontFamily: 'var(--font-mono,monospace)' }}>{typeof navigator !== 'undefined' && navigator.platform && navigator.platform.indexOf('Mac') !== -1 ? '\u2318B' : 'Ctrl+B'}</kbd>
           <span style={{ flex: 1 }} />
           {!isStandalone && <button style={S.closeBtn} title="Open in new tab" onClick={function() {
@@ -1186,6 +1474,10 @@ export function BugPanel(props: BugPanelProps) {
           {!isStandalone && <button style={S.closeBtn} onClick={closePanel}><CloseIcon /></button>}
         </div>
 
+        {viewSwitcher}
+        {rollupView}
+        {delegationView}
+
         {!isAdmin && (
           <div style={S.rpills}>
             {REPORTER_FILTERS.map(function(f) {
@@ -1194,6 +1486,7 @@ export function BugPanel(props: BugPanelProps) {
           </div>
         )}
 
+        {showListChrome && (
         <div style={S.filterBar}>
             <select style={S.filterSelect} value={filterProduct} onChange={function(e) { setFilterProduct(e.target.value) }}>
               <option value="all">Portals</option>
@@ -1234,10 +1527,11 @@ export function BugPanel(props: BugPanelProps) {
                 {assignees.map(function(a) { return <option key={a.id} value={a.id}>{a.name}</option> })}
               </select>
             )}
-            {subsystems.length > 0 && (
+            {isAdmin && (
               <select style={S.filterSelect} value={filterSubsystem} onChange={function(e) { setFilterSubsystem(e.target.value) }}>
                 <option value="all">Subsystems</option>
-                {subsystems.map(function(ss) { return <option key={ss} value={ss}>{ss}</option> })}
+                {/* WAFFLE-2 decision 4: union of live DISTINCT values + seed vocabulary */}
+                {Array.from(new Set(SUBSYSTEM_SUGGESTIONS.concat(subsystems))).sort().map(function(ss) { return <option key={ss} value={ss}>{ss}</option> })}
               </select>
             )}
             <div style={{ position: 'relative', display: 'flex', alignItems: 'center', flex: '1 1 120px', minWidth: 100 }}>
@@ -1263,12 +1557,19 @@ export function BugPanel(props: BugPanelProps) {
               <option value="oldest">Oldest</option>
             </select>
           </div>
+        )}
 
-        {isAdmin && (
+        {showListChrome && isAdmin && (
           <div style={S.tabBar}>
             {ADMIN_TABS.map(function(t) {
-              var count = bugs.filter(function(b) {
+              // WAFFLE-2: hide My Tasks when the session has no contact_id
+              if ((t as any).mine && !(session && session.contact_id)) return null
+              // WAFFLE-2: true totals from the server (same response as the
+              // list). Fallback: client count over the fetched slice for
+              // older sm-api responses without counts.
+              var count = counts ? (counts as any)[t.id] : bugs.filter(function(b) {
                 if (t.statuses.indexOf(b.status) === -1) return false
+                if ((t as any).mine && b.assigned_to !== (session && session.contact_id)) return false
                 if ((t as any).verified && (b as any).verified_status !== 'verified') return false
                 if ((t as any).excludeVerified && (b as any).verified_status === 'verified') return false
                 return true
@@ -1278,14 +1579,19 @@ export function BugPanel(props: BugPanelProps) {
           </div>
         )}
 
+        {showListChrome && (
         <div style={S.list}>
           {loading && <div style={S.empty}>Loading...</div>}
           {!loading && items.length === 0 && <div style={S.empty}>No items.</div>}
-          {!loading && bugs.filter(function(b) {
+          {!loading && renderListBody(bugs.filter(function(b) {
             // Status filter: admin uses tab, reporter uses pill
             if (isAdmin) {
+              // WAFFLE-2: with a current sm-api the server already applied the
+              // tab constraint; this re-filter is a no-op there and a correct
+              // fallback against older API responses.
               var at = ADMIN_TABS.find(function(t) { return t.id === tab }) as any
               if (at && at.statuses.indexOf(b.status) === -1) return false
+              if (at && at.mine && b.assigned_to !== (session && session.contact_id)) return false
               // Verified tab: only show bugs with verified_status = 'verified'
               if (at && at.verified && (b as any).verified_status !== 'verified') return false
               // Closed tab: exclude verified bugs so they only appear in Verified tab
@@ -1303,14 +1609,17 @@ export function BugPanel(props: BugPanelProps) {
             }
             if (sortBy === 'oldest') return (a.created_at || '').localeCompare(b.created_at || '')
             return (b.created_at || '').localeCompare(a.created_at || '')
-          }).map(function(bug) {
-            return <BugCard key={bug.id} bug={bug} isAdmin={isAdmin} assignees={assignees} expanded={expanded === bug.id}
-              onToggle={function() { setExpanded(expanded === bug.id ? null : bug.id) }}
-              onAction={handleAction} onComment={handleComment} onDelete={isAdmin ? handleDelete : undefined} onFire={handleFire} onFireTerminal={handleFireTerminal} onVerify={isAdmin ? handleVerify : undefined} apiBase={apiBase} product={product} searchQuery={debouncedSearch} />
-          })}
+          }))}
+          {/* WAFFLE-2: load-more pagination (admin, server counts present) */}
+          {!loading && isAdmin && counts !== null && bugs.length < total && (
+            <button style={S.loadMore} disabled={loadingMore} onClick={function() { loadBugs(bugs.length) }}>
+              {loadingMore ? 'Loading...' : 'Load more \u2014 ' + bugs.length + ' of ' + total}
+            </button>
+          )}
         </div>
+        )}
 
-        {showForm ? (
+        {showListChrome && (showForm ? (
           <div style={S.formArea}>
             <div style={{ display: 'flex', gap: 6, marginBottom: 8 }}>
               <select style={S.formSelect} value={fType} onChange={function(e) { setFType(e.target.value) }}>
@@ -1404,7 +1713,7 @@ export function BugPanel(props: BugPanelProps) {
               + Report Bug or Feature
             </button>
           </div>
-        )}
+        ))}
       </div>
     </>
   )
@@ -1415,12 +1724,12 @@ export function BugPanelHeaderButton({ onClick }: BugPanelHeaderButtonProps) {
   return React.createElement('button', {
     onClick: onClick,
     'aria-label': 'Report bug',
-    title: isMac ? 'Bug Catcher (\u2318B)' : 'Bug Catcher (Ctrl+B)',
+    title: isMac ? 'Waffle (\u2318B)' : 'Waffle (Ctrl+B)',
     style: {
       width: 34, height: 34, border: '1px solid var(--border)', borderRadius: 7,
       background: 'var(--bg-card)', cursor: 'pointer', display: 'flex',
       alignItems: 'center', justifyContent: 'center', transition: 'border-color .2s',
       flexShrink: 0, padding: 0, color: 'var(--foreground)'
     } as CSSProperties
-  }, React.createElement(BugIcon, { size: 16 }))
+  }, React.createElement(WaffleIcon, { size: 16 }))
 }

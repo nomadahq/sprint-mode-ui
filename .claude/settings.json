@@ -1,0 +1,16 @@
+{
+  "hooks": {
+    "PreToolUse": [
+      {
+        "matcher": "Bash",
+        "hooks": [
+          { "type": "command", "command": "bash \"$CLAUDE_PROJECT_DIR\"/scripts/guard-git.sh" }
+        ]
+      }
+    ]
+  },
+  "extraKnownMarketplaces": {
+    "sm-workflow": { "source": { "source": "github", "repo": "sprint-mode/sm-workflow" } }
+  },
+  "enabledPlugins": { "sm-workflow@sm-workflow": true }
+}

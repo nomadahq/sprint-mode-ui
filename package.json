@@ -1,7 +1,7 @@
 {
   "name": "@sprint-mode/sm-ui",
   "version": "1.0.49",
-  "description": "Sprint Mode shared platform UI \u2014 components, design tokens, auth helpers, login",
+  "description": "Sprint Mode shared platform UI — components, design tokens, auth helpers, login",
   "repository": {
     "type": "git",
     "url": "https://github.com/sprint-mode/sm-ui"
@@ -56,7 +56,8 @@
     "test": "vitest run",
     "type-check": "tsc --noEmit",
     "build:standalone": "STANDALONE_ENTRY=bug-panel vite build --config vite.config.lib.ts && STANDALONE_ENTRY=user-menu vite build --config vite.config.lib.ts && STANDALONE_ENTRY=inbox-page vite build --config vite.config.lib.ts",
-    "build": "vite build --config vite.config.build.ts && node scripts/fix-dts-paths.js"
+    "build": "vite build --config vite.config.build.ts && node scripts/fix-dts-paths.js",
+    "prepare": "git config core.hooksPath .githooks || true"
   },
   "type": "module",
   "types": "dist/src/index.d.ts",

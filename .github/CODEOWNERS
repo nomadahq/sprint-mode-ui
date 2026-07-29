@@ -1,0 +1,11 @@
+<!-- sm-workflow:begin -->
+# Managed by sm-workflow (wf sync). Repo-specific paths go BELOW the end marker.
+/.github/                     @sprint-mode/reviewers
+/.githooks/                   @sprint-mode/reviewers
+/.claude/                     @sprint-mode/reviewers
+/scripts/guard-git.sh         @sprint-mode/reviewers
+/AGENTS.md                    @sprint-mode/reviewers
+/CLAUDE.md                    @sprint-mode/reviewers
+/.sm-workflow.conf            @sprint-mode/reviewers
+/wrangler.toml                @sprint-mode/reviewers
+<!-- sm-workflow:end -->

@@ -3,11 +3,16 @@ name: CI
 on:
   pull_request:
     branches: [main]
+  push:
+    branches: [main]
+  merge_group:
   workflow_dispatch:
 
 concurrency:
-  group: ci-${{ github.ref }}
-  cancel-in-progress: true
+  # PR runs: newest push supersedes (per-ref). Everything else (push to main,
+  # merge_group, dispatch): per-SHA so runs are never cancelled by a successor.
+  group: ci-${{ github.event_name == 'pull_request' && github.ref || github.sha }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
 
 jobs:
   lint:
@@ -65,3 +70,19 @@ jobs:
         run: git config --global url."https://github.com/".insteadOf "git+ssh://git@github.com/"
       - run: npm ci
       - run: npm test
+
+  ci-gate:
+    name: ci-gate
+    needs: [lint, type-check, build, test]
+    if: always()
+    runs-on: ubuntu-latest
+    steps:
+      - name: Verify required jobs
+        run: |
+          for r in ${{ join(needs.*.result, ' ') }}; do
+            if [ "$r" != "success" ] && [ "$r" != "skipped" ]; then
+              echo "::error::a required job failed or was cancelled ($r)"
+              exit 1
+            fi
+          done
+          echo "CI gate passed."

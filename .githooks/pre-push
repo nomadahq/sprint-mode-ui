@@ -1,0 +1,54 @@
+#!/usr/bin/env bash
+# sm-workflow pre-push: refuses (1) pushes to landing branches, (2) migration
+# number collisions vs origin/main, (3) in-branch duplicates. Respects the
+# read-only dupe allowlist. Installed by npm "prepare" (core.hooksPath).
+set -u
+ROOT=$(git rev-parse --show-toplevel 2>/dev/null || echo .)
+BRANCHES="main"
+if [ -f "$ROOT/.sm-workflow.conf" ]; then
+  LB=$(grep '^landing_branches=' "$ROOT/.sm-workflow.conf" 2>/dev/null | head -1 | cut -d= -f2-)
+  [ -n "$LB" ] && BRANCHES="$LB"
+fi
+
+while read -r _lref _lsha remote_ref _rsha; do
+  for b in $BRANCHES; do
+    if [ "$remote_ref" = "refs/heads/$b" ]; then
+      echo "pre-push: direct push to $b is blocked. Land via /merge (merge queue)." >&2
+      exit 1
+    fi
+  done
+done
+
+MIG_DIR="src/schema/migrations"
+[ -d "$ROOT/$MIG_DIR" ] || exit 0
+git fetch origin main --quiet 2>/dev/null || true
+git rev-parse --verify --quiet origin/main >/dev/null || exit 0
+
+ALLOW=""
+[ -f "$ROOT/scripts/migration-dupe-allowlist.txt" ] && ALLOW=$(cat "$ROOT/scripts/migration-dupe-allowlist.txt")
+
+main_nums=$(git ls-tree --name-only origin/main "$MIG_DIR/" 2>/dev/null | sed 's|.*/||' | grep -E '^[0-9]{4}_' | cut -c1-4 | sort -u)
+new_files=$(git diff --name-only --diff-filter=A origin/main...HEAD -- "$MIG_DIR/" | sed 's|.*/||' | grep -E '^[0-9]{4}_' || true)
+[ -n "$new_files" ] || exit 0
+
+status=0
+for f in $new_files; do
+  n=$(printf '%s' "$f" | cut -c1-4)
+  printf '%s\n' "$ALLOW" | grep -qx "$n" && continue
+  if printf '%s\n' "$main_nums" | grep -qx "$n"; then
+    echo "pre-push: migration number $n already exists on origin/main: $f" >&2
+    status=1
+  fi
+done
+dupes=$(printf '%s\n' "$new_files" | cut -c1-4 | sort | uniq -d)
+for d in $dupes; do
+  printf '%s\n' "$ALLOW" | grep -qx "$d" && continue
+  echo "pre-push: duplicate migration number within this branch: $d" >&2
+  status=1
+done
+if [ "$status" -ne 0 ]; then
+  ceiling=$(printf '%s\n' "$main_nums" | tail -1)
+  [ -n "$ceiling" ] && echo "  Renumber YOUR new file(s) to $(printf '%04d' $((10#$ceiling + 1))) or higher." >&2
+  echo "  NEVER rename a migration on origin/main; NEVER edit the allowlist." >&2
+fi
+exit $status

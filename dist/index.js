@@ -106132,13 +106132,13 @@ function o9() {
 		"aria-hidden": "true",
 		style: {
 			display: "inline-block",
-			width: 14,
-			height: 11,
+			width: 16,
+			height: 12,
 			marginLeft: 6,
 			borderRadius: 3,
 			background: "linear-gradient(180deg,#F9DE7B,#E8A13C)",
 			boxShadow: "0 1px 2px rgba(0,0,0,0.15)",
-			animation: "waffleMelt 400ms ease-in forwards",
+			animation: "waffleMelt 700ms ease-in forwards",
 			transformOrigin: "bottom center",
 			verticalAlign: "middle",
 			flexShrink: 0
@@ -107000,7 +107000,7 @@ function yNe({ bug: e, isAdmin: t, expanded: n, onToggle: r, onAction: i, onComm
 		t.stopPropagation(), p && p(e.id);
 	}
 	return /* @__PURE__ */ d("div", {
-		style: Object.assign({}, Q.card(n), { transition: "background 0.9s ease" }, y ? { background: "rgba(232,161,60,0.22)" } : {}),
+		style: Object.assign({}, Q.card(n), { transition: y ? "none" : "background 0.9s ease" }, y ? { background: "rgba(232,161,60,0.28)" } : {}),
 		onClick: r,
 		"data-bug-id": e.id,
 		children: [
@@ -108019,7 +108019,7 @@ function p9(t) {
 	function We(e) {
 		Ue.current && clearTimeout(Ue.current), He(e), Ue.current = setTimeout(function() {
 			He(null);
-		}, 1100);
+		}, 1800);
 	}
 	var Ge = c(null), Ke = Ge[0], qe = Ge[1], Je = c(!1), Ye = Je[0], Xe = Je[1], Ze = s(!1), Qe = c([]), q = Qe[0], $e = Qe[1], et = c("newest"), tt = et[0], nt = et[1], J = c(null), Y = J[0], rt = J[1], X = c("full"), it = X[0], at = X[1], ot = s(null), st = Y ? [
 		Y.queue,
@@ -108504,7 +108504,7 @@ function p9(t) {
 		}).then(function() {
 			n ? setTimeout(function() {
 				Rn();
-			}, 700) : Rn(), Bn && Vn();
+			}, 1900) : Rn(), Bn && Vn();
 		});
 	}
 	function qn(e) {

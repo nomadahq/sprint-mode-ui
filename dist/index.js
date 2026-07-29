@@ -108029,7 +108029,23 @@ function p9(t) {
 	].join(",") : "";
 	i(function() {
 		ot("full");
-	}, [ct]), a(function() {
+	}, [ct]), i(function() {
+		var e = !0;
+		try {
+			typeof document < "u" && document.fonts && document.fonts.ready && document.fonts.ready.then(function() {
+				e && ot("full");
+			});
+		} catch {}
+		var t = null;
+		function n() {
+			t && clearTimeout(t), t = setTimeout(function() {
+				e && ot("full");
+			}, 150);
+		}
+		return window.addEventListener("resize", n), function() {
+			e = !1, t && clearTimeout(t), window.removeEventListener("resize", n);
+		};
+	}, []), a(function() {
 		if (at !== "elide") {
 			var e = st.current;
 			if (e) {

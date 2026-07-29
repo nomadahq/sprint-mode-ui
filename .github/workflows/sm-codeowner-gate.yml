@@ -1,0 +1,91 @@
+name: codeowner gate
+
+# GitHub does not enforce require_code_owner_review when required approvals is 0
+# (proven by the sm-api #1008 incident). This required check IS the binding:
+# a PR touching CODEOWNERS-listed paths fails this gate until a non-author
+# org member/collaborator approves. Approvals re-trigger the gate via
+# pull_request_review, so auto-merge proceeds hands-free after approval.
+
+on:
+  pull_request:
+    types: [opened, reopened, synchronize, ready_for_review]
+  pull_request_review:
+    types: [submitted, edited, dismissed]
+  merge_group:
+
+permissions:
+  contents: read
+  pull-requests: read
+
+jobs:
+  codeowner-gate:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Gate
+        env:
+          GH_TOKEN: ${{ github.token }}
+          REPO: ${{ github.repository }}
+          PR: ${{ github.event.pull_request.number }}
+          BASE: ${{ github.event.pull_request.base.ref }}
+          AUTHOR: ${{ github.event.pull_request.user.login }}
+        run: |
+          if [ "${{ github.event_name }}" = "merge_group" ]; then
+            echo "merge_group build: the gate already passed on the PR itself."
+            exit 0
+          fi
+          # CODEOWNERS from the BASE branch — a PR must not be able to edit
+          # its own gate out of existence.
+          if ! gh api "repos/$REPO/contents/.github/CODEOWNERS?ref=$BASE" --jq .content 2>/dev/null | base64 -d > /tmp/codeowners; then
+            echo "No CODEOWNERS on $BASE — nothing to gate."
+            exit 0
+          fi
+          gh api "repos/$REPO/pulls/$PR/files" --paginate --jq '.[].filename' > /tmp/files
+          gh api "repos/$REPO/pulls/$PR/reviews" --paginate > /tmp/reviews.json
+          python3 - <<'PY'
+          import json, os, sys
+
+          author = os.environ["AUTHOR"]
+          patterns = []
+          for line in open("/tmp/codeowners"):
+              line = line.strip()
+              if not line or line.startswith("#"):
+                  continue
+              patterns.append(line.split()[0])
+
+          def matches(f, p):
+              # Anchored-prefix semantics: covers /dir/ and /file patterns
+              # (the only shapes the sm-workflow pack and repo additions use).
+              p = p.lstrip("/")
+              if p.endswith("/"):
+                  return f.startswith(p)
+              return f == p or f.startswith(p + "/")
+
+          files = [l.strip() for l in open("/tmp/files") if l.strip()]
+          touched = sorted({f for f in files for p in patterns if matches(f, p)})
+          if not touched:
+              print("No codeowner-listed paths touched — gate passes.")
+              sys.exit(0)
+
+          print("Codeowner paths touched:")
+          for f in touched:
+              print("  ", f)
+
+          latest = {}
+          for r in json.load(open("/tmp/reviews.json")):
+              u = r.get("user", {}).get("login")
+              if u and r.get("state") in ("APPROVED", "CHANGES_REQUESTED", "DISMISSED"):
+                  latest[u] = r  # list is chronological; keep the last decisive state
+          approvers = [
+              u for u, r in latest.items()
+              if r["state"] == "APPROVED"
+              and u != author
+              and r.get("author_association") in ("OWNER", "MEMBER", "COLLABORATOR")
+          ]
+          if approvers:
+              print("Approved by:", ", ".join(approvers), "— gate passes.")
+              sys.exit(0)
+          print("::error::This PR touches codeowner paths and requires an approving "
+                "review from a non-author org member. None found yet — the gate "
+                "re-runs automatically when a review is submitted.")
+          sys.exit(1)
+          PY

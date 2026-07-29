@@ -955,7 +955,19 @@ export function BugPanel(props: BugPanelProps) {
   var _tabFit = useState<'full' | 'compact' | 'elide'>('full'); var tabFit = _tabFit[0]; var setTabFit = _tabFit[1]
   var tabBarRef = useRef<HTMLDivElement>(null)
   var countsKey = counts ? [counts.queue, counts.mine, counts.closed, counts.verified, counts.deferred].join(',') : ''
-  useEffect(function() { setTabFit('full') }, [countsKey])
+  // WAFFLE-FIX-1 round 3 (bug_w2f_tabrow): measurement nonce. Round 2's
+  // triggers called setTabFit('full') — a no-op when tabFit was already
+  // 'full' (React bails out on same-value state), so the layout effect never
+  // re-ran and the post-font re-measure never happened: confirmed live at
+  // 320px after the v1.0.89 deploy (text still clipped at 11px). Every
+  // trigger now also bumps measureTick, which is a layout-effect dep, so a
+  // re-measure is guaranteed even from the 'full' state.
+  var _measureTick = useState(0); var measureTick = _measureTick[0]; var setMeasureTick = _measureTick[1]
+  function requestTabMeasure() {
+    setTabFit('full')
+    setMeasureTick(function(t) { return t + 1 })
+  }
+  useEffect(function() { requestTabMeasure() }, [countsKey])
   // WAFFLE-FIX-1 regression fix round 2 (bug_w2f_tabrow): the escalation was
   // measured exactly once, when counts arrived — typically BEFORE Geist Mono
   // finished loading. The fallback monospace measures narrower, the check
@@ -969,13 +981,13 @@ export function BugPanel(props: BugPanelProps) {
     var mounted = true
     try {
       if (typeof document !== 'undefined' && document.fonts && document.fonts.ready) {
-        document.fonts.ready.then(function() { if (mounted) setTabFit('full') })
+        document.fonts.ready.then(function() { if (mounted) requestTabMeasure() })
       }
     } catch (_e) { /* FontFaceSet unsupported — resize trigger still covers us */ }
     var resizeTimer: ReturnType<typeof setTimeout> | null = null
     function onResize() {
       if (resizeTimer) clearTimeout(resizeTimer)
-      resizeTimer = setTimeout(function() { if (mounted) setTabFit('full') }, 150)
+      resizeTimer = setTimeout(function() { if (mounted) requestTabMeasure() }, 150)
     }
     window.addEventListener('resize', onResize)
     return function() {
@@ -995,7 +1007,7 @@ export function BugPanel(props: BugPanelProps) {
         return
       }
     }
-  }, [tabFit, countsKey, tab, open])
+  }, [tabFit, measureTick, countsKey, tab, open])
   function tabCount(n: number): string {
     return tabFit === 'elide' && n > 99 ? '99+' : String(n)
   }

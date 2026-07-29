@@ -1954,8 +1954,14 @@ export function BugPanel(props: BugPanelProps) {
                 <span style={{ flex: 1 }} />
                 <button style={S.closeBtn} onClick={function() { setShowKeys(false); setMintedKey(null) }}><CloseIcon /></button>
               </div>
-              <div style={{ fontSize: 12, color: 'var(--muted)', marginBottom: 14 }}>
+              <div style={{ fontSize: 12, color: 'var(--muted)', marginBottom: 10 }}>
                 Personal keys for the Waffle MCP server (VS Code / Claude Code). Keys act as you: items you create or comment on carry your name.
+              </div>
+              <div style={{ fontSize: 12, color: 'var(--muted)', marginBottom: 6 }}>
+                Server URL (claude.ai and Claude Desktop connect here with OAuth — no key needed; the connection appears below as a revocable key):
+              </div>
+              <div style={{ fontFamily: 'var(--font-mono,monospace)', fontSize: 11, background: 'var(--bg-subtle,var(--bg))', border: '1px solid var(--border)', borderRadius: 8, padding: '8px 12px', color: 'var(--foreground)', marginBottom: 14, userSelect: 'all' }}>
+                https://waffle.sprintmode.ai/mcp
               </div>
               {mintedKey ? (
                 <div>

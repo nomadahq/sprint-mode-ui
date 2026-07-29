@@ -109330,9 +109330,31 @@ function p9(t) {
 							style: {
 								fontSize: 12,
 								color: "var(--muted)",
-								marginBottom: 14
+								marginBottom: 10
 							},
 							children: "Personal keys for the Waffle MCP server (VS Code / Claude Code). Keys act as you: items you create or comment on carry your name."
+						}),
+						/* @__PURE__ */ u("div", {
+							style: {
+								fontSize: 12,
+								color: "var(--muted)",
+								marginBottom: 6
+							},
+							children: "Server URL (claude.ai and Claude Desktop connect here with OAuth — no key needed; the connection appears below as a revocable key):"
+						}),
+						/* @__PURE__ */ u("div", {
+							style: {
+								fontFamily: "var(--font-mono,monospace)",
+								fontSize: 11,
+								background: "var(--bg-subtle,var(--bg))",
+								border: "1px solid var(--border)",
+								borderRadius: 8,
+								padding: "8px 12px",
+								color: "var(--foreground)",
+								marginBottom: 14,
+								userSelect: "all"
+							},
+							children: "https://waffle.sprintmode.ai/mcp"
 						}),
 						_n ? /* @__PURE__ */ d("div", { children: [
 							/* @__PURE__ */ u("div", {

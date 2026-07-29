@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef, useCallback, CSSProperties } from 'react'
+import React, { useState, useEffect, useLayoutEffect, useRef, useCallback, CSSProperties } from 'react'
 import { UpdateAttachments } from './UpdateAttachments'
 
 export interface BugPanelSession {
@@ -334,8 +334,15 @@ var S = {
   // flex '1 1 auto' + minWidth 0, no overflowX scrolling. A scrollable tab
   // strip was explicitly rejected; with the shortened labels all five tabs
   // fit the 480px panel with real counts.
+  // WAFFLE-FIX-1 regression fix (bug_w2f_tabrow): the panel is width:100% on
+  // mobile (< 480px), where the fixed 11px sizing overflowed and per-button
+  // overflow:hidden silently truncated count digits ("Fixed 19|1", Deferred's
+  // count clipped away entirely). Buttons keep overflow:hidden only as a
+  // paint guard; a layout-effect measures button scrollWidth and escalates
+  // tabFit full -> compact (10px, tighter padding) -> elide (99+) before
+  // paint, so no clipped digit is ever shown. Real numbers whenever they fit.
   tabBar: { display: 'flex', borderBottom: '1px solid var(--border)', flexShrink: 0, overflow: 'hidden' } as CSSProperties,
-  tabBtn: function(active: boolean): CSSProperties { return { flex: '1 1 auto', minWidth: 0, whiteSpace: 'nowrap', overflow: 'hidden', padding: '8px 4px', fontSize: 11, fontFamily: 'var(--font-mono)', fontWeight: active ? 700 : 400, color: active ? 'var(--accent)' : 'var(--muted)', background: 'none', border: 'none', borderBottom: active ? '2px solid var(--accent)' : '2px solid transparent', cursor: 'pointer', textAlign: 'center' } },
+  tabBtn: function(active: boolean, compact?: boolean): CSSProperties { return { flex: '1 1 auto', minWidth: 0, whiteSpace: 'nowrap', overflow: 'hidden', padding: compact ? '8px 2px' : '8px 4px', fontSize: compact ? 10 : 11, fontFamily: 'var(--font-mono)', fontWeight: active ? 700 : 400, color: active ? 'var(--accent)' : 'var(--muted)', background: 'none', border: 'none', borderBottom: active ? '2px solid var(--accent)' : '2px solid transparent', cursor: 'pointer', textAlign: 'center' } },
   list: { flex: 1, overflowY: 'auto', padding: 8 } as CSSProperties,
   rpills: { display: 'flex', gap: 4, padding: '8px 16px', borderBottom: '1px solid var(--border)', flexShrink: 0 } as CSSProperties,
   rpill: function(active: boolean): CSSProperties { return { padding: '4px 10px', fontSize: 11, fontFamily: 'var(--font-mono)', fontWeight: 600, borderRadius: 999, border: '1px solid', borderColor: active ? 'var(--accent)' : 'var(--border)', background: active ? 'var(--accent)' : 'transparent', color: active ? '#fff' : 'var(--muted)', cursor: 'pointer' } },
@@ -933,6 +940,31 @@ export function BugPanel(props: BugPanelProps) {
   var _sortBy = useState('newest'); var sortBy = _sortBy[0]; var setSortBy = _sortBy[1]
   // WAFFLE-2: server counts + pagination state
   var _counts = useState<BugCounts | null>(null); var counts = _counts[0]; var setCounts = _counts[1]
+  // WAFFLE-FIX-1 regression fix (bug_w2f_tabrow): measured tab fit.
+  // 'full' = 11px + real counts; 'compact' = 10px, tighter padding, real
+  // counts; 'elide' = compact + counts over 99 render as 99+. Escalates one
+  // stage per measurement pass (useLayoutEffect, pre-paint) only when a
+  // button's content genuinely overflows its box; resets when the count
+  // values change so wider layouts recover full numbers.
+  var _tabFit = useState<'full' | 'compact' | 'elide'>('full'); var tabFit = _tabFit[0]; var setTabFit = _tabFit[1]
+  var tabBarRef = useRef<HTMLDivElement>(null)
+  var countsKey = counts ? [counts.queue, counts.mine, counts.closed, counts.verified, counts.deferred].join(',') : ''
+  useEffect(function() { setTabFit('full') }, [countsKey])
+  useLayoutEffect(function() {
+    if (tabFit === 'elide') return
+    var el = tabBarRef.current
+    if (!el) return
+    var btns = el.querySelectorAll('button')
+    for (var i = 0; i < btns.length; i++) {
+      if (btns[i].scrollWidth > btns[i].clientWidth + 1) {
+        setTabFit(tabFit === 'full' ? 'compact' : 'elide')
+        return
+      }
+    }
+  }, [tabFit, countsKey, tab, open])
+  function tabCount(n: number): string {
+    return tabFit === 'elide' && n > 99 ? '99+' : String(n)
+  }
   var _total = useState(0); var total = _total[0]; var setTotal = _total[1]
   var _loadingMore = useState(false); var loadingMore = _loadingMore[0]; var setLoadingMore = _loadingMore[1]
   // WAFFLE-2: standalone manager views
@@ -2082,7 +2114,7 @@ export function BugPanel(props: BugPanelProps) {
         )}
 
         {showListChrome && isAdmin && (
-          <div style={S.tabBar}>
+          <div style={S.tabBar} ref={tabBarRef}>
             {ADMIN_TABS.map(function(t) {
               // WAFFLE-2: hide My Tasks when the session has no contact_id
               if ((t as any).mine && !(session && session.contact_id)) return null
@@ -2096,7 +2128,7 @@ export function BugPanel(props: BugPanelProps) {
                 if ((t as any).excludeVerified && (b as any).verified_status === 'verified') return false
                 return true
               }).length
-              return <button key={t.id} style={S.tabBtn(tab === t.id)} onClick={function() { setTab(t.id); setExpanded(null) }}>{t.label} {count}</button>
+              return <button key={t.id} style={S.tabBtn(tab === t.id, tabFit !== 'full')} onClick={function() { setTab(t.id); setExpanded(null) }}>{t.label} {tabCount(count)}</button>
             })}
           </div>
         )}

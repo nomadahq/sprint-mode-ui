@@ -115024,6 +115024,11 @@ var H9 = {
 		bg: "#E6F1FB",
 		color: "#0C447C"
 	},
+	report: {
+		label: "Report",
+		bg: "#E9EFFC",
+		color: "#2362ea"
+	},
 	test: {
 		label: "Test",
 		bg: "#f3f4f6",
@@ -115037,7 +115042,7 @@ var H9 = {
 };
 function U9(e) {
 	var t = e.notification_type || "", n = e.comm_type || "", r = e.update_type || "";
-	return t === "sales" || t === "lead_submitted" || t === "lead_reply" || t === "lead_interested" ? "lead" : t === "contract_sent" || t === "contract_signed" || t === "contract_declined" ? "contract" : t === "screening_scheduled" ? "screening" : t === "signal_anomaly" ? "signal" : t === "mode_scan_complete" ? "mode" : t === "chat_escalated" || t === "support_reply" ? "support" : t === "guardrail_flag" ? "alert" : t.indexOf("portal_") === 0 ? "platform" : t.indexOf("deel_") === 0 ? "people" : t === "payment_failed" || t === "invoice_overdue" ? "finance" : t === "action_item_assigned" ? "task" : t === "team_update_published" ? "update" : t === "push_test" ? "test" : n === "bug_comment" ? "bug" : r === "ai_weekly" ? "ai_weekly" : r === "sprint_report" ? "sprint" : r === "milestone" ? "milestone" : r === "announcement" ? "announce" : r === "flash_update" ? "flash" : r === "board_update" ? "board" : r === "policy" ? "policy" : r === "culture" ? "culture" : "general";
+	return t === "sales" || t === "lead_submitted" || t === "lead_reply" || t === "lead_interested" ? "lead" : t === "contract_sent" || t === "contract_signed" || t === "contract_declined" ? "contract" : t === "screening_scheduled" ? "screening" : t === "signal_anomaly" ? "signal" : t === "mode_scan_complete" ? "mode" : t === "chat_escalated" || t === "support_reply" ? "support" : t === "guardrail_flag" ? "alert" : t.indexOf("portal_") === 0 ? "platform" : t.indexOf("deel_") === 0 ? "people" : t === "payment_failed" || t === "invoice_overdue" ? "finance" : t === "action_item_assigned" ? "task" : t === "team_update_published" ? "update" : t === "push_test" ? "test" : n === "bug_comment" ? "bug" : r === "ai_weekly" ? "ai_weekly" : r === "sprint_report" ? "sprint" : r === "milestone" ? "milestone" : r === "announcement" ? "announce" : r === "flash_update" ? "flash" : r === "quarterly_update" ? "report" : r === "monthly_flash" ? "flash" : r === "board_update" ? "board" : r === "policy" ? "policy" : r === "culture" ? "culture" : "general";
 }
 var aPe = new Set([
 	"support",

@@ -950,6 +950,34 @@ export function BugPanel(props: BugPanelProps) {
   var tabBarRef = useRef<HTMLDivElement>(null)
   var countsKey = counts ? [counts.queue, counts.mine, counts.closed, counts.verified, counts.deferred].join(',') : ''
   useEffect(function() { setTabFit('full') }, [countsKey])
+  // WAFFLE-FIX-1 regression fix round 2 (bug_w2f_tabrow): the escalation was
+  // measured exactly once, when counts arrived — typically BEFORE Geist Mono
+  // finished loading. The fallback monospace measures narrower, the check
+  // passed, the webfont then widened the text, and nothing ever re-measured:
+  // confirmed live at 320px (textRectW 77 > clientW 75 on Verified, font
+  // still 11px). Two re-measure triggers fix it: document.fonts.ready (the
+  // font swap) and window resize (Aaron-style width changes / rotation).
+  // Resetting to 'full' re-runs the pre-paint layout measurement, which
+  // escalates again before anything is painted — no visible flash.
+  useEffect(function() {
+    var mounted = true
+    try {
+      if (typeof document !== 'undefined' && document.fonts && document.fonts.ready) {
+        document.fonts.ready.then(function() { if (mounted) setTabFit('full') })
+      }
+    } catch (_e) { /* FontFaceSet unsupported — resize trigger still covers us */ }
+    var resizeTimer: ReturnType<typeof setTimeout> | null = null
+    function onResize() {
+      if (resizeTimer) clearTimeout(resizeTimer)
+      resizeTimer = setTimeout(function() { if (mounted) setTabFit('full') }, 150)
+    }
+    window.addEventListener('resize', onResize)
+    return function() {
+      mounted = false
+      if (resizeTimer) clearTimeout(resizeTimer)
+      window.removeEventListener('resize', onResize)
+    }
+  }, [])
   useLayoutEffect(function() {
     if (tabFit === 'elide') return
     var el = tabBarRef.current

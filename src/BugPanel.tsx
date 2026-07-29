@@ -1532,7 +1532,16 @@ export function BugPanel(props: BugPanelProps) {
     var turnedVerified = updates.verified_status === 'verified'
     if (turnedVerified) {
       triggerGold(bugId)
-      setBugs(function(prev) { return prev.map(function(b) { return b.id === bugId ? Object.assign({}, b, updates) : b }) })
+      // WAFFLE-FIX-1 (Aaron QA fail, root cause): optimistically applying
+      // status:'closed' made the Queue tab's client filter unmount the card
+      // the SAME FRAME the button was clicked - no flash, no pat, ever,
+      // regardless of animation timing (confirmed by frame capture: card
+      // gone at +100ms). Optimistic update applies everything EXCEPT status,
+      // so the card stays in the current tab (verified pill + gold + pat
+      // visible) until the deferred reload sweeps it properly at 1.9s.
+      var optimistic = Object.assign({}, updates)
+      delete optimistic.status
+      setBugs(function(prev) { return prev.map(function(b) { return b.id === bugId ? Object.assign({}, b, optimistic) : b }) })
     }
     apiFetch(apiBase + '/api/bugs/' + bugId, {
       method: 'PATCH', credentials: 'include',

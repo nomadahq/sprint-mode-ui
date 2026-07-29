@@ -139,15 +139,67 @@ var PRODUCTS_FALLBACK: Record<string, string[]> = {
   'Portals': ['admin', 'studios', 'signal', 'privacyai', 'safeshepherd', 'website'],
 }
 
+// WAFFLE-FIX-1 (bug_w2f_tabrow): labels shortened so all five tabs fit the
+// 480px slide-over simultaneously with real counts — Mine (was My Tasks),
+// Fixed (was Fixed/Unverified; the tab still excludes verified items, the
+// Verified tab next to it carries the distinction). Counts stay real numbers.
 var ADMIN_TABS = [
-  { id: 'queue',    label: 'Queue',       statuses: ['open', 'in_progress', 'blocked'] },
-  // WAFFLE-2: My Tasks — queue statuses assigned to the current session
+  { id: 'queue',    label: 'Queue',    statuses: ['open', 'in_progress', 'blocked'] },
+  // WAFFLE-2: Mine — queue statuses assigned to the current session
   // contact. Server-side via tab=mine; client fallback filters assigned_to.
-  { id: 'mine',     label: 'My Tasks',    statuses: ['open', 'in_progress', 'blocked'], mine: true },
-  { id: 'closed',   label: 'Fixed/Unverified', statuses: ['closed', 'fixed'], excludeVerified: true },
-  { id: 'verified', label: 'Verified',    statuses: ['closed', 'fixed'], verified: true },
-  { id: 'deferred', label: 'Deferred',    statuses: ['deferred'] },
+  { id: 'mine',     label: 'Mine',     statuses: ['open', 'in_progress', 'blocked'], mine: true },
+  { id: 'closed',   label: 'Fixed',    statuses: ['closed', 'fixed'], excludeVerified: true },
+  { id: 'verified', label: 'Verified', statuses: ['closed', 'fixed'], verified: true },
+  { id: 'deferred', label: 'Deferred', statuses: ['deferred'] },
 ]
+
+// ── WAFFLE-FIX-1 (bug_w2o_copypass): voice helpers ──────────────────────────
+// Puns live in MOMENTS (empty, loading, success) — never in data. See
+// sm-jockey/_briefs/WAFFLE-VOICE.md. Restraint list: no puns in tab labels,
+// counts, error states, delegation rows.
+
+function prefersReducedMotion(): boolean {
+  try {
+    return typeof window !== 'undefined' && !!window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches
+  } catch (_e) { return false }
+}
+
+var WAFFLE_VOICE_CSS =
+  '@keyframes waffleToast{0%{background-position:200% 0}100%{background-position:-200% 0}}' +
+  '@keyframes waffleMelt{0%{opacity:1;transform:scaleY(1)}100%{opacity:0;transform:scaleY(0.15) translateY(5px)}}'
+
+function ensureWaffleVoiceCss() {
+  if (typeof document === 'undefined') return
+  if (document.getElementById('waffle-voice-css')) return
+  var el = document.createElement('style')
+  el.id = 'waffle-voice-css'
+  el.textContent = WAFFLE_VOICE_CSS
+  document.head.appendChild(el)
+}
+
+// ONE butter pat that melts (~400ms). Never a shower. Skipped entirely under
+// prefers-reduced-motion.
+function ButterPat() {
+  if (prefersReducedMotion()) return null
+  return <span aria-hidden="true" style={{ display: 'inline-block', width: 14, height: 11, marginLeft: 6, borderRadius: 3, background: 'linear-gradient(180deg,#F9DE7B,#E8A13C)', boxShadow: '0 1px 2px rgba(0,0,0,0.15)', animation: 'waffleMelt 400ms ease-in forwards', transformOrigin: 'bottom center', verticalAlign: 'middle', flexShrink: 0 }} />
+}
+
+// Loading skeleton = the iron heating: pale pockets toast left-to-right to
+// golden as content arrives. Static pale under prefers-reduced-motion.
+function ToastSkeleton() {
+  var anim: CSSProperties = prefersReducedMotion() ? {} : {
+    backgroundImage: 'linear-gradient(90deg, var(--bg-subtle) 25%, #F2DCB3 50%, var(--bg-subtle) 75%)',
+    backgroundSize: '200% 100%',
+    animation: 'waffleToast 1.2s linear infinite',
+  }
+  return (
+    <div aria-hidden="true">
+      {[0, 1, 2, 3, 4].map(function(i) {
+        return <div key={i} style={Object.assign({ height: 34, margin: '6px 12px', borderRadius: 6, background: 'var(--bg-subtle)' }, anim)} />
+      })}
+    </div>
+  )
+}
 
 // WAFFLE-2: server counts shape from GET /api/bugs (see sm-api PR #968)
 export interface BugCounts {
@@ -278,8 +330,12 @@ var S = {
   sourceBtnLast: { borderRadius: '0 6px 6px 0' } as CSSProperties,
   filterBar: { display: 'flex', gap: 6, padding: '8px 16px', borderBottom: '1px solid var(--border)', flexShrink: 0, flexWrap: 'wrap', alignItems: 'center' } as CSSProperties,
   filterSelect: { fontSize: 11, fontFamily: 'var(--font-mono)', padding: '4px 8px', borderRadius: 4, border: '1px solid var(--border)', background: 'var(--bg-subtle)', color: 'var(--foreground)', outline: 'none' } as CSSProperties,
-  tabBar: { display: 'flex', borderBottom: '1px solid var(--border)', flexShrink: 0, overflowX: 'auto' as const, scrollbarWidth: 'thin' as const } as CSSProperties,
-  tabBtn: function(active: boolean): CSSProperties { return { flex: '1 0 auto', whiteSpace: 'nowrap', padding: '8px 8px', fontSize: 11, fontFamily: 'var(--font-mono)', fontWeight: active ? 700 : 400, color: active ? 'var(--accent)' : 'var(--muted)', background: 'none', border: 'none', borderBottom: active ? '2px solid var(--accent)' : '2px solid transparent', cursor: 'pointer', textAlign: 'center' } },
+  // WAFFLE-FIX-1 (bug_w2f_tabrow/bug_w2f_hscroll): tabs shrink to fit —
+  // flex '1 1 auto' + minWidth 0, no overflowX scrolling. A scrollable tab
+  // strip was explicitly rejected; with the shortened labels all five tabs
+  // fit the 480px panel with real counts.
+  tabBar: { display: 'flex', borderBottom: '1px solid var(--border)', flexShrink: 0, overflow: 'hidden' } as CSSProperties,
+  tabBtn: function(active: boolean): CSSProperties { return { flex: '1 1 auto', minWidth: 0, whiteSpace: 'nowrap', overflow: 'hidden', padding: '8px 4px', fontSize: 11, fontFamily: 'var(--font-mono)', fontWeight: active ? 700 : 400, color: active ? 'var(--accent)' : 'var(--muted)', background: 'none', border: 'none', borderBottom: active ? '2px solid var(--accent)' : '2px solid transparent', cursor: 'pointer', textAlign: 'center' } },
   list: { flex: 1, overflowY: 'auto', padding: 8 } as CSSProperties,
   rpills: { display: 'flex', gap: 4, padding: '8px 16px', borderBottom: '1px solid var(--border)', flexShrink: 0 } as CSSProperties,
   rpill: function(active: boolean): CSSProperties { return { padding: '4px 10px', fontSize: 11, fontFamily: 'var(--font-mono)', fontWeight: 600, borderRadius: 999, border: '1px solid', borderColor: active ? 'var(--accent)' : 'var(--border)', background: active ? 'var(--accent)' : 'transparent', color: active ? '#fff' : 'var(--muted)', cursor: 'pointer' } },
@@ -325,7 +381,6 @@ var S = {
   groupCount: { fontWeight: 400 } as CSSProperties,
   loadMore: { display: 'block', width: '100%', margin: '8px 0', padding: 8, fontSize: 11, fontFamily: 'var(--font-mono)', fontWeight: 600, color: 'var(--accent)', background: 'var(--bg-subtle)', border: '1px solid var(--border)', borderRadius: 6, cursor: 'pointer' } as CSSProperties,
   viewBar: { display: 'flex', gap: 4, padding: '8px 16px', borderBottom: '1px solid var(--border)', flexShrink: 0, alignItems: 'center' } as CSSProperties,
-  rollupCard: { textAlign: 'left' as const, padding: '14px 16px', background: 'var(--bg-card)', border: '1px solid var(--border)', borderRadius: 8, cursor: 'pointer', display: 'flex', flexDirection: 'column' as const, gap: 4 } as CSSProperties,
   delRow: { display: 'flex', alignItems: 'center', gap: 8, padding: '7px 8px', borderBottom: '1px solid var(--border)', fontSize: 12 } as CSSProperties,
   threadBadge: { fontSize: 10, fontFamily: 'var(--font-mono)', fontWeight: 700, padding: '2px 6px', borderRadius: 4, background: 'var(--blue-10)', color: 'var(--blue)' } as CSSProperties,
 }
@@ -400,7 +455,7 @@ function CommentAttThumb({ att, bugId, isImage, apiBase, product }: { att: BugAt
   )
 }
 
-function BugCard({ bug, isAdmin, expanded, onToggle, onAction, onComment, onDelete, onFire, onFireTerminal, onVerify, apiBase, product, searchQuery, assignees }: {
+function BugCard({ bug, isAdmin, expanded, onToggle, onAction, onComment, onDelete, onFire, onFireTerminal, onVerify, apiBase, product, searchQuery, assignees, flash }: {
   bug: Bug
   isAdmin?: boolean
   expanded: boolean
@@ -411,6 +466,8 @@ function BugCard({ bug, isAdmin, expanded, onToggle, onAction, onComment, onDele
   onFire?: (bugId: string) => void
   onFireTerminal?: (bugId: string) => void
   onVerify?: (bugId: string) => void
+  // WAFFLE-FIX-1 (bug_w2o_copypass): brief golden-brown flash on verify
+  flash?: boolean
   apiBase: string
   product: string
   searchQuery?: string
@@ -476,7 +533,7 @@ function BugCard({ bug, isAdmin, expanded, onToggle, onAction, onComment, onDele
   }
 
   return (
-    <div style={S.card(expanded)} onClick={onToggle} data-bug-id={bug.id}>
+    <div style={Object.assign({}, S.card(expanded), { transition: 'background 0.9s ease' }, flash ? { background: 'rgba(232,161,60,0.22)' } : {})} onClick={onToggle} data-bug-id={bug.id}>
       <div style={S.meta}>
         <span style={S.dot(dotColor)} />
         <span style={S.typeBadge}>{bug.type || 'bug'}</span>
@@ -489,6 +546,7 @@ function BugCard({ bug, isAdmin, expanded, onToggle, onAction, onComment, onDele
         {bug.verified_status && VERIFIED_META[bug.verified_status] && (
           <span style={{ display: 'inline-block', fontSize: 9, fontFamily: 'var(--font-mono)', fontWeight: 600, padding: '2px 6px', borderRadius: 999, flexShrink: 0, background: VERIFIED_META[bug.verified_status].bg, color: VERIFIED_META[bug.verified_status].color, marginLeft: 4 }}>{VERIFIED_META[bug.verified_status].label}</span>
         )}
+        {flash && <ButterPat />}
       </div>
 
       <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginBottom: 4 }}>
@@ -851,6 +909,26 @@ export function BugPanel(props: BugPanelProps) {
   var _filterAssignee = useState('all'); var filterAssignee = _filterAssignee[0]; var setFilterAssignee = _filterAssignee[1]
   var _filterSubsystem = useState('all'); var filterSubsystem = _filterSubsystem[0]; var setFilterSubsystem = _filterSubsystem[1]
   var _assignees = useState<Array<{ id: string; name: string }>>([]); var assignees = _assignees[0]; var setAssignees = _assignees[1]
+  // WAFFLE-FIX-1 (bug_w2o_peoplefilter): distinct reporter names from the
+  // server (GET /api/bugs/assignees `reporters` key) — covers every submitter
+  // ever, incl. client-portal reporters, not just the loaded page.
+  var _reporters = useState<string[]>([]); var reporters = _reporters[0]; var setReporters = _reporters[1]
+  // WAFFLE-FIX-1 (bug_w2o_copypass): golden-brown flash + one butter pat on
+  // a bug turning verified. goldFlash holds the bug id briefly.
+  var _goldFlash = useState<string | null>(null); var goldFlash = _goldFlash[0]; var setGoldFlash = _goldFlash[1]
+  var goldTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
+  function triggerGold(bugId: string) {
+    if (goldTimerRef.current) clearTimeout(goldTimerRef.current)
+    setGoldFlash(bugId)
+    goldTimerRef.current = setTimeout(function() { setGoldFlash(null) }, 1100)
+  }
+  // WAFFLE-FIX-1 (bug_wfx_mydayclick): id of a bug the user clicked in
+  // My Day — resolved into the list (tab switch / targeted fetch / scroll).
+  var _pendingFocus = useState<string | null>(null); var pendingFocus = _pendingFocus[0]; var setPendingFocus = _pendingFocus[1]
+  // WAFFLE-FIX-1 (bug_w2o_copypass): butter pat in the My Day header when the
+  // strip empties out during a session.
+  var _patMyDay = useState(false); var patMyDay = _patMyDay[0]; var setPatMyDay = _patMyDay[1]
+  var myDayHadWorkRef = useRef(false)
   var _subsystems = useState<string[]>([]); var subsystems = _subsystems[0]; var setSubsystems = _subsystems[1]
   var _sortBy = useState('newest'); var sortBy = _sortBy[0]; var setSortBy = _sortBy[1]
   // WAFFLE-2: server counts + pagination state
@@ -861,14 +939,23 @@ export function BugPanel(props: BugPanelProps) {
   // WAFFLE-2 addendum: manager sections stack above the list with per-section
   // collapse persisted in localStorage (standalone runs in real browsers;
   // same try/catch pattern Layout uses for sm-theme/recentKey).
+  // WAFFLE-FIX-1 (bug_w2f_slideover_sections): sections now render in the
+  // slide-over too. Collapse state is panel-scoped ('-panel' suffix) so the
+  // slide-over and standalone remember independently; the slide-over defaults
+  // to all-collapsed (standalone default — expanded — unchanged).
+  var sectionsStorageKey = 'waffle-sections-collapsed' + (props.standalone ? '' : '-panel')
   var _collapsed = useState<Record<string, boolean>>(function() {
-    try { return JSON.parse(localStorage.getItem('waffle-sections-collapsed') || '{}') } catch (_e) { return {} }
+    var fallback: Record<string, boolean> = props.standalone ? {} : { myday: true, rollup: true, delegation: true }
+    try {
+      var raw = localStorage.getItem(sectionsStorageKey)
+      return raw ? JSON.parse(raw) : fallback
+    } catch (_e) { return fallback }
   })
   var collapsed = _collapsed[0]; var setCollapsed = _collapsed[1]
   function toggleSection(key: string) {
     setCollapsed(function(prev) {
       var next = { ...prev, [key]: !prev[key] }
-      try { localStorage.setItem('waffle-sections-collapsed', JSON.stringify(next)) } catch (_e) { /* storage unavailable — state still works in-memory */ }
+      try { localStorage.setItem(sectionsStorageKey, JSON.stringify(next)) } catch (_e) { /* storage unavailable — state still works in-memory */ }
       return next
     })
   }
@@ -999,7 +1086,12 @@ export function BugPanel(props: BugPanelProps) {
     if (isAdmin) {
       apiFetch(apiBase + '/api/bugs/assignees')
         .then(function(r) { return r.json() })
-        .then(function(d: { ok: boolean; data?: Array<{ id: string; name: string }> }) { if (d.ok && Array.isArray(d.data)) setAssignees(d.data) })
+        .then(function(d: { ok: boolean; data?: Array<{ id: string; name: string }>; reporters?: string[] }) {
+          if (d.ok && Array.isArray(d.data)) setAssignees(d.data)
+          // WAFFLE-FIX-1 (bug_w2o_peoplefilter): sibling `reporters` key —
+          // absent on older sm-api; People filter falls back to page-derived.
+          if (d.ok && Array.isArray(d.reporters)) setReporters(d.reporters)
+        })
         .catch(function() {})
     }
   }, [open, isAdmin, apiBase])
@@ -1112,40 +1204,94 @@ export function BugPanel(props: BugPanelProps) {
   }, [open, filterProduct, filterType, filterPriority, filterAssignee, filterSubsystem, filterSource, debouncedSearch, loadBugs, isAdmin, apiBase])
 
   // ── WAFFLE-2: standalone manager view data ────────────────────────────────
+  // WAFFLE-FIX-1 (bug_w2f_slideover_sections): sections (My Day / Products /
+  // Delegation) render for admins in BOTH the slide-over and standalone —
+  // managerSections gates them. managerViews (standalone-only) still gates
+  // the group-by machinery, which stays a standalone affordance.
   var managerViews = Boolean(props.standalone && isAdmin)
+  var managerSections = Boolean(isAdmin)
 
   // My Day: one cheap call on open — headline count stays live even collapsed
-  useEffect(function() {
-    if (!managerViews || !open) return
+  function refreshMyDay() {
     apiFetch(apiBase + '/api/bugs/my-day')
       .then(function(r) { return r.json() })
       .then(function(d: { ok?: boolean; data?: MyDayData }) { if (d && d.data) setMyDay(d.data) })
       .catch(function() {})
+  }
+  useEffect(function() {
+    if (!managerSections || !open) return
+    refreshMyDay()
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [managerViews, open, apiBase])
+  }, [managerSections, open, apiBase])
+
+  // WAFFLE-FIX-1 (bug_w2o_copypass): inject the voice keyframes once
+  useEffect(function() { ensureWaffleVoiceCss() }, [])
+
+  // WAFFLE-FIX-1 (bug_w2o_copypass): one butter pat when the user's own
+  // My Day work transitions to empty during a session.
+  useEffect(function() {
+    if (!myDay) { myDayHadWorkRef.current = false; return }
+    var hasWork = myDay.overdue.length + myDay.due_today.length + myDay.in_progress_mine.length + myDay.newly_assigned.length > 0
+    if (myDayHadWorkRef.current && !hasWork) {
+      setPatMyDay(true)
+      setTimeout(function() { setPatMyDay(false) }, 900)
+    }
+    myDayHadWorkRef.current = hasWork
+  }, [myDay])
+
+  // WAFFLE-FIX-1 (bug_wfx_mydayclick): resolve a pending focus once the list
+  // settles — if the bug is outside the loaded slice, fetch it by id and
+  // prepend, then scroll the card into view. fetchedFocusRef stops a re-fetch
+  // loop if the row can't land (e.g. deleted between clicks).
+  var fetchedFocusRef = useRef<string | null>(null)
+  useEffect(function() {
+    if (!pendingFocus || loading) return
+    var id = pendingFocus
+    var present = bugs.some(function(b) { return b.id === id })
+    if (present) {
+      requestAnimationFrame(function() {
+        var el = document.querySelector('[data-bug-id="' + id + '"]')
+        if (el && (el as HTMLElement).scrollIntoView) (el as HTMLElement).scrollIntoView({ block: 'start', behavior: prefersReducedMotion() ? 'auto' : 'smooth' })
+      })
+      fetchedFocusRef.current = null
+      setPendingFocus(null)
+      return
+    }
+    if (fetchedFocusRef.current === id) { fetchedFocusRef.current = null; setPendingFocus(null); return }
+    fetchedFocusRef.current = id
+    apiFetch(apiBase + '/api/bugs/' + id, { credentials: 'include' })
+      .then(function(r) { return r.json() })
+      .then(function(d: { ok: boolean; data?: Bug }) {
+        if (d.ok && d.data) {
+          setBugs(function(prev) { return prev.some(function(b) { return b.id === id }) ? prev : [d.data!].concat(prev) })
+        } else { fetchedFocusRef.current = null; setPendingFocus(null) }
+      })
+      .catch(function() { fetchedFocusRef.current = null; setPendingFocus(null) })
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [pendingFocus, loading, bugs, apiBase])
 
   // Rollup cards: per-product server counts (rollup=1); fetch when expanded
   useEffect(function() {
-    if (!managerViews || collapsed.rollup || !open || productCounts) return
+    if (!managerSections || collapsed.rollup || !open || productCounts) return
     apiFetch(apiBase + '/api/bugs?tab=queue&rollup=1&limit=1')
       .then(function(r) { return r.json() })
       .then(function(d: { product_counts?: ProductCount[] }) { setProductCounts(Array.isArray(d.product_counts) ? d.product_counts : []) })
       .catch(function() { setProductCounts([]) })
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [managerViews, collapsed.rollup, open, apiBase, productCounts])
+  }, [managerSections, collapsed.rollup, open, apiBase, productCounts])
 
   // Delegation: full queue fetch — assignee grouping needs the whole set, not
   // a page (2000 cap = sm-api ceiling). NOT cheap, so only when expanded;
   // collapsed headline shows the count once loaded.
   useEffect(function() {
-    if (!managerViews || collapsed.delegation || !open || delegationBugs) return
+    if (!managerSections || collapsed.delegation || !open || delegationBugs) return
     setDelegationLoading(true)
     apiFetch(apiBase + '/api/bugs?tab=queue&limit=2000')
       .then(function(r) { return r.json() })
       .then(function(d: { data?: Bug[] }) { setDelegationBugs(Array.isArray(d.data) ? d.data : []); setDelegationLoading(false) })
       .catch(function() { setDelegationBugs([]); setDelegationLoading(false) })
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [managerViews, collapsed.delegation, open, apiBase, delegationBugs])
+  }, [managerSections, collapsed.delegation, open, apiBase, delegationBugs])
 
   // Reset section caches on close so the next open refreshes data
   useEffect(function() {
@@ -1210,9 +1356,14 @@ export function BugPanel(props: BugPanelProps) {
       .then(function(r) { return r.json() })
       .then(function(d: { ok: boolean; data?: Bug }) {
         if (d.ok && d.data) {
+          // WAFFLE-FIX-1 (bug_w2o_copypass): a bug we last saw pw_verifying
+          // coming back verified is the golden-brown moment — merge the fresh
+          // verified fields and flash.
+          var prevLocal = bugs.find(function(b) { return b.id === expanded })
+          if (expanded && prevLocal && prevLocal.verified_status === 'pw_verifying' && d.data.verified_status === 'verified') triggerGold(expanded)
           setBugs(function(prev) {
             return prev.map(function(b) {
-              return b.id === expanded ? Object.assign({}, b, { comments: d.data!.comments, attachments: d.data!.attachments }) : b
+              return b.id === expanded ? Object.assign({}, b, { comments: d.data!.comments, attachments: d.data!.attachments, verified_status: d.data!.verified_status, verification_run_id: d.data!.verification_run_id }) : b
             })
           })
           // PW-QA-VERIFY-1: Fetch verification results if bug has a run
@@ -1281,11 +1432,24 @@ export function BugPanel(props: BugPanelProps) {
   }, [props.standalone])
 
   function handleAction(bugId: string, updates: Record<string, string>) {
+    // WAFFLE-FIX-1 (bug_w2o_copypass): verified = golden brown. Flash the
+    // card (optimistically marked) and let the moment land before the list
+    // reload sweeps it to another tab.
+    var turnedVerified = updates.verified_status === 'verified'
+    if (turnedVerified) {
+      triggerGold(bugId)
+      setBugs(function(prev) { return prev.map(function(b) { return b.id === bugId ? Object.assign({}, b, updates) : b }) })
+    }
     apiFetch(apiBase + '/api/bugs/' + bugId, {
       method: 'PATCH', credentials: 'include',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(updates)
-    }).then(function() { loadBugs() })
+    }).then(function() {
+      if (turnedVerified) { setTimeout(function() { loadBugs() }, 700) } else { loadBugs() }
+      // Keep the My Day headline honest after actions (also lets the
+      // strip-cleared butter pat fire).
+      if (managerSections) refreshMyDay()
+    })
   }
 
   function handleDelete(bugId: string) {
@@ -1457,8 +1621,20 @@ export function BugPanel(props: BugPanelProps) {
   // ── WAFFLE-2: manager views render helpers (standalone admin only) ────────
   var showListChrome = true // WAFFLE-2 addendum: sections stack above the list; chrome always visible
 
+  // WAFFLE-FIX-1 (bug_w2o_copypass): empty-state moments per WAFFLE-VOICE.
+  // Only the named moments get a line; everything else stays plain.
+  function listEmptyCopy(): string {
+    if (!isAdmin) return 'No items.'
+    var q = debouncedSearch.trim().toLowerCase()
+    if (q === 'leggo') return "we don't do that here."
+    if (q) return "That pocket's empty."
+    if (filterAssignee === 'unassigned') return 'Every pocket claimed.'
+    if (tab === 'queue') return 'Fresh out of batter.'
+    return 'No items.'
+  }
+
   function renderCard(bug: Bug) {
-    return <BugCard key={bug.id} bug={bug} isAdmin={isAdmin} assignees={assignees} expanded={expanded === bug.id}
+    return <BugCard key={bug.id} bug={bug} isAdmin={isAdmin} assignees={assignees} expanded={expanded === bug.id} flash={goldFlash === bug.id}
       onToggle={function() { setExpanded(expanded === bug.id ? null : bug.id) }}
       onAction={handleAction} onComment={handleComment} onDelete={isAdmin ? handleDelete : undefined} onFire={handleFire} onFireTerminal={handleFireTerminal} onVerify={isAdmin ? handleVerify : undefined} apiBase={apiBase} product={product} searchQuery={debouncedSearch} />
   }
@@ -1534,12 +1710,29 @@ export function BugPanel(props: BugPanelProps) {
     )
   }
 
+  // WAFFLE-FIX-1 (bug_wfx_mydayclick): real focus-through — switch to the tab
+  // the bug lives on, ensure it is present in the loaded list (targeted fetch
+  // by id when outside the slice), then expand + scroll it into view. The
+  // pendingFocus effect below does the ensure/scroll half after the list
+  // settles.
+  function tabForBug(b: Bug): string {
+    if (b.status === 'deferred') return 'deferred'
+    if (b.status === 'closed' || b.status === 'fixed') return (b as any).verified_status === 'verified' ? 'verified' : 'closed'
+    return 'queue'
+  }
+  function focusBug(b: Bug) {
+    var target = tabForBug(b)
+    if (target !== tab) setTab(target)
+    setExpanded(b.id)
+    setPendingFocus(b.id)
+  }
+
   function myDayRow(b: Bug, tag: string, tagColor: string) {
     return (
       <div key={tag + b.id} style={S.delRow}>
         <span style={{ fontSize: 9, fontFamily: 'var(--font-mono)', fontWeight: 700, textTransform: 'uppercase' as const, color: tagColor, flexShrink: 0, width: 88 }}>{tag}</span>
         <span style={{ flex: 1, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' as const, color: 'var(--foreground)', cursor: 'pointer' }}
-          onClick={function() { setExpanded(b.id) }}>{b.title}</span>
+          onClick={function() { focusBug(b) }}>{b.title}</span>
         <span style={{ fontSize: 10, fontFamily: 'var(--font-mono)', color: 'var(--muted)', flexShrink: 0 }}>{b.product}{b.due_date ? ' \u00b7 ' + b.due_date.slice(0, 10) : ''}</span>
       </div>
     )
@@ -1548,14 +1741,14 @@ export function BugPanel(props: BugPanelProps) {
   // My Day strip (WAFFLE-1 route /api/bugs/my-day; UI = WAFFLE-2 item 4)
   var myDayOverdueN = myDay ? myDay.overdue.length : 0
   var myDayMineEmpty = !!myDay && myDay.overdue.length === 0 && myDay.due_today.length === 0 && myDay.in_progress_mine.length === 0 && myDay.newly_assigned.length === 0
-  var myDaySection = managerViews ? (
+  var myDaySection = managerSections ? (
     <div>
       {sectionHeader('myday', 'My Day', myDay ? (myDayMineEmpty && myDay.unassigned_on_my_products.length > 0 ? myDay.unassigned_on_my_products.length + ' in intake' : myDayOverdueN + ' overdue \u00b7 ' + myDay.due_today.length + ' due today') : '')}
       {!collapsed.myday && (
         <div style={{ maxHeight: 260, overflowY: 'auto' as const, borderBottom: '1px solid var(--border)' }}>
           {!myDay && <div style={{ padding: '14px 16px', fontSize: 12, color: 'var(--muted)' }}>Loading...</div>}
           {myDay && myDayOverdueN === 0 && myDay.due_today.length === 0 && myDay.in_progress_mine.length === 0 && myDay.newly_assigned.length === 0 && myDay.unassigned_on_my_products.length === 0 && (
-            <div style={{ padding: '14px 16px', fontSize: 12, color: 'var(--muted)' }}>Clear for today. Nothing overdue, due, in progress, or newly assigned.</div>
+            <div style={{ padding: '14px 16px', fontSize: 12, color: 'var(--muted)' }}>Nothing on the iron. Enjoy the syrup.{patMyDay && <ButterPat />}</div>
           )}
           {myDay && myDayMineEmpty && myDay.unassigned_on_my_products.length > 0 && (
             <div style={{ padding: '8px 16px 2px', fontSize: 10, fontFamily: 'var(--font-mono)', fontWeight: 700, letterSpacing: 0.5, color: 'var(--muted)' }}>INTAKE {'\u2014'} UNASSIGNED ON YOUR PRODUCTS</div>
@@ -1572,7 +1765,7 @@ export function BugPanel(props: BugPanelProps) {
   ) : null
 
   var rollupHeadline = counts ? counts.queue + ' open' : (productCounts ? productCounts.reduce(function(a, p) { return a + p.queue }, 0) + ' open' : '')
-  var rollupView = managerViews ? (
+  var rollupView = managerSections ? (
     <div>
       {sectionHeader('rollup', 'Products', rollupHeadline)}
       {!collapsed.rollup && (
@@ -1580,18 +1773,23 @@ export function BugPanel(props: BugPanelProps) {
       {productCounts === null && <div style={S.empty}>Loading...</div>}
       {productCounts !== null && productCounts.length === 0 && <div style={S.empty}>No items.</div>}
       {productCounts !== null && productCounts.length > 0 && (
-        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(160px, 1fr))', gap: 12, padding: 8 }}>
+        /* WAFFLE-FIX-1 (bug_wfx_density): compact rows — name · counts · age
+           chip. ~34px per product (8+ per viewport) vs the old 4-line card
+           grid. Click-to-filter and 30d+ age reddening kept. */
+        <div>
           {productCounts.map(function(p) {
+            var ageChip: React.ReactNode = null
+            if (p.oldest_queue_at) {
+              var days = Math.max(0, Math.floor((Date.now() - new Date(p.oldest_queue_at.replace(' ', 'T') + 'Z').getTime()) / 86400000))
+              ageChip = <span style={{ fontSize: 10, fontFamily: 'var(--font-mono)', flexShrink: 0, padding: '1px 6px', borderRadius: 999, background: days >= 30 ? 'var(--red-light)' : 'var(--bg-subtle)', color: days >= 30 ? 'var(--red)' : 'var(--muted)' }}>{days}d</span>
+            }
             return (
-              <button key={p.product} style={S.rollupCard} title={'Filter list to ' + p.product} onClick={function() { setFilterProduct(p.product); setTab('queue') }}>
-                <span style={{ fontSize: 12, fontWeight: 700, color: 'var(--foreground)', fontFamily: 'var(--font-mono)' }}>{p.product}</span>
-                <span style={{ fontSize: 26, fontWeight: 800, color: 'var(--foreground)', lineHeight: 1.1 }}>{p.queue}</span>
-                <span style={{ fontSize: 11, color: 'var(--muted)' }}>{p.open} open {'\u00b7'} {p.in_progress} in progress</span>
-                <span style={{ fontSize: 11, color: 'var(--muted)' }}>{p.verified} verified {'\u00b7'} {p.deferred} deferred</span>
-                {p.oldest_queue_at && (function() {
-                  var days = Math.max(0, Math.floor((Date.now() - new Date(p.oldest_queue_at.replace(' ', 'T') + 'Z').getTime()) / 86400000))
-                  return <span style={{ fontSize: 10, fontFamily: 'var(--font-mono)', color: days >= 30 ? 'var(--red)' : 'var(--muted)' }}>oldest {days}d</span>
-                })()}
+              <button key={p.product} title={'Filter list to ' + p.product} onClick={function() { setFilterProduct(p.product); setTab('queue') }}
+                style={{ display: 'flex', alignItems: 'center', gap: 8, width: '100%', textAlign: 'left' as const, padding: '7px 16px', background: 'none', border: 'none', borderBottom: '1px solid var(--border)', cursor: 'pointer' }}>
+                <span style={{ fontSize: 12, fontWeight: 700, color: 'var(--foreground)', fontFamily: 'var(--font-mono)', flexShrink: 0 }}>{p.product}</span>
+                <span style={{ fontSize: 12, fontWeight: 700, color: 'var(--foreground)', flexShrink: 0 }}>{p.queue}</span>
+                <span style={{ fontSize: 11, color: 'var(--muted)', flex: 1, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' as const }}>{p.in_progress} in progress {'\u00b7'} {p.verified} verified {'\u00b7'} {p.deferred} deferred</span>
+                {ageChip}
               </button>
             )
           })}
@@ -1603,7 +1801,7 @@ export function BugPanel(props: BugPanelProps) {
   ) : null
 
   var delegationUnassignedN = delegationBugs ? delegationBugs.filter(function(b) { return !b.assigned_to }).length : null
-  var delegationView = managerViews ? (
+  var delegationView = managerSections ? (
     <div>
       {sectionHeader('delegation', 'Delegation', delegationUnassignedN === null ? '' : delegationUnassignedN + ' unassigned')}
       {!collapsed.delegation && (function() {
@@ -1815,7 +2013,13 @@ export function BugPanel(props: BugPanelProps) {
             {isAdmin && (
               <select style={S.filterSelect} value={filterPerson} onChange={function(e) { setFilterPerson(e.target.value) }}>
                 <option value="all">People</option>
-                {Array.from(new Set(bugs.map(function(b) { return b.submitted_by_name }).filter(Boolean))).sort().map(function(name) {
+                {/* WAFFLE-FIX-1 (bug_w2o_peoplefilter): server-side distinct
+                    reporters (all-time, incl. client-portal submitters).
+                    Page-derived fallback only for older sm-api responses. */}
+                {(reporters.length > 0
+                  ? reporters
+                  : Array.from(new Set(bugs.map(function(b) { return b.submitted_by_name }).filter(Boolean))).sort() as string[]
+                ).map(function(name) {
                   return <option key={name} value={name}>{name}</option>
                 })}
               </select>
@@ -1825,15 +2029,6 @@ export function BugPanel(props: BugPanelProps) {
                 <option value="all">Assignee</option>
                 <option value="unassigned">Unassigned</option>
                 {assignees.map(function(a) { return <option key={a.id} value={a.id}>{a.name}</option> })}
-              </select>
-            )}
-            {managerViews && (
-              <select style={S.filterSelect} value={groupBy} onChange={function(e) { setGroupBy(e.target.value) }} title="Group the list">
-                <option value="none">Newest</option>
-                <option value="assignee">By Assignee</option>
-                <option value="product">By Product</option>
-                <option value="subsystem">By Subsystem</option>
-                <option value="overdue">Overdue First</option>
               </select>
             )}
             {isAdmin && (
@@ -1859,12 +2054,30 @@ export function BugPanel(props: BugPanelProps) {
                 >×</button>
               )}
             </div>
-            <span style={{ fontSize: 10, fontFamily: 'var(--font-mono)', color: 'var(--muted)', marginLeft: 'auto' }}>Sort:</span>
-            <select style={S.filterSelect} value={sortBy} onChange={function(e) { setSortBy(e.target.value) }}>
-              <option value="newest">Newest</option>
-              <option value="priority">Priority</option>
-              <option value="oldest">Oldest</option>
-            </select>
+            {/* WAFFLE-FIX-1 (bug_w2o_groupby_dup): Group and Sort sit together
+                at the row's end, each with its own label. Group's default is
+                "No grouping" — it no longer masquerades as a second "Newest"
+                dropdown. One wrap-friendly pass covers 480px and 720px. */}
+            {managerViews && (
+              <span style={{ display: 'inline-flex', alignItems: 'center', gap: 4, marginLeft: 'auto' }}>
+                <span style={{ fontSize: 10, fontFamily: 'var(--font-mono)', color: 'var(--muted)' }}>Group:</span>
+                <select style={S.filterSelect} value={groupBy} onChange={function(e) { setGroupBy(e.target.value) }} title="Group the list">
+                  <option value="none">No grouping</option>
+                  <option value="assignee">By Assignee</option>
+                  <option value="product">By Product</option>
+                  <option value="subsystem">By Subsystem</option>
+                  <option value="overdue">Overdue First</option>
+                </select>
+              </span>
+            )}
+            <span style={{ display: 'inline-flex', alignItems: 'center', gap: 4, marginLeft: managerViews ? 0 : 'auto' }}>
+              <span style={{ fontSize: 10, fontFamily: 'var(--font-mono)', color: 'var(--muted)' }}>Sort:</span>
+              <select style={S.filterSelect} value={sortBy} onChange={function(e) { setSortBy(e.target.value) }}>
+                <option value="newest">Newest</option>
+                <option value="priority">Priority</option>
+                <option value="oldest">Oldest</option>
+              </select>
+            </span>
           </div>
         )}
 
@@ -1890,8 +2103,8 @@ export function BugPanel(props: BugPanelProps) {
 
         {showListChrome && (
         <div style={S.list}>
-          {loading && <div style={S.empty}>Loading...</div>}
-          {!loading && items.length === 0 && <div style={S.empty}>No items.</div>}
+          {loading && <ToastSkeleton />}
+          {!loading && items.length === 0 && <div style={S.empty}>{listEmptyCopy()}</div>}
           {!loading && renderListBody(bugs.filter(function(b) {
             // Status filter: admin uses tab, reporter uses pill
             if (isAdmin) {
@@ -1922,7 +2135,9 @@ export function BugPanel(props: BugPanelProps) {
           {/* WAFFLE-2: load-more pagination (admin, server counts present) */}
           {!loading && isAdmin && counts !== null && bugs.length < total && (
             <button style={S.loadMore} disabled={loadingMore} onClick={function() { loadBugs(bugs.length) }}>
-              {loadingMore ? 'Loading...' : 'Load more \u2014 ' + bugs.length + ' of ' + total}
+              {/* WAFFLE-FIX-1 (bug_w2o_copypass): same button, better label —
+                  explains the name every time someone paginates. */}
+              {loadingMore ? 'Loading...' : 'Pour more batter \u2014 ' + bugs.length + ' of ' + total}
             </button>
           )}
         </div>

@@ -108502,11 +108502,16 @@ function p9(t) {
 	}, [t.standalone]);
 	function Xn(e, t) {
 		var n = t.verified_status === "verified";
-		n && (We(e), E(function(n) {
-			return n.map(function(n) {
-				return n.id === e ? Object.assign({}, n, t) : n;
+		if (n) {
+			We(e);
+			var r = Object.assign({}, t);
+			delete r.status, E(function(t) {
+				return t.map(function(t) {
+					return t.id === e ? Object.assign({}, t, r) : t;
+				});
 			});
-		})), _(o + "/api/bugs/" + e, {
+		}
+		_(o + "/api/bugs/" + e, {
 			method: "PATCH",
 			credentials: "include",
 			headers: { "Content-Type": "application/json" },

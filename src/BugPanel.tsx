@@ -1120,6 +1120,17 @@ export function BugPanel(props: BugPanelProps) {
     } catch (_e) { /* clipboard unavailable */ }
   }
 
+  var MCP_SERVER_URL = 'https://waffle.sprintmode.ai/mcp'
+  var [urlCopied, setUrlCopied] = useState(false)
+  function copyServerUrl() {
+    try {
+      navigator.clipboard.writeText(MCP_SERVER_URL).then(function() {
+        setUrlCopied(true)
+        setTimeout(function() { setUrlCopied(false) }, 2000)
+      })
+    } catch (_e) { /* clipboard unavailable */ }
+  }
+
 
   // Deep link: focusBugId prop or ?bug=bug_xxx in URL
   var deepLinkBugId = useRef<string | null>(null)
@@ -2011,8 +2022,14 @@ export function BugPanel(props: BugPanelProps) {
               <div style={{ fontSize: 12, color: 'var(--muted)', marginBottom: 6 }}>
                 Server URL (claude.ai and Claude Desktop connect here with OAuth — no key needed; the connection appears below as a revocable key):
               </div>
-              <div style={{ fontFamily: 'var(--font-mono,monospace)', fontSize: 11, background: 'var(--bg-subtle,var(--bg))', border: '1px solid var(--border)', borderRadius: 8, padding: '8px 12px', color: 'var(--foreground)', marginBottom: 14, userSelect: 'all' }}>
-                https://waffle.sprintmode.ai/mcp
+              <div style={{ display: 'flex', alignItems: 'center', gap: 6, background: 'var(--bg-subtle,var(--bg))', border: '1px solid var(--border)', borderRadius: 8, padding: '6px 6px 6px 12px', marginBottom: 14 }}>
+                <span style={{ fontFamily: 'var(--font-mono,monospace)', fontSize: 11, color: 'var(--foreground)', userSelect: 'all', flex: 1, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                  https://waffle.sprintmode.ai/mcp
+                </span>
+                <button
+                  style={{ fontFamily: 'inherit', fontSize: 11, fontWeight: 600, padding: '4px 10px', borderRadius: 6, border: '1px solid var(--border)', background: 'var(--bg-card,var(--bg))', color: urlCopied ? 'var(--accent,#2362ea)' : 'var(--foreground)', cursor: 'pointer', flexShrink: 0 }}
+                  onClick={copyServerUrl}
+                >{urlCopied ? 'Copied' : 'Copy'}</button>
               </div>
               {mintedKey ? (
                 <div>
@@ -2020,8 +2037,12 @@ export function BugPanel(props: BugPanelProps) {
                   <div style={{ fontSize: 11, color: 'hsl(0,84%,40%)', fontWeight: 600, marginBottom: 8 }}>
                     Copy this key now — it is shown only once.
                   </div>
-                  <div style={{ fontFamily: 'var(--font-mono,monospace)', fontSize: 11, background: 'var(--bg-subtle,var(--bg))', border: '1px solid var(--border)', borderRadius: 8, padding: '10px 12px', wordBreak: 'break-all', color: 'var(--foreground)', marginBottom: 10 }}>
-                    {mintedKey.key}
+                  <div style={{ display: 'flex', alignItems: 'flex-start', gap: 6, background: 'var(--bg-subtle,var(--bg))', border: '1px solid var(--border)', borderRadius: 8, padding: '10px 6px 10px 12px', marginBottom: 10 }}>
+                    <span style={{ fontFamily: 'var(--font-mono,monospace)', fontSize: 11, wordBreak: 'break-all', color: 'var(--foreground)', flex: 1 }}>{mintedKey.key}</span>
+                    <button
+                      style={{ fontFamily: 'inherit', fontSize: 11, fontWeight: 600, padding: '4px 10px', borderRadius: 6, border: '1px solid var(--border)', background: 'var(--bg-card,var(--bg))', color: keyCopied ? 'var(--accent,#2362ea)' : 'var(--foreground)', cursor: 'pointer', flexShrink: 0 }}
+                      onClick={copyMintedKey}
+                    >{keyCopied ? 'Copied' : 'Copy'}</button>
                   </div>
                   <div style={{ display: 'flex', gap: 6 }}>
                     <button style={S.submitBtn} onClick={copyMintedKey}>{keyCopied ? 'Copied' : 'Copy key'}</button>

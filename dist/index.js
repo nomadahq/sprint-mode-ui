@@ -106463,7 +106463,8 @@ var Q = {
 			padding: "10px 12px",
 			marginBottom: 6,
 			cursor: "pointer",
-			transition: "border-color 0.15s"
+			transition: "border-color 0.15s",
+			overflowWrap: "anywhere"
 		};
 	},
 	meta: {

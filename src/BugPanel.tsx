@@ -346,7 +346,13 @@ var S = {
   list: { flex: 1, overflowY: 'auto', padding: 8 } as CSSProperties,
   rpills: { display: 'flex', gap: 4, padding: '8px 16px', borderBottom: '1px solid var(--border)', flexShrink: 0 } as CSSProperties,
   rpill: function(active: boolean): CSSProperties { return { padding: '4px 10px', fontSize: 11, fontFamily: 'var(--font-mono)', fontWeight: 600, borderRadius: 999, border: '1px solid', borderColor: active ? 'var(--accent)' : 'var(--border)', background: active ? 'var(--accent)' : 'transparent', color: active ? '#fff' : 'var(--muted)', cursor: 'pointer' } },
-  card: function(expanded: boolean): CSSProperties { return { background: 'var(--bg-subtle)', border: '1px solid', borderColor: expanded ? 'var(--accent)' : 'var(--border)', borderRadius: 8, padding: '10px 12px', marginBottom: 6, cursor: 'pointer', transition: 'border-color 0.15s' } },
+  // WAFFLE-FIX-1 (bug_w2f_hscroll): overflowWrap 'anywhere' inherits to every
+  // text block in the card (title, description, comments). Unbroken tokens —
+  // e.g. a 100-char slash-joined method list in a description — otherwise
+  // render wider than the panel and drag the list container into horizontal
+  // scroll (the bottom scrollbar in Aaron's recording). Ellipsis one-liners
+  // (nowrap) are unaffected since no wrapping applies to them.
+  card: function(expanded: boolean): CSSProperties { return { background: 'var(--bg-subtle)', border: '1px solid', borderColor: expanded ? 'var(--accent)' : 'var(--border)', borderRadius: 8, padding: '10px 12px', marginBottom: 6, cursor: 'pointer', transition: 'border-color 0.15s', overflowWrap: 'anywhere' } },
   meta: { display: 'flex', alignItems: 'center', gap: 6, marginBottom: 4 } as CSSProperties,
   dot: function(color: string): CSSProperties { return { width: 8, height: 8, borderRadius: '50%', background: color, flexShrink: 0 } },
   typeBadge: { fontSize: 10, fontFamily: 'var(--font-mono)', fontWeight: 600, textTransform: 'uppercase', color: 'var(--muted)' } as CSSProperties,

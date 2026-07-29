@@ -94,6 +94,7 @@ var CATEGORY_PILLS: Record<string, CategoryPill> = {
   policy:     { label: 'Policy',    bg: '#FAEEDA', color: '#633806' },
   culture:    { label: 'Culture',   bg: '#E1F5EE', color: '#085041' },
   task:       { label: 'Task',      bg: '#E6F1FB', color: '#0C447C' },
+  report:     { label: 'Report',    bg: '#E9EFFC', color: '#2362ea' },
   test:       { label: 'Test',      bg: '#f3f4f6', color: '#6b7280' },
   general:    { label: 'General',   bg: '#f3f4f6', color: '#6b7280' },
 }
@@ -127,6 +128,8 @@ function getCategory(item: UpdateItem): string {
   if (ut === 'milestone') return 'milestone'
   if (ut === 'announcement') return 'announce'
   if (ut === 'flash_update') return 'flash'
+  if (ut === 'quarterly_update') return 'report'
+  if (ut === 'monthly_flash') return 'flash'
   if (ut === 'board_update') return 'board'
   if (ut === 'policy') return 'policy'
   if (ut === 'culture') return 'culture'

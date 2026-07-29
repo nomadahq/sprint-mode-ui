@@ -1,0 +1,32 @@
+name: sm-workflow drift
+
+on:
+  pull_request:
+  merge_group:
+
+jobs:
+  sm-workflow-drift:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Compare pack version against the kit
+        env:
+          GH_TOKEN: ${{ secrets.SM_WORKFLOW_READ_TOKEN }}
+        run: |
+          REPO_V=$(grep '^version=' .sm-workflow.conf | head -1 | cut -d= -f2)
+          if [ -z "$REPO_V" ]; then echo "::error::.sm-workflow.conf missing version="; exit 1; fi
+          # Fail-open on fetch errors: a kit outage must never brick the fleet.
+          KIT_V=$(gh api repos/sprint-mode/sm-workflow/contents/VERSION --jq '.content' 2>/dev/null | base64 -d | tr -d '[:space:]') || true
+          KIT_MIN=$(gh api repos/sprint-mode/sm-workflow/contents/MIN_VERSION --jq '.content' 2>/dev/null | base64 -d | tr -d '[:space:]') || true
+          if [ -z "${KIT_V:-}" ] || [ -z "${KIT_MIN:-}" ]; then
+            echo "::warning::Could not fetch kit VERSION (token/network) — drift check skipped."
+            exit 0
+          fi
+          echo "repo=$REPO_V kit=$KIT_V min=$KIT_MIN"
+          if [ "$REPO_V" -lt "$KIT_MIN" ]; then
+            echo "::error::Pack version $REPO_V is below the safety floor $KIT_MIN. Run 'wf sync' and land the update."
+            exit 1
+          fi
+          if [ "$REPO_V" -lt "$KIT_V" ]; then
+            echo "::warning::Pack version $REPO_V is behind kit $KIT_V. Run 'wf sync' when convenient."
+          fi

@@ -181,7 +181,7 @@ function ensureWaffleVoiceCss() {
 // prefers-reduced-motion.
 function ButterPat() {
   if (prefersReducedMotion()) return null
-  return <span aria-hidden="true" style={{ display: 'inline-block', width: 14, height: 11, marginLeft: 6, borderRadius: 3, background: 'linear-gradient(180deg,#F9DE7B,#E8A13C)', boxShadow: '0 1px 2px rgba(0,0,0,0.15)', animation: 'waffleMelt 400ms ease-in forwards', transformOrigin: 'bottom center', verticalAlign: 'middle', flexShrink: 0 }} />
+  return <span aria-hidden="true" style={{ display: 'inline-block', width: 16, height: 12, marginLeft: 6, borderRadius: 3, background: 'linear-gradient(180deg,#F9DE7B,#E8A13C)', boxShadow: '0 1px 2px rgba(0,0,0,0.15)', animation: 'waffleMelt 700ms ease-in forwards', transformOrigin: 'bottom center', verticalAlign: 'middle', flexShrink: 0 }} />
 }
 
 // Loading skeleton = the iron heating: pale pockets toast left-to-right to
@@ -546,7 +546,7 @@ function BugCard({ bug, isAdmin, expanded, onToggle, onAction, onComment, onDele
   }
 
   return (
-    <div style={Object.assign({}, S.card(expanded), { transition: 'background 0.9s ease' }, flash ? { background: 'rgba(232,161,60,0.22)' } : {})} onClick={onToggle} data-bug-id={bug.id}>
+    <div style={Object.assign({}, S.card(expanded), { transition: flash ? 'none' : 'background 0.9s ease' }, flash ? { background: 'rgba(232,161,60,0.28)' } : {})} onClick={onToggle} data-bug-id={bug.id}>
       <div style={S.meta}>
         <span style={S.dot(dotColor)} />
         <span style={S.typeBadge}>{bug.type || 'bug'}</span>
@@ -933,7 +933,12 @@ export function BugPanel(props: BugPanelProps) {
   function triggerGold(bugId: string) {
     if (goldTimerRef.current) clearTimeout(goldTimerRef.current)
     setGoldFlash(bugId)
-    goldTimerRef.current = setTimeout(function() { setGoldFlash(null) }, 1100)
+    // WAFFLE-FIX-1 (Aaron QA fail): gold must land instantly and HOLD. The
+    // permanent 0.9s background transition made the flash fade IN over 900ms
+    // while the 700ms list reload swept the card away mid-ramp - the moment
+    // was invisible unless you stared. Now: instant on (transition disabled
+    // while flashing), 1.8s hold, then the 0.9s fade-out.
+    goldTimerRef.current = setTimeout(function() { setGoldFlash(null) }, 1800)
   }
   // WAFFLE-FIX-1 (bug_wfx_mydayclick): id of a bug the user clicked in
   // My Day — resolved into the list (tab switch / targeted fetch / scroll).
@@ -1523,7 +1528,7 @@ export function BugPanel(props: BugPanelProps) {
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(updates)
     }).then(function() {
-      if (turnedVerified) { setTimeout(function() { loadBugs() }, 700) } else { loadBugs() }
+      if (turnedVerified) { setTimeout(function() { loadBugs() }, 1900) } else { loadBugs() }
       // Keep the My Day headline honest after actions (also lets the
       // strip-cleared butter pat fire).
       if (managerSections) refreshMyDay()

@@ -1,5 +1,5 @@
-import React, { useState, ReactNode } from 'react'
-import { isDarkMode, themedMarkFromLogoUrl } from './dark-mode'
+import React, { useState, useEffect, ReactNode } from 'react'
+import { isDarkMode, themedMarkFromLogoUrl, applyResolvedThemeAttr } from './dark-mode'
 import { usePortalConfig } from './usePortalConfig.jsx'
 
 export interface LoginProps {
@@ -80,6 +80,12 @@ const Login: React.FC<LoginProps> = function Login({ productName, _logoSrc: _ls,
   var lastName = _lastName[0]; var setLastName = _lastName[1]
   var _companyName = useState('')
   var companyName = _companyName[0]; var setCompanyName = _companyName[1]
+
+  // Pre-auth: Layout never mounts here, so the login surface resolves and
+  // applies the theme itself from the same source the portal chrome uses
+  // (stored sm-theme, else OS preference). Fixes light-card-on-dark logins
+  // on portals whose index.html bootstrap skips auto-resolution.
+  useEffect(function() { applyResolvedThemeAttr() }, [])
 
   var cfMode = companyField || 'required'
   var base = authBase || ''

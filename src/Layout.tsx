@@ -48,6 +48,37 @@ export interface CmdKItem {
   meta?: CmdKItemMeta
 }
 
+// WAFFLE-3.5: map /api/bugs rows to palette items. Exported for tests and
+// for hosts that build their own providers over the same response shape.
+// The badge is the display id (BUG-812) with the raw-id handle as fallback
+// for rows created before migration 0193's backfill reaches them.
+export interface WaffleSearchRow {
+  id: string
+  display_id?: string | null
+  title?: string | null
+  status?: string | null
+  product?: string | null
+  type?: string | null
+  tags?: string | null
+  subsystem?: string | null
+}
+
+export function mapBugsToCmdKItems(rows: WaffleSearchRow[]): CmdKItem[] {
+  return (rows || []).map(function(b) {
+    var handle = b.display_id || (b.id || '').slice(0, 12)
+    return {
+      label: b.title || handle,
+      to: '?bug=' + encodeURIComponent(b.id),
+      section: 'Work items',
+      keywords: [b.id, b.display_id, b.tags, b.subsystem, b.product].filter(Boolean).join(' '),
+      meta: {
+        badge: handle,
+        detail: [b.status, b.product].filter(Boolean).join(' \u00b7 '),
+      },
+    }
+  })
+}
+
 export interface CmdKProps {
   open: boolean
   onClose: () => void
@@ -1561,6 +1592,27 @@ const Layout: React.FC<LayoutProps> = function Layout(props: LayoutProps) {
   }
   var cmdkItems = cmdKItems || autoCmdKItems
 
+  // WAFFLE-3.5: default Waffle item-search provider. Active when the host
+  // passes no custom onSearch and the session can see the board
+  // (bugs_access >= 1 from /auth/me). Zero config by design (s12 test 2):
+  // no Portal Manager tunable — the existing binary cmdk toggle governs the
+  // whole palette. Queries the same api base the panel uses; results
+  // deep-link via ?bug=, the existing panel deep-link path, so selecting a
+  // result opens the slide-over focused on that item (or focuses the
+  // standalone board where it owns the route).
+  var sessionBugsAccess = (session as unknown as { bugs_access?: number } | null)?.bugs_access || 0
+  var itemSearchActive = !cmdKOnSearch && (sessionBugsAccess >= 1 || !!bugPanelAdmin)
+  function waffleItemSearch(q: string): Promise<{ items: CmdKItem[]; total?: number }> {
+    return fetch(notificationApiBase + '/api/bugs?q=' + encodeURIComponent(q) + '&limit=8', { credentials: 'include' })
+      .then(function(r) { return r.ok ? r.json() : null })
+      .then(function(d) {
+        if (!d || !d.ok || !Array.isArray(d.data)) return { items: [], total: 0 }
+        return { items: mapBugsToCmdKItems(d.data), total: d.total || d.data.length }
+      })
+      .catch(function() { return { items: [], total: 0 } })
+  }
+  var effectiveCmdKOnSearch = cmdKOnSearch || (itemSearchActive ? waffleItemSearch : undefined)
+
   var logoutHref = onLogout || ('/api/auth/logout?redirect=' + encodeURIComponent((typeof window !== 'undefined' ? window.location.origin : '') + '/auth/login'))
 
   // Determine view_as filter mode from session portal config ('team'|'customers'|'both'|string|false)
@@ -1952,7 +2004,7 @@ const Layout: React.FC<LayoutProps> = function Layout(props: LayoutProps) {
             items={cmdkItems}
             onNavigate={function(to) { navigate(to) }}
             placeholder={cmdKPlaceholder}
-            onSearch={cmdKOnSearch}
+            onSearch={effectiveCmdKOnSearch}
             recentKey={cmdKRecentKey}
           />
         )}

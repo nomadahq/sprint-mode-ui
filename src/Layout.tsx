@@ -1490,9 +1490,13 @@ const Layout: React.FC<LayoutProps> = function Layout(props: LayoutProps) {
 
   var _cs = useState<Record<string, boolean>>(function() {
     if (!navSections) return {}
-    var d: Record<string, boolean> = {}
-    navSections.forEach(function(s) { d[s.key || s.label] = true })
-    return d
+    // WAFFLE-3.5 (Aaron): sidebar sections default EXPANDED, and the state
+    // this function has always written to localStorage is finally read back.
+    try {
+      var raw = localStorage.getItem('sm-nav-collapsed')
+      if (raw) return JSON.parse(raw)
+    } catch (_e) { /* noop */ }
+    return {}
   })
   var collapsedState = _cs[0]; var setCollapsedState = _cs[1]
 

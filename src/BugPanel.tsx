@@ -2115,7 +2115,7 @@ export function BugPanel(props: BugPanelProps) {
   // height (single scrollbar; the inner list scroll only engages in the
   // fixed slide-over, which is unchanged).
   var panelStyle = isStandalone
-    ? Object.assign({}, S.panel, { position: 'relative' as const, width: '100%', maxWidth: viewMode === 'kanban' ? 1152 : 720, margin: '0 auto', height: 'auto', minHeight: '100vh', borderLeft: 'none', boxShadow: 'none', zIndex: 1 })
+    ? Object.assign({}, S.panel, { position: 'relative' as const, width: '100%', maxWidth: viewMode === 'kanban' ? 1440 : 1280, margin: '0 auto', height: 'auto', minHeight: '100vh', borderLeft: 'none', boxShadow: 'none', zIndex: 1, padding: '0 12px' })
     : Object.assign({}, S.panel, isMobile ? S.panelMobile : { width: panelWidth })
 
   return (
@@ -2129,9 +2129,10 @@ export function BugPanel(props: BugPanelProps) {
           </div>
         )}
 
-        <div style={S.header}>
-          {isAdmin && <span style={{ display: 'inline-flex', color: 'var(--accent)', marginRight: 7 }}><WaffleIcon size={15} /></span>}
-          <span style={S.title}>{isAdmin ? 'Waffle' : label}</span>
+        <div style={isStandalone ? Object.assign({}, S.header, { padding: '20px 8px 12px', borderBottom: 'none' }) : S.header}>
+          {isAdmin && <span style={{ display: 'inline-flex', color: 'var(--accent)', marginRight: 7 }}><WaffleIcon size={isStandalone ? 20 : 15} /></span>}
+          <span style={isStandalone ? Object.assign({}, S.title, { fontSize: 22, fontWeight: 800 }) : S.title}>{isAdmin ? 'Waffle' : label}</span>
+          {isStandalone && <span style={{ fontSize: 12, color: 'var(--muted)', marginLeft: 10, alignSelf: 'flex-end', paddingBottom: 3 }}>The whole table at once</span>}
           <kbd style={{ fontSize: 10, padding: '1px 5px', border: '1px solid var(--border)', borderRadius: 4, background: 'var(--bg-subtle,var(--bg))', color: 'var(--muted)', lineHeight: 1.4, marginLeft: 6, fontFamily: 'var(--font-mono,monospace)' }}>{typeof navigator !== 'undefined' && navigator.platform && navigator.platform.indexOf('Mac') !== -1 ? '\u2318B' : 'Ctrl+B'}</kbd>
           <span style={{ flex: 1 }} />
           {isAdmin && (
@@ -2236,9 +2237,22 @@ export function BugPanel(props: BugPanelProps) {
             </div>
           </div>
         )}
-        {myDaySection}
-        {rollupView}
-        {delegationView}
+        {isStandalone && managerSections ? (
+          // WAFFLE-3.5 web board: purpose-built page layout — the three
+          // sections sit side-by-side as cards on wide screens (stacking
+          // under 980px via auto-fit), full functionality unchanged.
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(320px, 1fr))', gap: 12, padding: '4px 2px 12px', alignItems: 'start' }}>
+            {[myDaySection, rollupView, delegationView].map(function(sec, i) {
+              return sec ? <div key={i} style={{ border: '1px solid var(--border)', borderRadius: 12, background: 'var(--bg-card,var(--bg))', overflow: 'hidden' }}>{sec}</div> : null
+            })}
+          </div>
+        ) : (
+          <>
+            {myDaySection}
+            {rollupView}
+            {delegationView}
+          </>
+        )}
 
         {!isAdmin && (
           <div style={S.rpills}>

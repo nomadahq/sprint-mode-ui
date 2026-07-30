@@ -109338,13 +109338,14 @@ function p9(t) {
 	})()] }) : null, Kr = Or ? Object.assign({}, Q.panel, {
 		position: "relative",
 		width: "100%",
-		maxWidth: fr === "kanban" ? 1152 : 720,
+		maxWidth: fr === "kanban" ? 1440 : 1280,
 		margin: "0 auto",
 		height: "auto",
 		minHeight: "100vh",
 		borderLeft: "none",
 		boxShadow: "none",
-		zIndex: 1
+		zIndex: 1,
+		padding: "0 12px"
 	}) : Object.assign({}, Q.panel, Dr ? Q.panelMobile : { width: or });
 	return /* @__PURE__ */ d(l, { children: [!Or && /* @__PURE__ */ u("div", {
 		"data-bug-overlay": "",
@@ -109378,7 +109379,10 @@ function p9(t) {
 				} })
 			}),
 			/* @__PURE__ */ d("div", {
-				style: Q.header,
+				style: Or ? Object.assign({}, Q.header, {
+					padding: "20px 8px 12px",
+					borderBottom: "none"
+				}) : Q.header,
 				children: [
 					r && /* @__PURE__ */ u("span", {
 						style: {
@@ -109386,11 +109390,24 @@ function p9(t) {
 							color: "var(--accent)",
 							marginRight: 7
 						},
-						children: /* @__PURE__ */ u(o9, { size: 15 })
+						children: /* @__PURE__ */ u(o9, { size: Or ? 20 : 15 })
 					}),
 					/* @__PURE__ */ u("span", {
-						style: Q.title,
+						style: Or ? Object.assign({}, Q.title, {
+							fontSize: 22,
+							fontWeight: 800
+						}) : Q.title,
 						children: r ? "Waffle" : p
+					}),
+					Or && /* @__PURE__ */ u("span", {
+						style: {
+							fontSize: 12,
+							color: "var(--muted)",
+							marginLeft: 10,
+							alignSelf: "flex-end",
+							paddingBottom: 3
+						},
+						children: "The whole table at once"
 					}),
 					/* @__PURE__ */ u("kbd", {
 						style: {
@@ -109752,9 +109769,34 @@ function p9(t) {
 					]
 				})
 			}),
-			Vr,
-			Ur,
-			Gr,
+			Or && Wn ? /* @__PURE__ */ u("div", {
+				style: {
+					display: "grid",
+					gridTemplateColumns: "repeat(auto-fit, minmax(320px, 1fr))",
+					gap: 12,
+					padding: "4px 2px 12px",
+					alignItems: "start"
+				},
+				children: [
+					Vr,
+					Ur,
+					Gr
+				].map(function(e, t) {
+					return e ? /* @__PURE__ */ u("div", {
+						style: {
+							border: "1px solid var(--border)",
+							borderRadius: 12,
+							background: "var(--bg-card,var(--bg))",
+							overflow: "hidden"
+						},
+						children: e
+					}, t) : null;
+				})
+			}) : /* @__PURE__ */ d(l, { children: [
+				Vr,
+				Ur,
+				Gr
+			] }),
 			!r && /* @__PURE__ */ u("div", {
 				style: Q.rpills,
 				children: a9.map(function(e) {
@@ -112206,10 +112248,11 @@ var FNe = function(t) {
 	}, []);
 	var Ct = c(function() {
 		if (!r) return {};
-		var e = {};
-		return r.forEach(function(t) {
-			e[t.key || t.label] = !0;
-		}), e;
+		try {
+			var e = localStorage.getItem("sm-nav-collapsed");
+			if (e) return JSON.parse(e);
+		} catch {}
+		return {};
 	}), wt = Ct[0], Z = Ct[1];
 	function Tt(e) {
 		Z(function(t) {

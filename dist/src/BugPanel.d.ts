@@ -14,6 +14,8 @@ export interface BugPanelProps {
     onClose?: () => void;
     visible?: boolean;
     focusBugId?: string | null;
+    /** WAFFLE-3.5: when set, the MCP keys button navigates here instead of opening the modal (waffle web -> /recipes#keys). */
+    mcpKeysHref?: string;
     /** BUG-PANEL-STANDALONE-1: When true, renders as a full-viewport page instead of a side panel */
     standalone?: boolean;
 }

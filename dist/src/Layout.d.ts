@@ -35,6 +35,17 @@ export interface CmdKItem {
     disabled?: boolean;
     meta?: CmdKItemMeta;
 }
+export interface WaffleSearchRow {
+    id: string;
+    display_id?: string | null;
+    title?: string | null;
+    status?: string | null;
+    product?: string | null;
+    type?: string | null;
+    tags?: string | null;
+    subsystem?: string | null;
+}
+export declare function mapBugsToCmdKItems(rows: WaffleSearchRow[]): CmdKItem[];
 export interface CmdKProps {
     open: boolean;
     onClose: () => void;

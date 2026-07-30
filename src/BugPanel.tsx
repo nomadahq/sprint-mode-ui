@@ -2276,9 +2276,13 @@ export function BugPanel(props: BugPanelProps) {
           // WAFFLE-3.5 web board: purpose-built page layout — the three
           // sections sit side-by-side as cards on wide screens (stacking
           // under 980px via auto-fit), full functionality unchanged.
-          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(320px, 1fr))', gap: 12, padding: '4px 2px 12px', alignItems: 'start' }}>
+          // Aaron round 5: minmax(320) wrapped to 2 columns and the cards'
+          // wildly different heights left a hole under the short one. Three
+          // equal columns whenever they fit (280px floor), and every card is
+          // height-capped with its own scroll so rows stay even.
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))', gap: 12, padding: '4px 2px 12px', alignItems: 'start' }}>
             {[myDaySection, rollupView, delegationView].map(function(sec, i) {
-              return sec ? <div key={i} style={{ border: '1px solid var(--border)', borderRadius: 12, background: 'var(--bg-card,var(--bg))', overflow: 'hidden' }}>{sec}</div> : null
+              return sec ? <div key={i} style={{ border: '1px solid var(--border)', borderRadius: 12, background: 'var(--bg-card,var(--bg))', overflow: 'hidden', maxHeight: 440, overflowY: 'auto' as const }}>{sec}</div> : null
             })}
           </div>
         ) : (

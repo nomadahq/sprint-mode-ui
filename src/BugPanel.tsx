@@ -1986,8 +1986,17 @@ export function BugPanel(props: BugPanelProps) {
     </div>
   ) : null
 
+  // WAFFLE-3.5 (bug_queue_collapse): in standalone the container was a
+  // fixed-100vh flex column; the list's overflowY:auto sets its automatic
+  // flex minimum to 0, so with My Day + Products + Delegation all expanded
+  // the sections (min-content, unshrinkable) crushed the queue to a ~16px
+  // sliver hiding 800+ items. Standalone now flows as a normal page:
+  // height auto with a 100vh floor — expanding sections grow the page, the
+  // page scrolls, and the list keeps a hard 360px floor and its natural
+  // height (single scrollbar; the inner list scroll only engages in the
+  // fixed slide-over, which is unchanged).
   var panelStyle = isStandalone
-    ? Object.assign({}, S.panel, { position: 'relative' as const, width: '100%', maxWidth: 720, margin: '0 auto', height: '100vh', borderLeft: 'none', boxShadow: 'none', zIndex: 1 })
+    ? Object.assign({}, S.panel, { position: 'relative' as const, width: '100%', maxWidth: 720, margin: '0 auto', height: 'auto', minHeight: '100vh', borderLeft: 'none', boxShadow: 'none', zIndex: 1 })
     : Object.assign({}, S.panel, isMobile ? S.panelMobile : {})
 
   return (
@@ -2221,7 +2230,7 @@ export function BugPanel(props: BugPanelProps) {
         )}
 
         {showListChrome && (
-        <div style={S.list}>
+        <div style={isStandalone ? Object.assign({}, S.list, { minHeight: 360, overflowY: 'visible' as const }) : S.list}>
           {loading && <ToastSkeleton />}
           {!loading && items.length === 0 && <div style={S.empty}>{listEmptyCopy()}</div>}
           {!loading && renderListBody(bugs.filter(function(b) {

@@ -1,3 +1,4 @@
+export declare function applyResolvedThemeAttr(): void;
 export declare function isDarkMode(): boolean;
 export declare function getDarkMarkUrl(product: string | undefined): string | null;
 export declare function getLightMarkUrl(product: string | undefined): string | null;

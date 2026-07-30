@@ -32,6 +32,11 @@ interface InboxRowProps {
     category?: CategoryPill;
     expanded?: boolean;
     expandedContent?: React.ReactNode;
+    /** WAFFLE-AUDIT-1: optional per-row action rendered after the author/action
+     *  line (e.g. a "file to Waffle" button). Host portals own the behavior;
+     *  the row only reserves the slot. Clicks inside the slot should call
+     *  stopPropagation to avoid triggering the row's read/navigate. */
+    rowAction?: (item: InboxItem) => React.ReactNode;
 }
-export declare function InboxRow({ item, onRead, onNavigate, onClick, category, expanded, expandedContent }: InboxRowProps): React.JSX.Element;
+export declare function InboxRow({ item, onRead, onNavigate, onClick, category, expanded, expandedContent, rowAction }: InboxRowProps): React.JSX.Element;
 export default InboxRow;

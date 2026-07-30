@@ -109805,8 +109805,8 @@ function p9(t) {
 						display: "grid",
 						gridTemplateColumns: "repeat(auto-fit, minmax(280px, 1fr))",
 						gap: 12,
-						padding: "4px 2px 12px",
-						alignItems: "start"
+						padding: "4px 2px",
+						marginBottom: 22
 					},
 					children: [
 						Jr,
@@ -109818,9 +109818,9 @@ function p9(t) {
 								border: "1px solid var(--border)",
 								borderRadius: 12,
 								background: "var(--bg-card,var(--bg))",
-								overflow: "hidden",
-								maxHeight: 440,
-								overflowY: "auto"
+								height: 420,
+								overflowY: "auto",
+								overflowX: "hidden"
 							},
 							children: e
 						}, t) : null;

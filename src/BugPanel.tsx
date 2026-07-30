@@ -2280,9 +2280,12 @@ export function BugPanel(props: BugPanelProps) {
           // wildly different heights left a hole under the short one. Three
           // equal columns whenever they fit (280px floor), and every card is
           // height-capped with its own scroll so rows stay even.
-          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))', gap: 12, padding: '4px 2px 12px', alignItems: 'start' }}>
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))', gap: 12, padding: '4px 2px', marginBottom: 22 }}>
             {[myDaySection, rollupView, delegationView].map(function(sec, i) {
-              return sec ? <div key={i} style={{ border: '1px solid var(--border)', borderRadius: 12, background: 'var(--bg-card,var(--bg))', overflow: 'hidden', maxHeight: 440, overflowY: 'auto' as const }}>{sec}</div> : null
+              // Aaron round 6: EQUAL heights, not just a ceiling — a short My
+              // Plate next to a full Products left the row ragged. Fixed 420
+              // with internal scroll; 22px of air before the filter row.
+              return sec ? <div key={i} style={{ border: '1px solid var(--border)', borderRadius: 12, background: 'var(--bg-card,var(--bg))', height: 420, overflowY: 'auto' as const, overflowX: 'hidden' as const }}>{sec}</div> : null
             })}
           </div>
         ) : (

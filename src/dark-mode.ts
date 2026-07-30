@@ -3,6 +3,23 @@
 
 var SVG_MARK_PRODUCTS = ['admin','studios','signal','mode','hub','privacyai','sprint-mode','sprint-capital','platform','dev','docs','investors','nomada']
 
+// Pre-auth surfaces (Login, link-account) mount outside Layout, so nothing
+// applies the resolved theme attribute unless the portal's index.html
+// bootstrap does. Portal bootstraps are inconsistent (some only apply a
+// stored value and skip auto-resolution; sm-mode hardcodes light), and
+// [data-theme]-keyed CSS has no @media twins - so the attribute must always
+// be concrete. Resolve exactly as Layout's useTheme does: stored sm-theme
+// wins; otherwise the OS preference. Idempotent with correct bootstraps.
+export function applyResolvedThemeAttr(): void {
+  if (typeof document === 'undefined') return
+  var t: string | null = null
+  try { t = localStorage.getItem('sm-theme') } catch (_e) { /* noop */ }
+  var applied = (t === 'dark' || t === 'light')
+    ? t
+    : (typeof window !== 'undefined' && window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light')
+  document.documentElement.setAttribute('data-theme', applied)
+}
+
 export function isDarkMode(): boolean {
   if (typeof document === 'undefined') return false
   var dt = document.documentElement.getAttribute('data-theme')

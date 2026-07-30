@@ -109238,7 +109238,8 @@ function p9(t) {
 		width: "100%",
 		maxWidth: 720,
 		margin: "0 auto",
-		height: "100vh",
+		height: "auto",
+		minHeight: "100vh",
 		borderLeft: "none",
 		boxShadow: "none",
 		zIndex: 1
@@ -109891,7 +109892,10 @@ function p9(t) {
 				})
 			}),
 			sr && /* @__PURE__ */ d("div", {
-				style: Q.list,
+				style: ar ? Object.assign({}, Q.list, {
+					minHeight: 360,
+					overflowY: "visible"
+				}) : Q.list,
 				children: [
 					O && /* @__PURE__ */ u(sNe, {}),
 					!O && or.length === 0 && /* @__PURE__ */ u("div", {

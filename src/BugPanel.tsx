@@ -17,6 +17,8 @@ export interface BugPanelProps {
   onClose?: () => void
   visible?: boolean
   focusBugId?: string | null
+  /** WAFFLE-3.5: when set, the MCP keys button navigates here instead of opening the modal (waffle web -> /recipes#keys). */
+  mcpKeysHref?: string
   /** BUG-PANEL-STANDALONE-1: When true, renders as a full-viewport page instead of a side panel */
   standalone?: boolean
 }
@@ -1034,9 +1036,11 @@ export function BugPanel(props: BugPanelProps) {
   // slide-over too. Collapse state is panel-scoped ('-panel' suffix) so the
   // slide-over and standalone remember independently; the slide-over defaults
   // to all-collapsed (standalone default — expanded — unchanged).
-  var sectionsStorageKey = 'waffle-sections-collapsed' + (props.standalone ? '' : '-panel')
+  // WAFFLE-3.5 (Aaron): sections default EXPANDED on both surfaces. v2 key so
+  // everyone lands on the new default once; toggles still persist after that.
+  var sectionsStorageKey = 'waffle-sections-collapsed-v2' + (props.standalone ? '' : '-panel')
   var _collapsed = useState<Record<string, boolean>>(function() {
-    var fallback: Record<string, boolean> = props.standalone ? {} : { myday: true, rollup: true, delegation: true }
+    var fallback: Record<string, boolean> = {}
     try {
       var raw = localStorage.getItem(sectionsStorageKey)
       return raw ? JSON.parse(raw) : fallback
@@ -1139,6 +1143,22 @@ export function BugPanel(props: BugPanelProps) {
     } catch (_e) { /* clipboard unavailable */ }
   }
 
+
+  // WAFFLE-3.5 (Aaron UX): host pages open items IN PLACE — dispatch
+  // window.dispatchEvent(new CustomEvent('waffle:open-item', { detail: { id } }))
+  // and the embedded slide-over opens focused on that item, no navigation.
+  useEffect(function() {
+    if (props.standalone) return
+    function onOpenItem(e: Event) {
+      var id = (e as CustomEvent).detail && (e as CustomEvent).detail.id
+      if (!id) return
+      setSelfOpen(true)
+      setExpanded(id)
+      setTab('queue')
+    }
+    window.addEventListener('waffle:open-item', onOpenItem)
+    return function() { window.removeEventListener('waffle:open-item', onOpenItem) }
+  }, [props.standalone])
 
   // Deep link: focusBugId prop or ?bug=bug_xxx in URL
   var deepLinkBugId = useRef<string | null>(null)
@@ -1792,6 +1812,8 @@ export function BugPanel(props: BugPanelProps) {
     if (open && viewMode === 'kanban' && isAdmin) loadKanban()
   }, [open, viewMode, isAdmin, loadKanban])
   var _kdrag = useRef<string | null>(null)
+  var _kbExp = useState<string | null>(null)
+  var kbExpanded = _kbExp[0]; var setKbExpanded = _kbExp[1]
   function kbDrop(status: string) {
     var id = _kdrag.current
     _kdrag.current = null
@@ -2124,7 +2146,10 @@ export function BugPanel(props: BugPanelProps) {
             <button
               style={isStandalone ? Object.assign({}, S.closeBtn, { width: 'auto', gap: 5, padding: '0 9px', fontSize: 11, fontWeight: 600 }) : S.closeBtn}
               title="Waffle MCP keys"
-              onClick={function() { setShowKeys(true); setMintedKey(null); loadMcpKeys() }}
+              onClick={function() {
+                if (props.mcpKeysHref) { window.location.href = props.mcpKeysHref; return }
+                setShowKeys(true); setMintedKey(null); loadMcpKeys()
+              }}
             ><KeyIcon />{isStandalone && <span>MCP Keys</span>}</button>
           )}
           {!isStandalone && <button style={S.closeBtn} title="Open in new tab" onClick={function() {
@@ -2338,7 +2363,7 @@ export function BugPanel(props: BugPanelProps) {
                       return (
                         <div key={b.id} draggable
                           onDragStart={function() { _kdrag.current = b.id }}
-                          onClick={function() { switchView('list'); setExpanded(b.id) }}
+                          onClick={function() { setKbExpanded(b.id) }}
                           style={{ background: 'var(--bg-card,var(--bg))', border: golden ? '1.5px solid var(--green)' : '1px solid var(--border)', borderRadius: 8, padding: '6px 8px', marginBottom: 6, cursor: 'grab' }}>
                           <div style={{ fontSize: 9, fontFamily: 'var(--font-mono)', color: 'var(--accent)', marginBottom: 2 }}>{shortId(b.id, b.type, (b as any).display_id)}</div>
                           <div style={{ fontSize: 11, color: 'var(--foreground)', lineHeight: 1.35, overflow: 'hidden', display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical' as const }}>{b.title}</div>
@@ -2355,6 +2380,30 @@ export function BugPanel(props: BugPanelProps) {
               })}
             </div>
             <div style={{ fontSize: 9, fontFamily: 'var(--font-mono)', color: 'var(--muted)', padding: '6px 4px 2px' }}>latest 200 items {'\u00b7'} drag between columns to move {'\u00b7'} click a card for detail</div>
+            {kbExpanded && (function() {
+              var kb = kbBugs.find(function(x) { return x.id === kbExpanded })
+              if (!kb) return null
+              // Full detail in place — same BugCard the list uses, expanded,
+              // floating above the columns. Closing returns to the waffle
+              // view exactly where it was (Aaron: never flip views on click).
+              return (
+                <div onClick={function() { setKbExpanded(null) }}
+                  style={{ position: 'fixed', inset: 0, zIndex: 9500, background: 'rgba(0,0,0,0.45)', display: 'flex', alignItems: 'flex-start', justifyContent: 'center', padding: '48px 16px', overflowY: 'auto' }}>
+                  <div onClick={function(e) { e.stopPropagation() }}
+                    style={{ background: 'var(--bg-card,var(--bg))', border: '1px solid var(--border)', borderRadius: 12, width: '100%', maxWidth: 640, boxShadow: '0 12px 40px rgba(0,0,0,0.3)', padding: '6px 4px', maxHeight: 'calc(100vh - 96px)', overflowY: 'auto' }}>
+                    <div style={{ display: 'flex', justifyContent: 'flex-end', padding: '2px 8px 0' }}>
+                      <button onClick={function() { setKbExpanded(null) }} style={{ background: 'none', border: 'none', color: 'var(--muted)', cursor: 'pointer', fontSize: 16, padding: 4 }}>{'\u00d7'}</button>
+                    </div>
+                    <BugCard bug={kb} isAdmin={isAdmin} assignees={assignees} expanded={true} flash={false}
+                      onToggle={function() { setKbExpanded(null) }}
+                      onAction={function(id: string, updates: Record<string, string>) { handleAction(id, updates); setTimeout(loadKanban, 400) }}
+                      onComment={handleComment} onDelete={isAdmin ? handleDelete : undefined}
+                      onFire={handleFire} onFireTerminal={handleFireTerminal} onVerify={isAdmin ? handleVerify : undefined}
+                      apiBase={apiBase} product={product} searchQuery={''} />
+                  </div>
+                </div>
+              )
+            })()}
           </div>
         )}
 

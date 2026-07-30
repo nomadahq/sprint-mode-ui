@@ -68,6 +68,9 @@ export interface PortalUpdatesV2Props {
   shortcutKey?: string
   userContactId?: string
   onNavigate?: (path: string) => void
+  /** WAFFLE-AUDIT-1: optional per-row action slot passed through to InboxRow
+   *  (e.g. a "file to Waffle" button). Host portal owns the behavior. */
+  rowAction?: (item: InboxItem) => React.ReactNode
 }
 
 // ─── Category system ────────────────────────────────────────────────────────────
@@ -246,10 +249,11 @@ function FilterBar({ readFilter, onReadFilterChange, categories, selectedCategor
 
 // ─── Feed section ───────────────────────────────────────────────────────────────
 
-function FeedSection({ items, api, onNavigate, isTeam, subdomain }: {
+function FeedSection({ items, api, onNavigate, isTeam, subdomain, rowAction }: {
   items: UpdateItem[]
   api: PortalUpdatesV2Props['api']
   onNavigate?: (path: string) => void
+  rowAction?: (item: InboxItem) => React.ReactNode
   isTeam?: boolean
   subdomain?: string
 }) {
@@ -581,6 +585,7 @@ function FeedSection({ items, api, onNavigate, isTeam, subdomain }: {
                 onClick={function() { handleItemClick(item) }}
                 expanded={isExpanded}
                 expandedContent={expandedContent}
+                rowAction={rowAction}
               />
             )
           })}
@@ -593,7 +598,7 @@ function FeedSection({ items, api, onNavigate, isTeam, subdomain }: {
 
 // ─── Main component ─────────────────────────────────────────────────────────────
 
-export function PortalUpdatesV2({ api, subdomain, title, subtitle: _subtitle, shortcutKey, userContactId: _userContactId, onNavigate }: PortalUpdatesV2Props) {
+export function PortalUpdatesV2({ api, subdomain, title, subtitle: _subtitle, shortcutKey, userContactId: _userContactId, onNavigate, rowAction }: PortalUpdatesV2Props) {
   var [loading, setLoading] = useState(true)
   var [error, setError] = useState<string | null>(null)
   var [audiences, setAudiences] = useState<string[]>([])
@@ -650,7 +655,7 @@ export function PortalUpdatesV2({ api, subdomain, title, subtitle: _subtitle, sh
           </kbd>}
         </h1>
       </div>
-      <FeedSection items={feedItems} api={api} onNavigate={effectiveOnNavigate} isTeam={isTeam} subdomain={subdomain} />
+      <FeedSection items={feedItems} api={api} onNavigate={effectiveOnNavigate} isTeam={isTeam} subdomain={subdomain} rowAction={rowAction} />
     </div>
   )
 }

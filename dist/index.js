@@ -109803,7 +109803,7 @@ function p9(t) {
 				Fr && Zn ? /* @__PURE__ */ u("div", {
 					style: {
 						display: "grid",
-						gridTemplateColumns: "repeat(auto-fit, minmax(320px, 1fr))",
+						gridTemplateColumns: "repeat(auto-fit, minmax(280px, 1fr))",
 						gap: 12,
 						padding: "4px 2px 12px",
 						alignItems: "start"
@@ -109818,7 +109818,9 @@ function p9(t) {
 								border: "1px solid var(--border)",
 								borderRadius: 12,
 								background: "var(--bg-card,var(--bg))",
-								overflow: "hidden"
+								overflow: "hidden",
+								maxHeight: 440,
+								overflowY: "auto"
 							},
 							children: e
 						}, t) : null;

@@ -1144,21 +1144,56 @@ export function BugPanel(props: BugPanelProps) {
   }
 
 
-  // WAFFLE-3.5 (Aaron UX): host pages open items IN PLACE — dispatch
-  // window.dispatchEvent(new CustomEvent('waffle:open-item', { detail: { id } }))
-  // and the embedded slide-over opens focused on that item, no navigation.
+  // WAFFLE-3.5 (Aaron round 4): waffle:open-item opens THE CARD — a focused
+  // modal with the full expanded item and every panel action — never the
+  // whole board (which buried the item under the expanded sections and
+  // trapped the back button). History-integrated: opening pushes a state,
+  // browser back (or X / overlay / Escape) closes and returns you exactly
+  // where you were.
+  var _solo = useState<string | null>(null)
+  var soloItem = _solo[0]; var setSoloItem = _solo[1]
+  var _soloBug = useState<Bug | null>(null)
+  var soloBug = _soloBug[0]; var setSoloBug = _soloBug[1]
+  function closeSolo(fromPop?: boolean) {
+    setSoloItem(null); setSoloBug(null)
+    if (!fromPop) {
+      try { if (window.history.state && (window.history.state as any).waffleSolo) window.history.back() } catch (_e) { /* noop */ }
+    }
+  }
   useEffect(function() {
     if (props.standalone) return
     function onOpenItem(e: Event) {
       var id = (e as CustomEvent).detail && (e as CustomEvent).detail.id
       if (!id) return
-      setSelfOpen(true)
-      setExpanded(id)
-      setTab('queue')
+      try { window.history.pushState({ waffleSolo: 1 }, '') } catch (_e) { /* noop */ }
+      setSoloItem(id)
     }
+    function onPop() { setSoloItem(function(cur) { if (cur) { setSoloBug(null); return null } return cur }) }
+    function onKey(ev: KeyboardEvent) { if (ev.key === 'Escape') closeSolo() }
     window.addEventListener('waffle:open-item', onOpenItem)
-    return function() { window.removeEventListener('waffle:open-item', onOpenItem) }
+    window.addEventListener('popstate', onPop)
+    window.addEventListener('keydown', onKey)
+    return function() {
+      window.removeEventListener('waffle:open-item', onOpenItem)
+      window.removeEventListener('popstate', onPop)
+      window.removeEventListener('keydown', onKey)
+    }
   }, [props.standalone])
+  // Solo data: the item may not be in any loaded slice — fetch its detail
+  // (comments included); assignees too if the panel never opened.
+  useEffect(function() {
+    if (!soloItem) return
+    apiFetch(apiBase + '/api/bugs/' + soloItem, { credentials: 'include' })
+      .then(function(r) { return r.json() })
+      .then(function(d: { ok?: boolean; data?: Bug }) { if (d && d.data) setSoloBug(d.data) })
+      .catch(function() {})
+    if (isAdmin && assignees.length === 0) {
+      apiFetch(apiBase + '/api/bugs/assignees')
+        .then(function(r) { return r.json() })
+        .then(function(d: { ok: boolean; data?: Array<{ id: string; name: string }> }) { if (d.ok && Array.isArray(d.data)) setAssignees(d.data) })
+        .catch(function() {})
+    }
+  }, [soloItem])
 
   // Deep link: focusBugId prop or ?bug=bug_xxx in URL
   var deepLinkBugId = useRef<string | null>(null)
@@ -1827,7 +1862,7 @@ export function BugPanel(props: BugPanelProps) {
   }
 
 
-  if (!open) {
+  if (!open && !soloItem) {
     if (visible !== undefined) return null
     return (
       <button style={Object.assign({}, S.fab, offsetFab ? S.fabOffset : {})} onClick={function() { setSelfOpen(true) }}>
@@ -2120,8 +2155,8 @@ export function BugPanel(props: BugPanelProps) {
 
   return (
     <>
-      {!isStandalone && <div data-bug-overlay="" style={S.overlay} onClick={closePanel} />}
-      <div data-bug-panel="" style={panelStyle}>
+      {!isStandalone && open && <div data-bug-overlay="" style={S.overlay} onClick={closePanel} />}
+      <div data-bug-panel="" style={open ? panelStyle : Object.assign({}, panelStyle, { display: 'none' })}>
         {!isStandalone && !isMobile && (
           <div onMouseDown={onHandleDown} title="Drag to resize"
             style={{ position: 'absolute', left: 0, top: 0, bottom: 0, width: 6, cursor: 'col-resize', zIndex: 3, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
@@ -2579,6 +2614,39 @@ export function BugPanel(props: BugPanelProps) {
           </div>
         ))}
       </div>
+
+      {!isStandalone && soloItem && (
+        <div onClick={function() { closeSolo() }}
+          style={{ position: 'fixed', inset: 0, zIndex: 9600, background: 'rgba(0,0,0,0.45)', display: 'flex', alignItems: 'flex-start', justifyContent: 'center', padding: '48px 16px', overflowY: 'auto' }}>
+          <div onClick={function(e) { e.stopPropagation() }}
+            style={{ background: 'var(--bg-card,var(--bg))', border: '1px solid var(--border)', borderRadius: 12, width: '100%', maxWidth: 680, boxShadow: '0 12px 40px rgba(0,0,0,0.3)', padding: '6px 4px', maxHeight: 'calc(100vh - 96px)', overflowY: 'auto' }}>
+            <div style={{ display: 'flex', alignItems: 'center', padding: '4px 10px 0' }}>
+              <span style={{ fontSize: 10, fontFamily: 'var(--font-mono)', color: 'var(--muted)' }}>Esc or back to return</span>
+              <span style={{ flex: 1 }} />
+              <button onClick={function() { closeSolo() }} style={{ background: 'none', border: 'none', color: 'var(--muted)', cursor: 'pointer', fontSize: 16, padding: 4 }}>{'\u00d7'}</button>
+            </div>
+            {!soloBug && <div style={{ padding: 32, textAlign: 'center', fontSize: 12, color: 'var(--muted)' }}>Loading item...</div>}
+            {soloBug && (
+              <BugCard bug={soloBug} isAdmin={isAdmin} assignees={assignees} expanded={true} flash={false}
+                onToggle={function() { closeSolo() }}
+                onAction={function(id: string, updates: Record<string, string>) {
+                  handleAction(id, updates)
+                  setSoloBug(function(prev) { return prev ? Object.assign({}, prev, updates) : prev })
+                }}
+                onComment={function(id: string, body: string, files?: Array<{ name: string; dataUrl: string; file?: File }>) {
+                  return handleComment(id, body, files).then(function() {
+                    return apiFetch(apiBase + '/api/bugs/' + id, { credentials: 'include' })
+                      .then(function(r) { return r.json() })
+                      .then(function(d: { data?: Bug }) { if (d && d.data) setSoloBug(d.data) })
+                  })
+                }}
+                onDelete={isAdmin ? function(id: string) { handleDelete(id); closeSolo() } : undefined}
+                onFire={handleFire} onFireTerminal={handleFireTerminal} onVerify={isAdmin ? handleVerify : undefined}
+                apiBase={apiBase} product={product} searchQuery={''} />
+            )}
+          </div>
+        </div>
+      )}
     </>
   )
 }

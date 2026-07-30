@@ -1267,20 +1267,9 @@ const Layout: React.FC<LayoutProps> = function Layout(props: LayoutProps) {
 
   // Deep link: ?bug=bug_xxx opens the bug panel and focuses that bug
   var _focusBug = useState<string | null>(null); var focusBugId = _focusBug[0]; var setFocusBugId = _focusBug[1]
-  // WAFFLE-3.5: host pages open items in the embedded slide-over IN PLACE.
-  // The panel here is controlled (visible={bugPanelOpen}), so the event must
-  // land on the Layout, which owns that state — the panel-side listener only
-  // covers self-managed embeds.
-  useEffect(function() {
-    function onOpenItem(e: Event) {
-      var id = (e as CustomEvent).detail && (e as CustomEvent).detail.id
-      if (!id) return
-      setFocusBugId(id)
-      setBugPanelOpen(true)
-    }
-    window.addEventListener('waffle:open-item', onOpenItem)
-    return function() { window.removeEventListener('waffle:open-item', onOpenItem) }
-  }, [])
+  // WAFFLE-3.5 round 4: waffle:open-item is handled inside BugPanel as the
+  // SOLO card modal (Aaron: the card inline, never the whole board) — the
+  // Layout-level open-the-panel listener from the first pass is gone.
   useEffect(function() {
     var params = new URLSearchParams(window.location.search)
     var bugId = params.get('bug')

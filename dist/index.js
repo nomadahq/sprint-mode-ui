@@ -112044,6 +112044,14 @@ var FNe = function(t) {
 	]);
 	var Ye = c(null), Xe = Ye[0], Ze = Ye[1];
 	i(function() {
+		function e(e) {
+			var t = e.detail && e.detail.id;
+			t && (Ze(t), ze(!0));
+		}
+		return window.addEventListener("waffle:open-item", e), function() {
+			window.removeEventListener("waffle:open-item", e);
+		};
+	}, []), i(function() {
 		var e = new URLSearchParams(window.location.search).get("bug");
 		e && me && (Ze(e), ze(!0));
 	}, [me, Je.search]), i(function() {

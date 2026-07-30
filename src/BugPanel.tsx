@@ -75,6 +75,10 @@ export interface Bug {
   subsystem?: string | null
   due_date?: string | null
   tags?: string | null
+  // WAFFLE-3.5 display IDs (sm-api computes display_id from the global
+  // display_number + current type; prefix changes on retype, number never)
+  display_number?: number | null
+  display_id?: string | null
 }
 
 export interface ThreadItem {
@@ -405,9 +409,13 @@ function initials(name: string | undefined): string {
   return name.slice(0, 2).toUpperCase()
 }
 
-function shortId(id: string | undefined, type?: string): string {
+function shortId(id: string | undefined, type?: string, displayId?: string | null): string {
+  // WAFFLE-3.5: the server's display_id (BUG-812 — one global stable number,
+  // prefix computed from current type) replaces the old prefix+hash lookalike.
+  // Hash fallback remains only for rows an older sm-api hasn't stamped.
+  if (displayId) return displayId
   if (!id) return ''
-  var prefix = type === 'feature' ? 'FEAT' : type === 'ux' ? 'UX' : type === 'task' ? 'TASK' : 'BUG'
+  var prefix = type === 'feature' ? 'FEAT' : type === 'ux' ? 'UX' : type === 'task' ? 'TASK' : type === 'human_action' ? 'HA' : 'BUG'
   if (id.startsWith('bug_')) return prefix + '-' + id.slice(4, 10)
   return 'PS-' + id.slice(0, 6)
 }
@@ -563,7 +571,7 @@ function BugCard({ bug, isAdmin, expanded, onToggle, onAction, onComment, onDele
       </div>
 
       <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginBottom: 4 }}>
-        <span style={S.bugId} onClick={copyId} title="Click to copy ID">{shortId(bug.id, bug.type)}</span>
+        <span style={S.bugId} onClick={copyId} title="Click to copy ID">{shortId(bug.id, bug.type, (bug as any).display_id)}</span>
         {copied && <span style={{ fontSize: 9, fontFamily: 'var(--font-mono)', color: 'var(--green)' }}>copied</span>}
       </div>
       <div style={S.bugTitle}>{highlightText(bug.title, searchQuery || '')}</div>
@@ -1708,6 +1716,95 @@ export function BugPanel(props: BugPanelProps) {
     else setOpen(false)
   }
 
+  // WAFFLE-3.5 item 5: flexible slide-over width. Drag handle on the left
+  // edge; width persisted per surface (same localStorage pattern as the
+  // collapse states — key carries the host product); 480 stays the default;
+  // clamp [400, 90vw]. Mobile keeps full width, no handle.
+  var widthStorageKey = 'waffle-panel-width-' + (props.product || 'sm')
+  var _pw = useState(function(): number {
+    try {
+      var v = parseInt(localStorage.getItem(widthStorageKey) || '', 10)
+      if (!isNaN(v) && v >= 400) return v
+    } catch (_e) { /* noop */ }
+    return 480
+  })
+  var panelWidth = _pw[0]; var setPanelWidth = _pw[1]
+  var dragRef = useRef<{ startX: number; startW: number } | null>(null)
+  function onHandleDown(e: React.MouseEvent) {
+    e.preventDefault()
+    dragRef.current = { startX: e.clientX, startW: panelWidth }
+    function onMove(ev: MouseEvent) {
+      if (!dragRef.current) return
+      var max = Math.round(window.innerWidth * 0.9)
+      var next = Math.min(max, Math.max(400, dragRef.current.startW + (dragRef.current.startX - ev.clientX)))
+      setPanelWidth(next)
+    }
+    function onUp() {
+      dragRef.current = null
+      window.removeEventListener('mousemove', onMove)
+      window.removeEventListener('mouseup', onUp)
+      setPanelWidth(function(w) {
+        try { localStorage.setItem(widthStorageKey, String(w)) } catch (_e) { /* noop */ }
+        return w
+      })
+    }
+    window.addEventListener('mousemove', onMove)
+    window.addEventListener('mouseup', onUp)
+  }
+
+  // WAFFLE-3.5 item 6: list | waffle view toggle (both surfaces; Aaron-
+  // approved at Gate 1). Persisted alongside the section collapse states.
+  var viewStorageKey = 'waffle-view-mode' + (props.standalone ? '' : '-panel')
+  var _vm = useState(function(): string {
+    try { return localStorage.getItem(viewStorageKey) === 'kanban' ? 'kanban' : 'list' } catch (_e) { return 'list' }
+  })
+  var viewMode = _vm[0]; var setViewMode = _vm[1]
+  function switchView(mode: string) {
+    setViewMode(mode)
+    try { localStorage.setItem(viewStorageKey, mode) } catch (_e) { /* noop */ }
+  }
+
+  // WAFFLE-3.5 item 6: the waffle view needs every status at once — its own
+  // slice (same filters, no tab, latest 200), separate from the tabbed list.
+  var _kb = useState<Bug[]>([])
+  var kbBugs = _kb[0]; var setKbBugs = _kb[1]
+  var _kbl = useState(false)
+  var kbLoading = _kbl[0]; var setKbLoading = _kbl[1]
+  var loadKanban = useCallback(function() {
+    setKbLoading(true)
+    var params: string[] = ['limit=200', 'sort=newest']
+    if (filterProduct !== 'all') params.push('product=' + filterProduct)
+    if (filterType !== 'all') params.push('type=' + filterType)
+    if (filterPriority !== 'all') params.push('priority=' + filterPriority)
+    if (filterAssignee !== 'all') params.push('assigned_to=' + encodeURIComponent(filterAssignee))
+    if (filterSubsystem !== 'all') params.push('subsystem=' + encodeURIComponent(filterSubsystem))
+    if (filterSource !== 'all') params.push('source=' + filterSource)
+    if (debouncedSearch.trim()) params.push('q=' + encodeURIComponent(debouncedSearch.trim()))
+    apiFetch(apiBase + '/api/bugs?' + params.join('&'), { credentials: 'include' })
+      .then(function(r) { return r.json() })
+      .then(function(d: { data?: Bug[] }) {
+        setKbBugs(Array.isArray(d.data) ? d.data : [])
+        setKbLoading(false)
+      })
+      .catch(function() { setKbLoading(false) })
+  }, [apiBase, filterProduct, filterType, filterPriority, filterAssignee, filterSubsystem, filterSource, debouncedSearch])
+  useEffect(function() {
+    if (open && viewMode === 'kanban' && isAdmin) loadKanban()
+  }, [open, viewMode, isAdmin, loadKanban])
+  var _kdrag = useRef<string | null>(null)
+  function kbDrop(status: string) {
+    var id = _kdrag.current
+    _kdrag.current = null
+    if (!id) return
+    setKbBugs(function(prev) { return prev.map(function(b) { return b.id === id ? Object.assign({}, b, { status: status }) : b }) })
+    apiFetch(apiBase + '/api/bugs/' + id, {
+      method: 'PATCH', credentials: 'include',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ status: status })
+    }).then(function() { loadKanban(); loadBugs() })
+  }
+
+
   if (!open) {
     if (visible !== undefined) return null
     return (
@@ -1846,7 +1943,7 @@ export function BugPanel(props: BugPanelProps) {
   var myDayMineEmpty = !!myDay && myDay.overdue.length === 0 && myDay.due_today.length === 0 && myDay.in_progress_mine.length === 0 && myDay.newly_assigned.length === 0
   var myDaySection = managerSections ? (
     <div>
-      {sectionHeader('myday', 'My Day', myDay ? (myDayMineEmpty && myDay.unassigned_on_my_products.length > 0 ? myDay.unassigned_on_my_products.length + ' in intake' : myDayOverdueN + ' overdue \u00b7 ' + myDay.due_today.length + ' due today') : '')}
+      {sectionHeader('myday', 'My Plate', myDay ? (myDayMineEmpty && myDay.unassigned_on_my_products.length > 0 ? myDay.unassigned_on_my_products.length + ' in intake' : myDayOverdueN + ' overdue \u00b7 ' + myDay.due_today.length + ' due today') : '')}
       {!collapsed.myday && (
         <div style={{ maxHeight: 260, overflowY: 'auto' as const, borderBottom: '1px solid var(--border)' }}>
           {!myDay && <div style={{ padding: '14px 16px', fontSize: 12, color: 'var(--muted)' }}>Loading...</div>}
@@ -1996,19 +2093,33 @@ export function BugPanel(props: BugPanelProps) {
   // height (single scrollbar; the inner list scroll only engages in the
   // fixed slide-over, which is unchanged).
   var panelStyle = isStandalone
-    ? Object.assign({}, S.panel, { position: 'relative' as const, width: '100%', maxWidth: 720, margin: '0 auto', height: 'auto', minHeight: '100vh', borderLeft: 'none', boxShadow: 'none', zIndex: 1 })
-    : Object.assign({}, S.panel, isMobile ? S.panelMobile : {})
+    ? Object.assign({}, S.panel, { position: 'relative' as const, width: '100%', maxWidth: viewMode === 'kanban' ? 1152 : 720, margin: '0 auto', height: 'auto', minHeight: '100vh', borderLeft: 'none', boxShadow: 'none', zIndex: 1 })
+    : Object.assign({}, S.panel, isMobile ? S.panelMobile : { width: panelWidth })
 
   return (
     <>
       {!isStandalone && <div data-bug-overlay="" style={S.overlay} onClick={closePanel} />}
       <div data-bug-panel="" style={panelStyle}>
+        {!isStandalone && !isMobile && (
+          <div onMouseDown={onHandleDown} title="Drag to resize"
+            style={{ position: 'absolute', left: 0, top: 0, bottom: 0, width: 6, cursor: 'col-resize', zIndex: 3, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+            <div style={{ width: 3, height: 34, borderRadius: 2, background: 'var(--accent)', opacity: 0.75 }} />
+          </div>
+        )}
 
         <div style={S.header}>
           {isAdmin && <span style={{ display: 'inline-flex', color: 'var(--accent)', marginRight: 7 }}><WaffleIcon size={15} /></span>}
           <span style={S.title}>{isAdmin ? 'Waffle' : label}</span>
           <kbd style={{ fontSize: 10, padding: '1px 5px', border: '1px solid var(--border)', borderRadius: 4, background: 'var(--bg-subtle,var(--bg))', color: 'var(--muted)', lineHeight: 1.4, marginLeft: 6, fontFamily: 'var(--font-mono,monospace)' }}>{typeof navigator !== 'undefined' && navigator.platform && navigator.platform.indexOf('Mac') !== -1 ? '\u2318B' : 'Ctrl+B'}</kbd>
           <span style={{ flex: 1 }} />
+          {isAdmin && (
+            <span style={{ display: 'inline-flex', border: '1px solid var(--border)', borderRadius: 7, overflow: 'hidden', marginRight: 2 }}>
+              <button title="List view" onClick={function() { switchView('list') }}
+                style={{ border: 'none', padding: '4px 9px', fontSize: 10, fontFamily: 'var(--font-mono)', fontWeight: 600, cursor: 'pointer', background: viewMode === 'list' ? 'var(--accent)' : 'var(--bg-subtle)', color: viewMode === 'list' ? '#fff' : 'var(--muted)' }}>List</button>
+              <button title="Waffle view" onClick={function() { switchView('kanban') }}
+                style={{ border: 'none', padding: '4px 9px', fontSize: 10, fontFamily: 'var(--font-mono)', fontWeight: 600, cursor: 'pointer', background: viewMode === 'kanban' ? 'var(--accent)' : 'var(--bg-subtle)', color: viewMode === 'kanban' ? '#fff' : 'var(--muted)' }}>Waffle</button>
+            </span>
+          )}
           {isAdmin && (
             <button
               style={isStandalone ? Object.assign({}, S.closeBtn, { width: 'auto', gap: 5, padding: '0 9px', fontSize: 11, fontWeight: 600 }) : S.closeBtn}
@@ -2209,7 +2320,45 @@ export function BugPanel(props: BugPanelProps) {
           </div>
         )}
 
-        {showListChrome && isAdmin && (
+        {showListChrome && isAdmin && viewMode === 'kanban' && (
+          <div style={{ flex: 1, overflowX: 'auto', overflowY: isStandalone ? ('visible' as const) : ('auto' as const), padding: 8, minHeight: isStandalone ? 360 : undefined }}>
+            {kbLoading && kbBugs.length === 0 && <ToastSkeleton />}
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(6, minmax(148px, 1fr))', gap: 8, alignItems: 'start' }}>
+              {['open', 'in_progress', 'blocked', 'fixed', 'deferred', 'closed'].map(function(st) {
+                var meta = STATUS_META[st]
+                var col = kbBugs.filter(function(b) { return b.status === st })
+                return (
+                  <div key={st}
+                    onDragOver={function(e) { e.preventDefault() }}
+                    onDrop={function() { kbDrop(st) }}
+                    style={{ background: 'var(--bg-subtle)', borderRadius: 10, padding: 7, minHeight: 120 }}>
+                    <div style={{ fontSize: 9, fontFamily: 'var(--font-mono)', fontWeight: 700, textTransform: 'uppercase' as const, letterSpacing: '.4px', color: meta.color, marginBottom: 6, padding: '0 2px' }}>{meta.label}{' \u00b7 '}{col.length}</div>
+                    {col.map(function(b) {
+                      var golden = (b as any).verified_status === 'verified'
+                      return (
+                        <div key={b.id} draggable
+                          onDragStart={function() { _kdrag.current = b.id }}
+                          onClick={function() { switchView('list'); setExpanded(b.id) }}
+                          style={{ background: 'var(--bg-card,var(--bg))', border: golden ? '1.5px solid var(--green)' : '1px solid var(--border)', borderRadius: 8, padding: '6px 8px', marginBottom: 6, cursor: 'grab' }}>
+                          <div style={{ fontSize: 9, fontFamily: 'var(--font-mono)', color: 'var(--accent)', marginBottom: 2 }}>{shortId(b.id, b.type, (b as any).display_id)}</div>
+                          <div style={{ fontSize: 11, color: 'var(--foreground)', lineHeight: 1.35, overflow: 'hidden', display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical' as const }}>{b.title}</div>
+                          {b.assigned_to && assignees.length > 0 && (function() {
+                            var a = assignees.find(function(x) { return x.id === b.assigned_to })
+                            return a ? <div style={{ fontSize: 9, fontFamily: 'var(--font-mono)', color: 'var(--muted)', marginTop: 3 }}>{'\u2192 ' + a.name.split(' ')[0].toLowerCase()}</div> : null
+                          })()}
+                        </div>
+                      )
+                    })}
+                    {col.length === 0 && <div style={{ fontSize: 10, fontFamily: 'var(--font-mono)', color: 'var(--muted)', padding: '10px 4px', textAlign: 'center' as const }}>empty</div>}
+                  </div>
+                )
+              })}
+            </div>
+            <div style={{ fontSize: 9, fontFamily: 'var(--font-mono)', color: 'var(--muted)', padding: '6px 4px 2px' }}>latest 200 items {'\u00b7'} drag between columns to move {'\u00b7'} click a card for detail</div>
+          </div>
+        )}
+
+        {showListChrome && (viewMode === 'list' || !isAdmin) && isAdmin && (
           <div style={S.tabBar} ref={tabBarRef}>
             {ADMIN_TABS.map(function(t) {
               // WAFFLE-2: hide My Tasks when the session has no contact_id
@@ -2229,7 +2378,7 @@ export function BugPanel(props: BugPanelProps) {
           </div>
         )}
 
-        {showListChrome && (
+        {showListChrome && (viewMode === 'list' || !isAdmin) && (
         <div style={isStandalone ? Object.assign({}, S.list, { minHeight: 360, overflowY: 'visible' as const }) : S.list}>
           {loading && <ToastSkeleton />}
           {!loading && items.length === 0 && <div style={S.empty}>{listEmptyCopy()}</div>}

@@ -66,6 +66,8 @@ export interface Bug {
     subsystem?: string | null;
     due_date?: string | null;
     tags?: string | null;
+    display_number?: number | null;
+    display_id?: string | null;
 }
 export interface ThreadItem {
     id: string;

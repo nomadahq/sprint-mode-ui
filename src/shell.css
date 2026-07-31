@@ -102,13 +102,23 @@
 .shell-viewas-exit { font-size: 12px; padding: 3px 10px; border: 1px solid var(--border); border-radius: var(--radius-sm); background: var(--bg); color: var(--foreground); cursor: pointer; font-family: var(--font); }
 .shell-viewas-exit:hover { background: var(--bg-subtle); }
 
-@media (max-width: 768px) {
+/* Mobile/tablet shell (Wave 2 batch 4, Aaron's phone review):
+   - Breakpoint raised 768 -> 900: ~850px viewports previously got the desktop
+     rail squeezed into a gutter column with an unusable flyout.
+   - The slide-over sidebar now overlays EVERYTHING (top:0, z-index above the
+     header and mobile bar) - it previously started 56px down, so the sticky
+     hamburger row clipped the first nav item ("Dashboard" hidden behind it).
+   - Mobile bar is explicitly full-width so it can never render as a flex
+     column beside the content. */
+@media (max-width: 900px) {
   .shell { flex-direction: column; }
-  .portal-sidebar { position: fixed; left: -260px; top: 0; bottom: 0; transition: left 0.25s ease; z-index: 50; }
+  .portal-sidebar { position: fixed; left: -110%; top: 0; bottom: 0; width: min(82vw, 300px); transition: left 0.25s ease; z-index: 70; box-shadow: 4px 0 24px rgba(0,0,0,0.18); }
   .portal-sidebar.open { left: 0; }
-  .portal-mobile-bar { display: flex; }
+  .portal-sidebar.rail { width: min(82vw, 300px); }
+  .portal-mobile-bar { display: flex; width: 100%; box-sizing: border-box; }
+  .portal-sidebar-overlay { z-index: 69; }
   .portal-main { padding: 20px 16px 80px; }
-  .shell-with-header .portal-sidebar { top: 56px; }
+  .shell-with-header .portal-sidebar { top: 0; }
 }
 
 /* ======= SIDEBAR RAIL (desktop collapsed) ======= */

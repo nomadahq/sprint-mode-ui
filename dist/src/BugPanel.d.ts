@@ -82,6 +82,11 @@ export interface ThreadItem {
     tags?: string;
     created_at?: string;
 }
+export interface BugTaxonomy {
+    products: string[];
+    subsystemsFor: (product: string) => string[];
+}
+export declare function parseTaxonomy(raw: unknown): BugTaxonomy | null;
 export interface BugCounts {
     queue: number;
     mine: number;

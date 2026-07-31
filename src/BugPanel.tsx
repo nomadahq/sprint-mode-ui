@@ -1150,6 +1150,18 @@ export function BugPanel(props: BugPanelProps) {
   // trapped the back button). History-integrated: opening pushes a state,
   // browser back (or X / overlay / Escape) closes and returns you exactly
   // where you were.
+  // Round 7: the whole overview block (My Plate strip + Products/Delegation
+  // cards) collapses with ONE toggle — board real estate on demand.
+  var _ovh = useState(function(): boolean {
+    try { return localStorage.getItem('waffle-web-overview') === 'hidden' } catch (_e) { return false }
+  })
+  var overviewHidden = _ovh[0]; var setOverviewHidden = _ovh[1]
+  function toggleOverview() {
+    setOverviewHidden(function(v) {
+      try { localStorage.setItem('waffle-web-overview', v ? 'shown' : 'hidden') } catch (_e) { /* noop */ }
+      return !v
+    })
+  }
   var _solo = useState<string | null>(null)
   var soloItem = _solo[0]; var setSoloItem = _solo[1]
   var _soloBug = useState<Bug | null>(null)
@@ -2002,7 +2014,7 @@ export function BugPanel(props: BugPanelProps) {
     <div>
       {sectionHeader('myday', 'My Plate', myDay ? (myDayMineEmpty && myDay.unassigned_on_my_products.length > 0 ? myDay.unassigned_on_my_products.length + ' in intake' : myDayOverdueN + ' overdue \u00b7 ' + myDay.due_today.length + ' due today') : '')}
       {!collapsed.myday && (
-        <div style={{ maxHeight: 260, overflowY: 'auto' as const, borderBottom: '1px solid var(--border)' }}>
+        <div style={{ maxHeight: isStandalone ? 300 : 260, overflowY: 'auto' as const, borderBottom: '1px solid var(--border)' }}>
           {!myDay && <div style={{ padding: '14px 16px', fontSize: 12, color: 'var(--muted)' }}>Loading...</div>}
           {myDay && myDayOverdueN === 0 && myDay.due_today.length === 0 && myDay.in_progress_mine.length === 0 && myDay.newly_assigned.length === 0 && myDay.unassigned_on_my_products.length === 0 && (
             <div style={{ padding: '14px 16px', fontSize: 12, color: 'var(--muted)' }}>Nothing on the iron. Enjoy the syrup.{patMyDay && <ButterPat />}</div>
@@ -2079,7 +2091,7 @@ export function BugPanel(props: BugPanelProps) {
             <button style={{ background: 'none', border: 'none', color: 'var(--muted)', fontSize: 11, cursor: 'pointer' }} onClick={function() { setBulkSel({}) }}>Clear</button>
           </div>
         )}
-      <div style={{ maxHeight: 320, overflowY: 'auto' as const }}>
+      <div style={{ maxHeight: isStandalone ? 356 : 320, overflowY: 'auto' as const }}>
       {(delegationBugs === null || delegationLoading) && <div style={S.empty}>Loading...</div>}
       {!delegationLoading && delegationBugs && delegationBugs.length === 0 && <div style={S.empty}>Queue is empty.</div>}
       {!delegationLoading && delegationBugs && delegationBugs.length > 0 && (function() {
@@ -2273,20 +2285,29 @@ export function BugPanel(props: BugPanelProps) {
           </div>
         )}
         {isStandalone && managerSections ? (
-          // WAFFLE-3.5 web board: purpose-built page layout — the three
-          // sections sit side-by-side as cards on wide screens (stacking
-          // under 980px via auto-fit), full functionality unchanged.
-          // Aaron round 5: minmax(320) wrapped to 2 columns and the cards'
-          // wildly different heights left a hole under the short one. Three
-          // equal columns whenever they fit (280px floor), and every card is
-          // height-capped with its own scroll so rows stay even.
-          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))', gap: 12, padding: '4px 2px', marginBottom: 22 }}>
-            {[myDaySection, rollupView, delegationView].map(function(sec, i) {
-              // Aaron round 6: EQUAL heights, not just a ceiling — a short My
-              // Plate next to a full Products left the row ragged. Fixed 420
-              // with internal scroll; 22px of air before the filter row.
-              return sec ? <div key={i} style={{ border: '1px solid var(--border)', borderRadius: 12, background: 'var(--bg-card,var(--bg))', height: 420, overflowY: 'auto' as const, overflowX: 'hidden' as const }}>{sec}</div> : null
-            })}
+          // Aaron round 7: the 3-col grid made titles unreadable. New layout:
+          // My Plate rides as a full-width strip (the horizontal mock), then
+          // Products + Delegation sit 2-up at equal fixed height with inner
+          // bodies that fill. The whole overview hides with one toggle.
+          <div style={{ padding: '4px 2px', marginBottom: 22 }}>
+            <div style={{ display: 'flex', justifyContent: 'flex-end', marginBottom: 6 }}>
+              <button onClick={toggleOverview}
+                style={{ background: 'none', border: '1px solid var(--border)', borderRadius: 14, padding: '3px 12px', fontSize: 10, fontFamily: 'var(--font-mono)', fontWeight: 600, color: 'var(--muted)', cursor: 'pointer' }}>
+                {overviewHidden ? 'Show overview' : 'Hide overview'}
+              </button>
+            </div>
+            {!overviewHidden && (
+              <>
+                <div style={{ border: '1px solid var(--border)', borderRadius: 12, background: 'var(--bg-card,var(--bg))', overflow: 'hidden', marginBottom: 12 }}>
+                  {myDaySection}
+                </div>
+                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(320px, 1fr))', gap: 12 }}>
+                  {[rollupView, delegationView].map(function(sec, i) {
+                    return sec ? <div key={i} style={{ border: '1px solid var(--border)', borderRadius: 12, background: 'var(--bg-card,var(--bg))', height: 420, overflowY: 'auto' as const, overflowX: 'hidden' as const }}>{sec}</div> : null
+                  })}
+                </div>
+              </>
+            )}
           </div>
         ) : (
           <>

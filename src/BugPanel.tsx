@@ -109,7 +109,7 @@ var STATUS_META: Record<string, { color: string; bg: string; label: string }> = 
   verified:    { color: 'var(--muted)',  bg: 'var(--bg-subtle)',    label: 'closed' },
 }
 
-var TYPES = ['bug', 'feature', 'ux', 'task', 'human_action']
+var TYPES = ['bug', 'feature', 'ux', 'task']
 
 // WAFFLE-TAXONOMY (bug_panel_taxonomy_dropdowns): the canonical board
 // vocabulary comes from GET /api/bugs/taxonomy — the panel carries no product

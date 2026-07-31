@@ -160,6 +160,8 @@ export interface LayoutProps {
   bugPanel?: boolean | number
   bugPanelAdmin?: boolean
   bugPanelLabel?: string
+  /** WAFFLE-3.5: forwarded to the embedded panel — its MCP Keys button navigates here instead of opening the modal. */
+  bugPanelMcpKeysHref?: string
   portalSubdomain?: string
   viewAsClientNav?: (NavSection & { type?: string; heading?: string })[]
 }
@@ -2024,6 +2026,7 @@ const Layout: React.FC<LayoutProps> = function Layout(props: LayoutProps) {
             apiBase={notificationApiBase}
             product={bugPanelProduct}
             label={bugPanelLabel}
+            mcpKeysHref={props.bugPanelMcpKeysHref}
             focusBugId={focusBugId}
             session={session ? { contact_id: (session as any).contact_id, display_name: session.name, email: session.email } : null}
           />

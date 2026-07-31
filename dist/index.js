@@ -109257,7 +109257,8 @@ function p9(t) {
 				]
 			}), /* @__PURE__ */ d("div", {
 				style: Z ? {
-					height: 338,
+					flex: 1,
+					minHeight: 0,
 					overflowY: "auto"
 				} : {
 					maxHeight: 320,
@@ -109876,7 +109877,9 @@ function p9(t) {
 									borderRadius: 12,
 									background: "var(--bg-card,var(--bg))",
 									height: 420,
-									overflowY: "auto",
+									display: "flex",
+									flexDirection: "column",
+									overflowY: "hidden",
 									overflowX: "hidden"
 								},
 								children: e

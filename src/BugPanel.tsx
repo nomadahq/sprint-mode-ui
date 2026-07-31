@@ -2092,7 +2092,7 @@ export function BugPanel(props: BugPanelProps) {
             <button style={{ background: 'none', border: 'none', color: 'var(--muted)', fontSize: 11, cursor: 'pointer' }} onClick={function() { setBulkSel({}) }}>Clear</button>
           </div>
         )}
-      <div style={isStandalone ? { height: 338, overflowY: 'auto' as const } : { maxHeight: 320, overflowY: 'auto' as const }}>
+      <div style={isStandalone ? { flex: 1, minHeight: 0, overflowY: 'auto' as const } : { maxHeight: 320, overflowY: 'auto' as const }}>
       {(delegationBugs === null || delegationLoading) && <div style={S.empty}>Loading...</div>}
       {!delegationLoading && delegationBugs && delegationBugs.length === 0 && <div style={S.empty}>Queue is empty.</div>}
       {!delegationLoading && delegationBugs && delegationBugs.length > 0 && (function() {
@@ -2310,7 +2310,7 @@ export function BugPanel(props: BugPanelProps) {
                 </div>
                 <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(320px, 1fr))', gap: 12 }}>
                   {[rollupView, delegationView].map(function(sec, i) {
-                    return sec ? <div key={i} style={{ border: '1px solid var(--border)', borderRadius: 12, background: 'var(--bg-card,var(--bg))', height: 420, overflowY: 'auto' as const, overflowX: 'hidden' as const }}>{sec}</div> : null
+                    return sec ? <div key={i} style={{ border: '1px solid var(--border)', borderRadius: 12, background: 'var(--bg-card,var(--bg))', height: 420, display: 'flex', flexDirection: 'column' as const, overflowY: 'hidden' as const, overflowX: 'hidden' as const }}>{sec}</div> : null
                   })}
                 </div>
               </>

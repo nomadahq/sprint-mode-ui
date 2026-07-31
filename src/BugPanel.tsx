@@ -1839,13 +1839,14 @@ export function BugPanel(props: BugPanelProps) {
   var kbLoading = _kbl[0]; var setKbLoading = _kbl[1]
   var loadKanban = useCallback(function() {
     setKbLoading(true)
-    var params: string[] = ['limit=200', 'sort=newest']
+    var params: string[] = ['limit=200', 'sort=' + sortBy]
     if (filterProduct !== 'all') params.push('product=' + filterProduct)
     if (filterType !== 'all') params.push('type=' + filterType)
     if (filterPriority !== 'all') params.push('priority=' + filterPriority)
     if (filterAssignee !== 'all') params.push('assigned_to=' + encodeURIComponent(filterAssignee))
     if (filterSubsystem !== 'all') params.push('subsystem=' + encodeURIComponent(filterSubsystem))
     if (filterSource !== 'all') params.push('source=' + filterSource)
+    if (filterPerson !== 'all') params.push('submitted_by_name=' + encodeURIComponent(filterPerson))
     if (debouncedSearch.trim()) params.push('q=' + encodeURIComponent(debouncedSearch.trim()))
     apiFetch(apiBase + '/api/bugs?' + params.join('&'), { credentials: 'include' })
       .then(function(r) { return r.json() })
@@ -1854,7 +1855,7 @@ export function BugPanel(props: BugPanelProps) {
         setKbLoading(false)
       })
       .catch(function() { setKbLoading(false) })
-  }, [apiBase, filterProduct, filterType, filterPriority, filterAssignee, filterSubsystem, filterSource, debouncedSearch])
+  }, [apiBase, sortBy, filterPerson, filterProduct, filterType, filterPriority, filterAssignee, filterSubsystem, filterSource, debouncedSearch])
   useEffect(function() {
     if (open && viewMode === 'kanban' && isAdmin) loadKanban()
   }, [open, viewMode, isAdmin, loadKanban])
@@ -2036,7 +2037,7 @@ export function BugPanel(props: BugPanelProps) {
   var rollupHeadline = counts ? counts.queue + ' open' : (productCounts ? productCounts.reduce(function(a, p) { return a + p.queue }, 0) + ' open' : '')
   var rollupView = managerSections ? (
     <div>
-      {sectionHeader('rollup', 'Products', rollupHeadline)}
+      {sectionHeader('rollup', 'Where work lives', rollupHeadline)}
       {!collapsed.rollup && (
       <div style={{ borderBottom: '1px solid var(--border)' }}>
       {productCounts === null && <div style={S.empty}>Loading...</div>}
@@ -2091,7 +2092,7 @@ export function BugPanel(props: BugPanelProps) {
             <button style={{ background: 'none', border: 'none', color: 'var(--muted)', fontSize: 11, cursor: 'pointer' }} onClick={function() { setBulkSel({}) }}>Clear</button>
           </div>
         )}
-      <div style={{ maxHeight: isStandalone ? 356 : 320, overflowY: 'auto' as const }}>
+      <div style={isStandalone ? { height: 338, overflowY: 'auto' as const } : { maxHeight: 320, overflowY: 'auto' as const }}>
       {(delegationBugs === null || delegationLoading) && <div style={S.empty}>Loading...</div>}
       {!delegationLoading && delegationBugs && delegationBugs.length === 0 && <div style={S.empty}>Queue is empty.</div>}
       {!delegationLoading && delegationBugs && delegationBugs.length > 0 && (function() {
@@ -2177,9 +2178,15 @@ export function BugPanel(props: BugPanelProps) {
         )}
 
         <div style={isStandalone ? Object.assign({}, S.header, { padding: '20px 8px 12px', borderBottom: 'none' }) : S.header}>
-          {isAdmin && <span style={{ display: 'inline-flex', color: 'var(--accent)', marginRight: 7 }}><WaffleIcon size={isStandalone ? 20 : 15} /></span>}
-          <span style={isStandalone ? Object.assign({}, S.title, { fontSize: 22, fontWeight: 800 }) : S.title}>{isAdmin ? 'Waffle' : label}</span>
-          {isStandalone && <span style={{ fontSize: 12, color: 'var(--muted)', marginLeft: 10, alignSelf: 'flex-end', paddingBottom: 3 }}>The whole table at once</span>}
+          {isAdmin && !isStandalone && <span style={{ display: 'inline-flex', color: 'var(--accent)', marginRight: 7 }}><WaffleIcon size={15} /></span>}
+          {isStandalone ? (
+            <span style={{ display: 'flex', flexDirection: 'column' as const, gap: 2 }}>
+              <span style={Object.assign({}, S.title, { fontSize: 22, fontWeight: 800, lineHeight: 1.1 })}>Waffle</span>
+              <span style={{ fontSize: 13, color: 'var(--muted)', fontWeight: 400 }}>The whole table at once</span>
+            </span>
+          ) : (
+            <span style={S.title}>{isAdmin ? 'Waffle' : label}</span>
+          )}
           <kbd style={{ fontSize: 10, padding: '1px 5px', border: '1px solid var(--border)', borderRadius: 4, background: 'var(--bg-subtle,var(--bg))', color: 'var(--muted)', lineHeight: 1.4, marginLeft: 6, fontFamily: 'var(--font-mono,monospace)' }}>{typeof navigator !== 'undefined' && navigator.platform && navigator.platform.indexOf('Mac') !== -1 ? '\u2318B' : 'Ctrl+B'}</kbd>
           <span style={{ flex: 1 }} />
           {isAdmin && (

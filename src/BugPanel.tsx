@@ -517,6 +517,58 @@ function CommentAttThumb({ att, bugId, isImage, apiBase, product }: { att: BugAt
   )
 }
 
+// W4 D4 (mock approved 2026-07-31): the item evidence timeline. Renders the
+// effective-status evidence chain -- PR / queue / deploy / verify events with
+// agent.run_* threaded chronologically on an amber rail. Derived data only;
+// fetch failures render nothing (the panel must never break on a missing
+// endpoint or an older API).
+var TL_LABELS: Record<string, string> = {
+  'pr.opened': 'PR opened',
+  'pr.merged': 'PR merged',
+  'pr.closed': 'PR closed',
+  'deployment_status.updated': 'deploy update',
+  'qa.run_completed': 'verification run',
+  'item.verified': 'verified',
+  'agent.run_started': 'agent run started',
+  'agent.turn': 'agent turn',
+  'agent.run_ended': 'agent run ended',
+}
+function BugTimeline({ bugId, apiBase, product }: { bugId: string; apiBase: string; product: string }) {
+  var st = useState<{ effective: string; evidence: { event_type: string; ts: string; sha: string | null }[] } | null>(null)
+  var data = st[0], setData = st[1]
+  useEffect(function () {
+    var live = true
+    fetch(apiBase + '/api/bugs/' + bugId + '/effective-status', { credentials: 'include' as RequestCredentials, headers: { 'X-SM-Product': product } })
+      .then(function (r) { return r.ok ? r.json() : null })
+      .then(function (j) { if (live && j && j.ok && j.data && Array.isArray(j.data.evidence)) setData(j.data) })
+      .catch(function () { /* render nothing */ })
+    return function () { live = false }
+  }, [bugId, apiBase, product])
+  if (!data || !data.evidence.length) return null
+  return (
+    <>
+      <div style={{ fontSize: 10, fontFamily: 'var(--font-mono)', fontWeight: 700, color: 'var(--muted)', textTransform: 'uppercase' as const, letterSpacing: '0.04em', margin: '10px 0 4px', display: 'flex', alignItems: 'center', gap: 6 }}>
+        Timeline
+        <span style={{ fontSize: 9, fontWeight: 600, padding: '1px 6px', borderRadius: 999, background: 'var(--bg-subtle)', color: 'var(--muted)', textTransform: 'none' as const }}>{data.effective}</span>
+      </div>
+      <div>
+        {data.evidence.map(function (e, i) {
+          var isAgent = e.event_type.indexOf('agent.') === 0
+          var t = e.ts ? e.ts.slice(11, 16) || e.ts.slice(0, 10) : ''
+          return (
+            <div key={i} style={{ borderLeft: '2px solid ' + (isAgent ? 'rgba(232,161,60,0.9)' : 'var(--border)'), padding: '3px 0 3px 10px', marginLeft: 2, display: 'flex', alignItems: 'baseline', gap: 8, fontSize: 11, fontFamily: 'var(--font-mono)' }}>
+              <span style={{ color: isAgent ? '#B87A16' : 'var(--foreground)' }}>{TL_LABELS[e.event_type] || e.event_type}</span>
+              {e.sha ? <span style={{ color: 'var(--muted)' }}>{e.sha.slice(0, 7)}</span> : null}
+              <span style={{ flex: 1 }} />
+              <span style={{ color: 'var(--muted)' }}>{t}</span>
+            </div>
+          )
+        })}
+      </div>
+    </>
+  )
+}
+
 function BugCard({ bug, isAdmin, expanded, onToggle, onAction, onComment, onDelete, onFire, onFireTerminal, onVerify, apiBase, product, searchQuery, assignees, flash, taxonomy }: {
   bug: Bug
   isAdmin?: boolean
@@ -646,6 +698,10 @@ function BugCard({ bug, isAdmin, expanded, onToggle, onAction, onComment, onDele
               <div style={S.bugDesc}>{bug.description}</div>
             </>
           )}
+
+          <div onClick={function (e) { e.stopPropagation() }}>
+            <BugTimeline bugId={bug.id} apiBase={apiBase} product={product} />
+          </div>
 
           {bug.attachments && bug.attachments.length > 0 && (
             <>

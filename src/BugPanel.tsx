@@ -303,14 +303,14 @@ function BugIcon({ size }: { size?: number }) {
 
 // WAFFLE-2: Waffle icon — tabler grid-4x4
 function WaffleIcon({ size }: { size?: number }) {
-  return React.createElement('svg', { width: size || 18, height: size || 18, viewBox: '0 0 24 24', fill: 'none', stroke: 'currentColor', strokeWidth: 2, strokeLinecap: 'round', strokeLinejoin: 'round' },
-    React.createElement('path', { d: 'M6 4v16' }),
-    React.createElement('path', { d: 'M12 4v16' }),
-    React.createElement('path', { d: 'M18 4v16' }),
-    React.createElement('path', { d: 'M4 6h16' }),
-    React.createElement('path', { d: 'M4 12h16' }),
-    React.createElement('path', { d: 'M4 18h16' })
-  )
+  // The ACTUAL Waffle logo mark (Aaron, 2026-07-31) -- the same R2 asset the
+  // app header uses -- replacing the old hand-drawn grid-lines glyph. One
+  // component, so the page-header button and the panel title update together.
+  return React.createElement('img', {
+    src: 'https://api.sprintmode.ai/portals/waffle/logo_mark.png',
+    width: size || 18, height: size || 18, alt: '',
+    style: { display: 'block' } as CSSProperties,
+  })
 }
 
 // WAFFLE-2: standalone favicon (grid-4x4, Sprint Mode blue)
@@ -2836,7 +2836,7 @@ export function BugPanelHeaderButton({ onClick }: BugPanelHeaderButtonProps) {
   var isMac = typeof navigator !== 'undefined' && navigator.platform && navigator.platform.indexOf('Mac') !== -1
   return React.createElement('button', {
     onClick: onClick,
-    'aria-label': 'Report bug',
+    'aria-label': 'Waffle',
     title: isMac ? 'Waffle (\u2318B)' : 'Waffle (Ctrl+B)',
     style: {
       width: 34, height: 34, border: '1px solid var(--border)', borderRadius: 7,

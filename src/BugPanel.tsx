@@ -2037,9 +2037,9 @@ export function BugPanel(props: BugPanelProps) {
   var rollupHeadline = counts ? counts.queue + ' open' : (productCounts ? productCounts.reduce(function(a, p) { return a + p.queue }, 0) + ' open' : '')
   var rollupView = managerSections ? (
     <div>
-      {sectionHeader('rollup', 'Where work lives', rollupHeadline)}
+      {sectionHeader('rollup', 'Stacks', rollupHeadline)}
       {!collapsed.rollup && (
-      <div style={{ borderBottom: '1px solid var(--border)' }}>
+      <div style={isStandalone ? { flex: 1, minHeight: 0, overflowY: 'auto' as const } : { borderBottom: '1px solid var(--border)' }}>
       {productCounts === null && <div style={S.empty}>Loading...</div>}
       {productCounts !== null && productCounts.length === 0 && <div style={S.empty}>No items.</div>}
       {productCounts !== null && productCounts.length > 0 && (
@@ -2187,7 +2187,7 @@ export function BugPanel(props: BugPanelProps) {
           ) : (
             <span style={S.title}>{isAdmin ? 'Waffle' : label}</span>
           )}
-          <kbd style={{ fontSize: 10, padding: '1px 5px', border: '1px solid var(--border)', borderRadius: 4, background: 'var(--bg-subtle,var(--bg))', color: 'var(--muted)', lineHeight: 1.4, marginLeft: 6, fontFamily: 'var(--font-mono,monospace)' }}>{typeof navigator !== 'undefined' && navigator.platform && navigator.platform.indexOf('Mac') !== -1 ? '\u2318B' : 'Ctrl+B'}</kbd>
+          {!isStandalone && <kbd style={{ fontSize: 10, padding: '1px 5px', border: '1px solid var(--border)', borderRadius: 4, background: 'var(--bg-subtle,var(--bg))', color: 'var(--muted)', lineHeight: 1.4, marginLeft: 6, fontFamily: 'var(--font-mono,monospace)' }}>{typeof navigator !== 'undefined' && navigator.platform && navigator.platform.indexOf('Mac') !== -1 ? '\u2318B' : 'Ctrl+B'}</kbd>}
           <span style={{ flex: 1 }} />
           {isAdmin && (
             <span style={{ display: 'inline-flex', border: '1px solid var(--border)', borderRadius: 7, overflow: 'hidden', marginRight: 2 }}>
@@ -2206,6 +2206,12 @@ export function BugPanel(props: BugPanelProps) {
                 setShowKeys(true); setMintedKey(null); loadMcpKeys()
               }}
             ><KeyIcon />{isStandalone && <span>MCP Keys</span>}</button>
+          )}
+          {isStandalone && (
+            <button onClick={function() { setShowForm(true) }}
+              style={{ display: 'inline-flex', alignItems: 'center', gap: 6, padding: '6px 14px', borderRadius: 8, border: 'none', background: 'var(--accent)', color: '#fff', fontSize: 12, fontWeight: 700, cursor: 'pointer', fontFamily: 'var(--font)' }}>
+              + New item
+            </button>
           )}
           {!isStandalone && <button style={S.closeBtn} title="Open in new tab" onClick={function() {
             var url = 'https://admin.sprintmode.ai/bugs?product=' + encodeURIComponent(product)
@@ -2554,7 +2560,8 @@ export function BugPanel(props: BugPanelProps) {
         )}
 
         {showListChrome && (showForm ? (
-          <div style={S.formArea}>
+          <div style={isStandalone ? { position: 'fixed', inset: 0, zIndex: 9700, background: 'rgba(0,0,0,0.45)', display: 'flex', alignItems: 'flex-start', justifyContent: 'center', padding: '48px 16px', overflowY: 'auto' as const } : undefined}>
+          <div style={isStandalone ? Object.assign({}, S.formArea, { background: 'var(--bg-card,var(--bg))', border: '1px solid var(--border)', borderRadius: 12, width: '100%', maxWidth: 640, boxShadow: '0 12px 40px rgba(0,0,0,0.3)' }) : S.formArea}>
             <div style={{ display: 'flex', gap: 6, marginBottom: 8 }}>
               <select style={S.formSelect} value={fType} onChange={function(e) { setFType(e.target.value) }}>
                 {TYPES.map(function(t) { return <option key={t} value={t}>{t.charAt(0).toUpperCase() + t.slice(1)}</option> })}
@@ -2640,7 +2647,8 @@ export function BugPanel(props: BugPanelProps) {
               <button style={S.cancelBtn} onClick={function() { setShowForm(false); setFTitle(''); setFDesc(''); setFormAttachments([]) }}>Cancel</button>
             </div>
           </div>
-        ) : (
+          </div>
+        ) : isStandalone ? null : (
           <div style={{ borderTop: '1px solid var(--border)', padding: '8px 12px', flexShrink: 0 }}>
             <button style={{ width: '100%', padding: 10, borderRadius: 8, border: '1.5px dashed var(--border)', background: 'transparent', color: 'var(--accent)', fontSize: 13, fontWeight: 600, cursor: 'pointer', fontFamily: 'var(--font)' }}
               onClick={function() { setShowForm(true) }}>

@@ -111,16 +111,59 @@ var STATUS_META: Record<string, { color: string; bg: string; label: string }> = 
 
 var TYPES = ['bug', 'feature', 'ux', 'task', 'human_action']
 
-// WAFFLE-0: seed subsystem vocabulary for the edit datalist, so the first
-// user of a subsystem gets a suggestion before any rows exist. The filter
-// dropdown uses the live DISTINCT list from /api/bugs/subsystems instead.
-var SUBSYSTEM_SUGGESTIONS = [
-  'bookkeeper', 'launchpad', 'support', 'portal_manager', 'bug_panel', 'analytics', 'finance',
-  'signal_core', 'signal_billing', 'signal_integrations', 'signal_gtm',
-  'pai_engine', 'pai_dashboard', 'pai_billing',
-  'ss_auth', 'ss_email', 'ss_billing', 'ss_portal',
-  'website', 'investors',
-]
+// WAFFLE-TAXONOMY (bug_panel_taxonomy_dropdowns): the canonical board
+// vocabulary comes from GET /api/bugs/taxonomy — the panel carries no product
+// or subsystem list of its own. sm-api serves subsystems as one flat list; a
+// map keyed by product is accepted too, so options can narrow per product the
+// day the API starts sending one. Any other shape means the payload can't be
+// trusted, and the fields fall back to free text rather than lock the user
+// into an empty dropdown.
+export interface BugTaxonomy {
+  products: string[]
+  subsystemsFor: (product: string) => string[]
+}
+
+function stringList(v: unknown): string[] | null {
+  if (!Array.isArray(v)) return null
+  for (var i = 0; i < v.length; i++) { if (typeof v[i] !== 'string') return null }
+  return v as string[]
+}
+
+export function parseTaxonomy(raw: unknown): BugTaxonomy | null {
+  var data = raw && typeof raw === 'object' ? (raw as { data?: unknown }).data : null
+  if (!data || typeof data !== 'object') return null
+  var products = stringList((data as { products?: unknown }).products)
+  if (!products || products.length === 0) return null
+
+  var subs = (data as { subsystems?: unknown }).subsystems
+  var flat = stringList(subs)
+  var keyed: Record<string, string[]> = {}
+  var isKeyed = false
+  if (!flat && subs && typeof subs === 'object' && !Array.isArray(subs)) {
+    isKeyed = true
+    var src = subs as Record<string, unknown>
+    Object.keys(src).forEach(function(k) {
+      var list = stringList(src[k])
+      if (list) keyed[k] = list
+    })
+  }
+
+  return {
+    products: products,
+    subsystemsFor: function(product: string) {
+      if (flat) return flat
+      if (isKeyed) return keyed[product] || []
+      return []
+    },
+  }
+}
+
+// An item can carry a value the canonical list has since dropped (or never
+// had). Keep it selectable instead of silently rewriting it on the next save.
+function withCurrent(list: string[], current: string | null | undefined): string[] {
+  if (!current) return list
+  return list.indexOf(current) === -1 ? [current].concat(list) : list
+}
 
 var VERIFIED_META: Record<string, { color: string; bg: string; label: string }> = {
   pw_verifying: { color: '#e67700', bg: '#fff3e0', label: 'verifying' },
@@ -139,10 +182,6 @@ var PRIORITY_META: Record<string, { label: string; sublabel: string; color: stri
 function priorityBadge(priority: string | undefined) {
   var m = PRIORITY_META[priority || ''] || PRIORITY_META['normal']
   return { label: m.label, sublabel: m.sublabel, color: m.color, bg: m.bg }
-}
-
-var PRODUCTS_FALLBACK: Record<string, string[]> = {
-  'Portals': ['admin', 'studios', 'signal', 'privacyai', 'safeshepherd', 'website'],
 }
 
 // WAFFLE-FIX-1 (bug_w2f_tabrow): labels shortened so all five tabs fit the
@@ -478,7 +517,7 @@ function CommentAttThumb({ att, bugId, isImage, apiBase, product }: { att: BugAt
   )
 }
 
-function BugCard({ bug, isAdmin, expanded, onToggle, onAction, onComment, onDelete, onFire, onFireTerminal, onVerify, apiBase, product, searchQuery, assignees, flash }: {
+function BugCard({ bug, isAdmin, expanded, onToggle, onAction, onComment, onDelete, onFire, onFireTerminal, onVerify, apiBase, product, searchQuery, assignees, flash, taxonomy }: {
   bug: Bug
   isAdmin?: boolean
   expanded: boolean
@@ -495,7 +534,12 @@ function BugCard({ bug, isAdmin, expanded, onToggle, onAction, onComment, onDele
   product: string
   searchQuery?: string
   assignees?: Array<{ id: string; name: string }>
+  taxonomy?: BugTaxonomy | null
 }) {
+  // Subsystem options for THIS item's product, plus whatever it already
+  // carries. Empty means we have no vocabulary to offer and the field stays a
+  // plain text input.
+  var subsystemOptions = taxonomy ? withCurrent(taxonomy.subsystemsFor(bug.product || ''), bug.subsystem) : []
   // WAFFLE-0: resolve assigned_to contact_id -> display name
   var assignedName = ''
   if (bug.assigned_to && assignees) {
@@ -733,18 +777,28 @@ function BugCard({ bug, isAdmin, expanded, onToggle, onAction, onComment, onDele
                 <option value="">Unassigned</option>
                 {(assignees || []).map(function(a) { return <option key={a.id} value={a.id}>{a.name}</option> })}
               </select>
-              <datalist id={'wfl-subsystems-' + bug.id}>
-                {SUBSYSTEM_SUGGESTIONS.map(function(ss) { return <option key={ss} value={ss} /> })}
-              </datalist>
-              <input
-                list={'wfl-subsystems-' + bug.id}
-                placeholder="subsystem"
-                defaultValue={bug.subsystem || ''}
-                onBlur={function(e) { var v = e.target.value.trim(); if (v !== (bug.subsystem || '')) onAction(bug.id, { subsystem: v }) }}
-                onKeyDown={function(e) { if (e.key === 'Enter') (e.target as HTMLInputElement).blur() }}
-                style={Object.assign({}, S.btnSm('transparent', 'var(--foreground)', '1px solid var(--border)'), { fontSize: 11, width: 110 })}
-                title="Subsystem"
-              />
+              {subsystemOptions.length > 0 ? (
+                <select
+                  aria-label="Subsystem"
+                  value={bug.subsystem || ''}
+                  onChange={function(e) { onAction(bug.id, { subsystem: e.target.value }) }}
+                  style={Object.assign({}, S.btnSm('transparent', 'var(--foreground)', '1px solid var(--border)'), { cursor: 'pointer', fontSize: 11, maxWidth: 140 })}
+                  title="Subsystem"
+                >
+                  <option value="">subsystem</option>
+                  {subsystemOptions.map(function(ss) { return <option key={ss} value={ss}>{ss}</option> })}
+                </select>
+              ) : (
+                <input
+                  aria-label="Subsystem"
+                  placeholder="subsystem"
+                  defaultValue={bug.subsystem || ''}
+                  onBlur={function(e) { var v = e.target.value.trim(); if (v !== (bug.subsystem || '')) onAction(bug.id, { subsystem: v }) }}
+                  onKeyDown={function(e) { if (e.key === 'Enter') (e.target as HTMLInputElement).blur() }}
+                  style={Object.assign({}, S.btnSm('transparent', 'var(--foreground)', '1px solid var(--border)'), { fontSize: 11, width: 110 })}
+                  title="Subsystem"
+                />
+              )}
               <input
                 type="date"
                 defaultValue={bug.due_date || ''}
@@ -922,8 +976,9 @@ export function BugPanel(props: BugPanelProps) {
   var _fType = useState('bug'); var fType = _fType[0]; var setFType = _fType[1]
   var _fProduct = useState(product); var fProduct = _fProduct[0]; var setFProduct = _fProduct[1]
   var _submitting = useState(false); var submitting = _submitting[0]; var setSubmitting = _submitting[1]
-  // BUG-PANEL-STANDALONE-1: Dynamic product list from API, with static fallback
-  var _products = useState<Record<string, string[]>>(PRODUCTS_FALLBACK); var products = _products[0]; var setProducts = _products[1]
+  // WAFFLE-TAXONOMY: canonical products/subsystems; null until it loads, and
+  // stays null when the call fails or the shape is unexpected.
+  var _taxonomy = useState<BugTaxonomy | null>(null); var taxonomy = _taxonomy[0]; var setTaxonomy = _taxonomy[1]
   var _filterProduct = useState('all'); var filterProduct = _filterProduct[0]; var setFilterProduct = _filterProduct[1]
   var _filterType = useState('all'); var filterType = _filterType[0]; var setFilterType = _filterType[1]
   var _filterPriority = useState('all'); var filterPriority = _filterPriority[0]; var setFilterPriority = _filterPriority[1]
@@ -1222,14 +1277,14 @@ export function BugPanel(props: BugPanelProps) {
     }
   }, [open, props.focusBugId])
 
-  // BUG-PANEL-STANDALONE-1: Fetch dynamic product list on mount
+  // WAFFLE-TAXONOMY: one vocabulary call on mount (bugs access level 1), the
+  // source for both the product and subsystem dropdowns.
   useEffect(function() {
-    apiFetch(apiBase + '/api/admin/bug-panel/products')
+    apiFetch(apiBase + '/api/bugs/taxonomy')
       .then(function(r) { return r.json() })
-      .then(function(d: { ok: boolean; data?: Record<string, string[]> }) {
-        if (d.ok && d.data) setProducts(d.data)
-      })
-      .catch(function() { /* keep fallback */ })
+      .then(function(d: unknown) { setTaxonomy(parseTaxonomy(d)) })
+      .catch(function() { setTaxonomy(null) })
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [apiBase])
 
   // Scroll to deep-linked bug once it's rendered
@@ -1904,7 +1959,7 @@ export function BugPanel(props: BugPanelProps) {
   }
 
   function renderCard(bug: Bug) {
-    return <BugCard key={bug.id} bug={bug} isAdmin={isAdmin} assignees={assignees} expanded={expanded === bug.id} flash={goldFlash === bug.id}
+    return <BugCard key={bug.id} bug={bug} isAdmin={isAdmin} assignees={assignees} taxonomy={taxonomy} expanded={expanded === bug.id} flash={goldFlash === bug.id}
       onToggle={function() { setExpanded(expanded === bug.id ? null : bug.id) }}
       onAction={handleAction} onComment={handleComment} onDelete={isAdmin ? handleDelete : undefined} onFire={handleFire} onFireTerminal={handleFireTerminal} onVerify={isAdmin ? handleVerify : undefined} apiBase={apiBase} product={product} searchQuery={debouncedSearch} />
   }
@@ -2007,6 +2062,32 @@ export function BugPanel(props: BugPanelProps) {
       </div>
     )
   }
+
+  // Product filter options: the taxonomy when we have it, otherwise whatever
+  // the loaded rows actually carry — never a list baked into this file.
+  var filterProductOptions: string[] = []
+  if (taxonomy) {
+    filterProductOptions = taxonomy.products
+  } else {
+    var seenProduct: Record<string, boolean> = {}
+    bugs.forEach(function(b) {
+      if (b.product && !seenProduct[b.product]) { seenProduct[b.product] = true; filterProductOptions.push(b.product) }
+    })
+    filterProductOptions.sort()
+  }
+
+  // Subsystem filter spans every product, so it takes the canonical vocabulary
+  // across all of them, unioned with the values rows actually use today.
+  var allTaxonomySubsystems: string[] = []
+  const loadedTaxonomy = taxonomy
+  if (loadedTaxonomy) {
+    filterProductOptions.forEach(function(p) {
+      loadedTaxonomy.subsystemsFor(p).forEach(function(ss) {
+        if (allTaxonomySubsystems.indexOf(ss) === -1) allTaxonomySubsystems.push(ss)
+      })
+    })
+  }
+  var filterSubsystemOptions = Array.from(new Set(allTaxonomySubsystems.concat(subsystems))).sort()
 
   // My Day strip (WAFFLE-1 route /api/bugs/my-day; UI = WAFFLE-2 item 4)
   var myDayOverdueN = myDay ? myDay.overdue.length : 0
@@ -2342,9 +2423,7 @@ export function BugPanel(props: BugPanelProps) {
         <div style={S.filterBar}>
             <select style={S.filterSelect} value={filterProduct} onChange={function(e) { setFilterProduct(e.target.value) }}>
               <option value="all">Portals</option>
-              {Object.keys(products).map(function(group) {
-                return products[group].map(function(p) { return <option key={p} value={p}>{p}</option> })
-              })}
+              {filterProductOptions.map(function(p) { return <option key={p} value={p}>{p}</option> })}
             </select>
             <select style={S.filterSelect} value={filterType} onChange={function(e) { setFilterType(e.target.value) }}>
               <option value="all">Types</option>
@@ -2388,8 +2467,9 @@ export function BugPanel(props: BugPanelProps) {
             {isAdmin && (
               <select style={S.filterSelect} value={filterSubsystem} onChange={function(e) { setFilterSubsystem(e.target.value) }}>
                 <option value="all">Subsystems</option>
-                {/* WAFFLE-2 decision 4: union of live DISTINCT values + seed vocabulary */}
-                {Array.from(new Set(SUBSYSTEM_SUGGESTIONS.concat(subsystems))).sort().map(function(ss) { return <option key={ss} value={ss}>{ss}</option> })}
+                {/* WAFFLE-2 decision 4: union of live DISTINCT values + the
+                    canonical vocabulary (WAFFLE-TAXONOMY, all products) */}
+                {filterSubsystemOptions.map(function(ss) { return <option key={ss} value={ss}>{ss}</option> })}
               </select>
             )}
             <div style={{ position: 'relative', display: 'flex', alignItems: 'center', flex: '1 1 120px', minWidth: 100 }}>
@@ -2484,7 +2564,7 @@ export function BugPanel(props: BugPanelProps) {
                     <div style={{ display: 'flex', justifyContent: 'flex-end', padding: '2px 8px 0' }}>
                       <button onClick={function() { setKbExpanded(null) }} style={{ background: 'none', border: 'none', color: 'var(--muted)', cursor: 'pointer', fontSize: 16, padding: 4 }}>{'\u00d7'}</button>
                     </div>
-                    <BugCard bug={kb} isAdmin={isAdmin} assignees={assignees} expanded={true} flash={false}
+                    <BugCard bug={kb} isAdmin={isAdmin} assignees={assignees} taxonomy={taxonomy} expanded={true} flash={false}
                       onToggle={function() { setKbExpanded(null) }}
                       onAction={function(id: string, updates: Record<string, string>) { handleAction(id, updates); setTimeout(loadKanban, 400) }}
                       onComment={handleComment} onDelete={isAdmin ? handleDelete : undefined}
@@ -2566,11 +2646,13 @@ export function BugPanel(props: BugPanelProps) {
               <select style={S.formSelect} value={fType} onChange={function(e) { setFType(e.target.value) }}>
                 {TYPES.map(function(t) { return <option key={t} value={t}>{t.charAt(0).toUpperCase() + t.slice(1)}</option> })}
               </select>
-              <select style={S.formSelect} value={fProduct} onChange={function(e) { setFProduct(e.target.value) }}>
-                {Object.keys(products).map(function(group) {
-                  return products[group].map(function(p) { return <option key={p} value={p}>{p}</option> })
-                })}
-              </select>
+              {taxonomy ? (
+                <select aria-label="Product" style={S.formSelect} value={fProduct} onChange={function(e) { setFProduct(e.target.value) }}>
+                  {withCurrent(taxonomy.products, fProduct).map(function(p) { return <option key={p} value={p}>{p}</option> })}
+                </select>
+              ) : (
+                <input aria-label="Product" style={S.formSelect} placeholder="product" value={fProduct} onChange={function(e) { setFProduct(e.target.value) }} />
+              )}
             </div>
             <input style={S.formInput} placeholder="Bug title" value={fTitle}
               onChange={function(e) { setFTitle(e.target.value) }}
@@ -2670,7 +2752,7 @@ export function BugPanel(props: BugPanelProps) {
             </div>
             {!soloBug && <div style={{ padding: 32, textAlign: 'center', fontSize: 12, color: 'var(--muted)' }}>Loading item...</div>}
             {soloBug && (
-              <BugCard bug={soloBug} isAdmin={isAdmin} assignees={assignees} expanded={true} flash={false}
+              <BugCard bug={soloBug} isAdmin={isAdmin} assignees={assignees} taxonomy={taxonomy} expanded={true} flash={false}
                 onToggle={function() { closeSolo() }}
                 onAction={function(id: string, updates: Record<string, string>) {
                   handleAction(id, updates)

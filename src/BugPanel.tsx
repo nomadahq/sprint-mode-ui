@@ -81,6 +81,7 @@ export interface Bug {
   subsystem?: string | null
   due_date?: string | null
   tags?: string | null
+  square_id?: string | null
   // WAFFLE-3.5 display IDs (sm-api computes display_id from the global
   // display_number + current type; prefix changes on retype, number never)
   display_number?: number | null
@@ -1046,6 +1047,16 @@ export function BugPanel(props: BugPanelProps) {
   // WAFFLE-0: work board filters + vocab
   var _filterAssignee = useState('all'); var filterAssignee = _filterAssignee[0]; var setFilterAssignee = _filterAssignee[1]
   var _filterSubsystem = useState('all'); var filterSubsystem = _filterSubsystem[0]; var setFilterSubsystem = _filterSubsystem[1]
+  // WAFFLE-FIX-1B (Gate 1 approved): Squares + Tags filters. Both init from
+  // the URL so /work's "board >" links land pre-filtered (?square=sq_x, ?tag=x).
+  var _filterSquare = useState(function(): string {
+    try { return new URLSearchParams(window.location.search).get('square') || 'all' } catch (_e) { return 'all' }
+  }); var filterSquare = _filterSquare[0]; var setFilterSquare = _filterSquare[1]
+  var _filterTag = useState(function(): string {
+    try { return new URLSearchParams(window.location.search).get('tag') || 'all' } catch (_e) { return 'all' }
+  }); var filterTag = _filterTag[0]; var setFilterTag = _filterTag[1]
+  var _squares = useState<Array<{ id: string; name: string }>>([]); var squaresList = _squares[0]; var setSquaresList = _squares[1]
+  var _tagsVocab = useState<string[]>([]); var tagsVocab = _tagsVocab[0]; var setTagsVocab = _tagsVocab[1]
   var _assignees = useState<Array<{ id: string; name: string }>>([]); var assignees = _assignees[0]; var setAssignees = _assignees[1]
   // WAFFLE-FIX-1 (bug_w2o_peoplefilter): distinct reporter names from the
   // server (GET /api/bugs/assignees `reporters` key) — covers every submitter
@@ -1344,6 +1355,27 @@ export function BugPanel(props: BugPanelProps) {
     }
   }, [open, props.focusBugId])
 
+  // WAFFLE-FIX-1B: Squares + Tags vocabularies for the filter dropdowns
+  // (and Square names for the By Square grouping labels).
+  useEffect(function() {
+    apiFetch(apiBase + '/api/bugs/squares', { credentials: 'include' })
+      .then(function(r) { return r.json() })
+      .then(function(d: { ok?: boolean; data?: Array<{ id: string; name: string }> }) {
+        // Guard the shape: an older sm-api (or a host proxy that routes this
+        // path to the generic bugs list) must degrade to an empty dropdown,
+        // never crash the panel on non-square rows.
+        if (d && Array.isArray(d.data)) setSquaresList(d.data.filter(function(sq) { return sq && typeof sq.id === 'string' && sq.id.indexOf('sq_') === 0 && typeof sq.name === 'string' }))
+      })
+      .catch(function() {})
+    apiFetch(apiBase + '/api/bugs/tags', { credentials: 'include' })
+      .then(function(r) { return r.json() })
+      .then(function(d: { ok?: boolean; data?: string[] }) {
+        if (d && Array.isArray(d.data)) setTagsVocab(d.data.filter(function(t) { return typeof t === 'string' }))
+      })
+      .catch(function() {})
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [apiBase])
+
   // WAFFLE-TAXONOMY: one vocabulary call on mount (bugs access level 1), the
   // source for both the product and subsystem dropdowns.
   useEffect(function() {
@@ -1456,6 +1488,8 @@ export function BugPanel(props: BugPanelProps) {
     if (filterPriority !== 'all') params.push('priority=' + filterPriority)
     if (filterAssignee !== 'all') params.push('assigned_to=' + encodeURIComponent(filterAssignee))
     if (filterSubsystem !== 'all') params.push('subsystem=' + encodeURIComponent(filterSubsystem))
+    if (filterSquare !== 'all') params.push('square_id=' + encodeURIComponent(filterSquare))
+    if (filterTag !== 'all') params.push('tags=' + encodeURIComponent(filterTag))
     if (filterSource !== 'all') params.push('source=' + filterSource)
     if (debouncedSearch.trim()) params.push('q=' + encodeURIComponent(debouncedSearch.trim()))
     if (isAdmin) {
@@ -1487,7 +1521,7 @@ export function BugPanel(props: BugPanelProps) {
         setLoading(false); setLoadingMore(false)
       })
       .catch(function() { setLoading(false); setLoadingMore(false) })
-  }, [apiBase, isAdmin, tab, sortBy, filterPerson, filterProduct, filterType, filterPriority, filterAssignee, filterSubsystem, filterSource, debouncedSearch])
+  }, [apiBase, isAdmin, tab, sortBy, filterPerson, filterProduct, filterType, filterPriority, filterAssignee, filterSubsystem, filterSquare, filterTag, filterSource, debouncedSearch])
 
   useEffect(function() {
     if (!open) return
@@ -1967,6 +2001,8 @@ export function BugPanel(props: BugPanelProps) {
     if (filterPriority !== 'all') params.push('priority=' + filterPriority)
     if (filterAssignee !== 'all') params.push('assigned_to=' + encodeURIComponent(filterAssignee))
     if (filterSubsystem !== 'all') params.push('subsystem=' + encodeURIComponent(filterSubsystem))
+    if (filterSquare !== 'all') params.push('square_id=' + encodeURIComponent(filterSquare))
+    if (filterTag !== 'all') params.push('tags=' + encodeURIComponent(filterTag))
     if (filterSource !== 'all') params.push('source=' + filterSource)
     if (filterPerson !== 'all') params.push('submitted_by_name=' + encodeURIComponent(filterPerson))
     if (debouncedSearch.trim()) params.push('q=' + encodeURIComponent(debouncedSearch.trim()))
@@ -1977,7 +2013,7 @@ export function BugPanel(props: BugPanelProps) {
         setKbLoading(false)
       })
       .catch(function() { setKbLoading(false) })
-  }, [apiBase, sortBy, filterPerson, filterProduct, filterType, filterPriority, filterAssignee, filterSubsystem, filterSource, debouncedSearch])
+  }, [apiBase, sortBy, filterPerson, filterProduct, filterType, filterPriority, filterAssignee, filterSubsystem, filterSquare, filterTag, filterSource, debouncedSearch])
   useEffect(function() {
     if (open && viewMode === 'kanban' && isAdmin) loadKanban()
   }, [open, viewMode, isAdmin, loadKanban])
@@ -2061,7 +2097,9 @@ export function BugPanel(props: BugPanelProps) {
       ? function(b: Bug) { return b.assigned_to || '' }
       : groupBy === 'product'
         ? function(b: Bug) { return b.product || '' }
-        : function(b: Bug) { return b.subsystem || '' }
+        : groupBy === 'square'
+          ? function(b: Bug) { return b.square_id || '' }
+          : function(b: Bug) { return b.subsystem || '' }
     var groups: Record<string, Bug[]> = {}
     var order: string[] = []
     list.forEach(function(b) {
@@ -2078,7 +2116,11 @@ export function BugPanel(props: BugPanelProps) {
     return (
       <>
         {order.map(function(k) {
-          var groupTitle = groupBy === 'assignee' ? groupLabelForAssignee(k) : (k || (groupBy === 'subsystem' ? '(no subsystem)' : '(no product)'))
+          var groupTitle = groupBy === 'assignee'
+        ? groupLabelForAssignee(k)
+        : groupBy === 'square'
+          ? (k ? ((squaresList.find(function(sq) { return sq.id === k }) || { name: k }).name) : 'No Square')
+          : (k || (groupBy === 'subsystem' ? '(no subsystem)' : '(no product)'))
           return (
             <React.Fragment key={k || '__none__'}>
               <div style={S.groupHeader}>{groupTitle} <span style={S.groupCount}>{groups[k].length}</span></div>
@@ -2503,6 +2545,12 @@ export function BugPanel(props: BugPanelProps) {
               <option value="all">Portals</option>
               {filterProductOptions.map(function(p) { return <option key={p} value={p}>{p}</option> })}
             </select>
+            {/* WAFFLE-FIX-1B (Gate 1 approved): Squares filter — the umbrella lens */}
+            <select style={S.filterSelect} value={filterSquare} onChange={function(e) { setFilterSquare(e.target.value) }}>
+              <option value="all">Squares</option>
+              {squaresList.map(function(sq) { return <option key={sq.id} value={sq.id}>{sq.name}</option> })}
+              <option value="none">No Square</option>
+            </select>
             <select style={S.filterSelect} value={filterType} onChange={function(e) { setFilterType(e.target.value) }}>
               <option value="all">Types</option>
               {TYPES.map(function(t) { return <option key={t} value={t}>{t}</option> })}
@@ -2550,6 +2598,13 @@ export function BugPanel(props: BugPanelProps) {
                 {filterSubsystemOptions.map(function(ss) { return <option key={ss} value={ss}>{ss}</option> })}
               </select>
             )}
+            {/* WAFFLE-FIX-1B (bug_ccef374b811c5dca, Gate 1 approved): Tags filter */}
+            {isAdmin && (
+              <select style={S.filterSelect} value={filterTag} onChange={function(e) { setFilterTag(e.target.value) }}>
+                <option value="all">Tags</option>
+                {tagsVocab.map(function(t) { return <option key={t} value={t}>{t}</option> })}
+              </select>
+            )}
             <div style={{ position: 'relative', display: 'flex', alignItems: 'center', flex: '1 1 120px', minWidth: 100 }}>
               <input
                 type="text"
@@ -2576,6 +2631,7 @@ export function BugPanel(props: BugPanelProps) {
                 <select style={S.filterSelect} value={groupBy} onChange={function(e) { setGroupBy(e.target.value) }} title="Group the list">
                   <option value="none">No grouping</option>
                   <option value="assignee">By Assignee</option>
+                  <option value="square">By Square</option>
                   <option value="product">By Product</option>
                   <option value="subsystem">By Subsystem</option>
                   <option value="overdue">Overdue First</option>

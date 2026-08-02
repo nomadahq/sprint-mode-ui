@@ -1335,6 +1335,13 @@ export function BugPanel(props: BugPanelProps) {
 
   // Deep link: focusBugId prop or ?bug=bug_xxx in URL
   var deepLinkBugId = useRef<string | null>(null)
+  // BUG-1151 round 2 (WAFFLE-FIX-1B, CiC fail 2026-08-02): the focused item
+  // often lives outside the default queue slice (e.g. status fixed). The
+  // ensure path fetch-and-prepends it, but loadBugs' page-0 setBugs REPLACED
+  // the list and wiped the prepended row whenever the detail fetch resolved
+  // first — URL right, card nowhere. focusKeepRef pins the focused row:
+  // page-0 loads merge it back in if the fresh slice doesn't contain it.
+  var focusKeepRef = useRef<string | null>(null)
   useEffect(function() {
     var bugId = props.focusBugId || null
     if (!bugId) {
@@ -1345,6 +1352,7 @@ export function BugPanel(props: BugPanelProps) {
       setSelfOpen(true)
       setExpanded(bugId)
       deepLinkBugId.current = bugId
+      focusKeepRef.current = bugId
       // BUG-1151 (WAFFLE-FIX-1B): a focus arriving AFTER the list has loaded
       // (Cmd+K result, /items/:key navigation) previously parked in
       // deepLinkBugId and was never consumed — the effect that reads it only
@@ -1510,7 +1518,14 @@ export function BugPanel(props: BugPanelProps) {
       .then(function(r) { return r.json() })
       .then(function(d: { data?: Bug[]; counts?: BugCounts; total?: number }) {
         var items: Bug[] = Array.isArray(d.data) ? d.data : []
-        if (off === 0) setBugs(items)
+        if (off === 0) setBugs(function(prev) {
+          var keepId = focusKeepRef.current
+          if (keepId && !items.some(function(b) { return b.id === keepId })) {
+            var kept = prev.find(function(b) { return b.id === keepId })
+            if (kept) return [kept].concat(items)
+          }
+          return items
+        })
         else setBugs(function(prev) {
           var seen: Record<string, boolean> = {}
           prev.forEach(function(b) { seen[b.id] = true })
@@ -1584,6 +1599,7 @@ export function BugPanel(props: BugPanelProps) {
     }
     if (fetchedFocusRef.current === id) { fetchedFocusRef.current = null; setPendingFocus(null); return }
     fetchedFocusRef.current = id
+    focusKeepRef.current = id
     apiFetch(apiBase + '/api/bugs/' + id, { credentials: 'include' })
       .then(function(r) { return r.json() })
       .then(function(d: { ok: boolean; data?: Bug }) {

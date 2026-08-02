@@ -21,6 +21,10 @@ export interface BugPanelProps {
   mcpKeysHref?: string
   /** BUG-PANEL-STANDALONE-1: When true, renders as a full-viewport page instead of a side panel */
   standalone?: boolean
+  /** BUG-1150 (WAFFLE-FIX-1B): fired on USER card expand/collapse (never on
+   *  programmatic deep-link focus) so the host app can sync the URL —
+   *  waffle web pushes /items/<display> on expand, back to base on collapse. */
+  onExpandedChange?: (bug: Bug | null) => void
 }
 
 export interface BugPanelHeaderButtonProps {
@@ -1330,6 +1334,13 @@ export function BugPanel(props: BugPanelProps) {
       setSelfOpen(true)
       setExpanded(bugId)
       deepLinkBugId.current = bugId
+      // BUG-1151 (WAFFLE-FIX-1B): a focus arriving AFTER the list has loaded
+      // (Cmd+K result, /items/:key navigation) previously parked in
+      // deepLinkBugId and was never consumed — the effect that reads it only
+      // fires when `bugs` changes. pendingFocus is the always-on path: it
+      // ensures the row is in the loaded slice (fetch-and-prepend when not)
+      // and scrolls the card into view whenever it fires.
+      setPendingFocus(bugId)
     }
   }, [open, props.focusBugId])
 
@@ -2016,7 +2027,11 @@ export function BugPanel(props: BugPanelProps) {
 
   function renderCard(bug: Bug) {
     return <BugCard key={bug.id} bug={bug} isAdmin={isAdmin} assignees={assignees} taxonomy={taxonomy} expanded={expanded === bug.id} flash={goldFlash === bug.id}
-      onToggle={function() { setExpanded(expanded === bug.id ? null : bug.id) }}
+      onToggle={function() {
+        var next = expanded === bug.id ? null : bug.id
+        setExpanded(next)
+        if (props.onExpandedChange) props.onExpandedChange(next ? bug : null)
+      }}
       onAction={handleAction} onComment={handleComment} onDelete={isAdmin ? handleDelete : undefined} onFire={handleFire} onFireTerminal={handleFireTerminal} onVerify={isAdmin ? handleVerify : undefined} apiBase={apiBase} product={product} searchQuery={debouncedSearch} />
   }
 
@@ -2451,9 +2466,16 @@ export function BugPanel(props: BugPanelProps) {
                 <div style={{ border: '1px solid var(--border)', borderRadius: 12, background: 'var(--bg-card,var(--bg))', overflow: 'hidden', marginBottom: 12 }}>
                   {myDaySection}
                 </div>
-                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(320px, 1fr))', gap: 12 }}>
-                  {[rollupView, delegationView].map(function(sec, i) {
-                    return sec ? <div key={i} style={{ border: '1px solid var(--border)', borderRadius: 12, background: 'var(--bg-card,var(--bg))', height: 420, display: 'flex', flexDirection: 'column' as const, overflow: 'hidden' as const }}>{sec}</div> : null
+                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(320px, 1fr))', gap: 12, alignItems: 'start' }}>
+                  {/* UX-1149 (WAFFLE-FIX-1B): the fixed 420px card height ignored
+                      the section collapse state — collapsing left a 420px empty
+                      box. Height now follows collapse: header-height when the
+                      wrapped section is collapsed, the fixed frame otherwise.
+                      alignItems:start stops the grid stretching a collapsed card
+                      to its expanded sibling's height. */}
+                  {[{ sec: rollupView, key: 'rollup' }, { sec: delegationView, key: 'delegation' }].map(function(entry, i) {
+                    var isCol = !!collapsed[entry.key]
+                    return entry.sec ? <div key={i} style={{ border: '1px solid var(--border)', borderRadius: 12, background: 'var(--bg-card,var(--bg))', height: isCol ? 'auto' : 420, display: 'flex', flexDirection: 'column' as const, overflow: 'hidden' as const }}>{entry.sec}</div> : null
                   })}
                 </div>
               </>

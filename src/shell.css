@@ -112,6 +112,12 @@
      column beside the content. */
 @media (max-width: 900px) {
   .shell { flex-direction: column; }
+  /* BUG-1116 (WAFFLE-FIX-1B): on header portals the sidebar / mobile bar /
+     main live inside .shell-body, which kept its desktop ROW direction here
+     — the full-width mobile bar and the main pane sat side by side and main
+     was crushed to zero width (blank content under correct narrow chrome).
+     Stack the body the same way the shell stacks. */
+  .shell-with-header .shell-body { flex-direction: column; }
   .portal-sidebar { position: fixed; left: -110%; top: 0; bottom: 0; width: min(82vw, 300px); transition: left 0.25s ease; z-index: 70; box-shadow: 4px 0 24px rgba(0,0,0,0.18); }
   .portal-sidebar.open { left: 0; }
   .portal-sidebar.rail { width: min(82vw, 300px); }

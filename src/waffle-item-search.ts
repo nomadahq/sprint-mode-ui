@@ -27,6 +27,11 @@ export interface WaffleItemSearchOptions {
   apiBase?: string
   /** Max results shown in the palette (default 8; server caps apply). */
   limit?: number
+  /** BUG-1151/1150 (WAFFLE-FIX-1B): build the navigation target per row.
+   *  The waffle web app passes rows to /items/<display_id||display_number>
+   *  (its canonical item URLs); every other portal keeps the ?bug= default
+   *  (legacy compat, still honored everywhere). */
+  itemHref?: (row: WaffleSearchRow) => string
 }
 
 export function createWaffleItemSearch(
@@ -34,6 +39,7 @@ export function createWaffleItemSearch(
 ): (query: string) => Promise<{ items: CmdKItem[]; total?: number }> {
   var apiBase = (opts && opts.apiBase) || ''
   var limit = (opts && opts.limit) || 8
+  var itemHref = opts && opts.itemHref
   return function (query: string) {
     var params = new URLSearchParams()
     params.set('q', query)
@@ -52,7 +58,7 @@ export function createWaffleItemSearch(
             keywords: [b.product, b.subsystem, b.tags, b.submitted_by_name, b.id]
               .filter(Boolean)
               .join(' '),
-            to: '?bug=' + encodeURIComponent(b.id || ''),
+            to: itemHref ? itemHref(b) : '?bug=' + encodeURIComponent(b.id || ''),
           }
         })
         return { items: items, total: (d && d.total) || items.length }

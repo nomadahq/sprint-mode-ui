@@ -13,4 +13,22 @@ describe("product token contracts", () => {
     expect(hubRule).toMatch(/--accent-hover:/);
     expect(hubRule).toMatch(/--accent-foreground:/);
   });
+
+  it("publishes the shared spacing, radius, and elevation scales", () => {
+    for (const token of [
+      "--space-1",
+      "--space-2",
+      "--space-3",
+      "--space-4",
+      "--space-6",
+      "--radius-xl",
+      "--radius-full",
+      "--shadow-sm",
+      "--shadow-md",
+      "--shadow-lg",
+      "--shadow-xl",
+    ]) {
+      expect(tokens).toContain(`${token}:`);
+    }
+  });
 });

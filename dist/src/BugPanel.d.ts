@@ -18,6 +18,10 @@ export interface BugPanelProps {
     mcpKeysHref?: string;
     /** BUG-PANEL-STANDALONE-1: When true, renders as a full-viewport page instead of a side panel */
     standalone?: boolean;
+    /** BUG-1150 (WAFFLE-FIX-1B): fired on USER card expand/collapse (never on
+     *  programmatic deep-link focus) so the host app can sync the URL —
+     *  waffle web pushes /items/<display> on expand, back to base on collapse. */
+    onExpandedChange?: (bug: Bug | null) => void;
 }
 export interface BugPanelHeaderButtonProps {
     onClick?: React.MouseEventHandler<HTMLButtonElement>;
@@ -68,6 +72,7 @@ export interface Bug {
     subsystem?: string | null;
     due_date?: string | null;
     tags?: string | null;
+    square_id?: string | null;
     display_number?: number | null;
     display_id?: string | null;
 }

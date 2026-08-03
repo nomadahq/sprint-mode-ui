@@ -56,6 +56,8 @@ jobs:
         run: git config --global url."https://github.com/".insteadOf "git+ssh://git@github.com/"
       - run: npm ci
       - run: npm run build
+      - name: Verify committed distribution is current
+        run: git diff --exit-code -- dist
 
   test:
     name: test

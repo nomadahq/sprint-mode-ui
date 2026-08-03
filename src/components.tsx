@@ -2,80 +2,124 @@ import React, { ReactNode, CSSProperties } from 'react'
 
 // ── Card ──────────────────────────────────────────────────────────────────────
 
-export interface CardProps {
-  children?: ReactNode
-  className?: string
-  style?: CSSProperties
+export interface CardProps extends React.HTMLAttributes<HTMLDivElement> {
   accent?: string
 }
 
-export function Card({ children, className, style, accent }: CardProps) {
+export const Card = React.forwardRef<HTMLDivElement, CardProps>(function Card(
+  { children, className, style, accent, ...native },
+  ref,
+) {
   var cls = 'sm-card' + (className ? ' ' + className : '')
   var s = accent ? Object.assign({}, style || {}, { borderColor: accent, borderWidth: 2 }) : style
-  return <div className={cls} style={s}>{children}</div>
-}
+  return <div ref={ref} className={cls} style={s} {...native}>{children}</div>
+})
 
 // ── CardBody ──────────────────────────────────────────────────────────────────
 
-export interface CardBodyProps {
-  children?: ReactNode
-  style?: CSSProperties
-}
+export type CardBodyProps = React.HTMLAttributes<HTMLDivElement>
 
-export function CardBody({ children, style }: CardBodyProps) {
-  return <div className="sm-card-body" style={style}>{children}</div>
-}
+export const CardBody = React.forwardRef<HTMLDivElement, CardBodyProps>(function CardBody(
+  { children, className, ...native },
+  ref,
+) {
+  return <div ref={ref} className={'sm-card-body' + (className ? ' ' + className : '')} {...native}>{children}</div>
+})
 
 // ── Pill ──────────────────────────────────────────────────────────────────────
 
-export interface PillProps {
-  children?: ReactNode
+export interface PillProps extends React.HTMLAttributes<HTMLSpanElement> {
   color?: string
-  style?: CSSProperties
 }
 
-export function Pill({ children, color, style }: PillProps) {
-  var cls = 'sm-pill sm-pill-' + (color || 'gray')
-  return <span className={cls} style={style}>{children}</span>
-}
+export const Pill = React.forwardRef<HTMLSpanElement, PillProps>(function Pill(
+  { children, color, className, ...native },
+  ref,
+) {
+  var cls = 'sm-pill sm-pill-' + (color || 'gray') + (className ? ' ' + className : '')
+  return <span ref={ref} className={cls} {...native}>{children}</span>
+})
 
 // ── Badge ─────────────────────────────────────────────────────────────────────
 
-export interface BadgeProps {
-  children?: ReactNode
+export interface BadgeProps extends React.HTMLAttributes<HTMLSpanElement> {
   color?: string
-  style?: CSSProperties
 }
 
-export function Badge({ children, color, style }: BadgeProps) {
-  var cls = 'sm-badge sm-badge-' + (color || 'gray')
-  return <span className={cls} style={style}>{children}</span>
-}
+export const Badge = React.forwardRef<HTMLSpanElement, BadgeProps>(function Badge(
+  { children, color, className, ...native },
+  ref,
+) {
+  var cls = 'sm-badge sm-badge-' + (color || 'gray') + (className ? ' ' + className : '')
+  return <span ref={ref} className={cls} {...native}>{children}</span>
+})
 
 // ── Button ────────────────────────────────────────────────────────────────────
 
-export interface ButtonProps {
+interface ButtonSharedProps {
   children?: ReactNode
   variant?: 'primary' | 'secondary' | 'danger'
   size?: 'sm' | 'lg'
-  onClick?: React.MouseEventHandler<HTMLButtonElement>
-  disabled?: boolean
-  style?: CSSProperties
-  href?: string
-  type?: 'button' | 'submit' | 'reset'
+  className?: string
 }
 
-export function Button({ children, variant, size, onClick, disabled, style, href, type }: ButtonProps) {
+export type ButtonNativeProps = ButtonSharedProps &
+  Omit<React.ButtonHTMLAttributes<HTMLButtonElement>, keyof ButtonSharedProps> & {
+    href?: undefined
+  }
+
+export type ButtonAnchorProps = ButtonSharedProps &
+  Omit<React.AnchorHTMLAttributes<HTMLAnchorElement>, keyof ButtonSharedProps> & {
+    href: string
+  }
+
+export type ButtonProps = ButtonNativeProps | ButtonAnchorProps
+
+export type ButtonCompatibilityProps = ButtonSharedProps &
+  Omit<React.ButtonHTMLAttributes<HTMLButtonElement>, keyof ButtonSharedProps> & {
+    href?: string
+    target?: React.HTMLAttributeAnchorTarget
+    rel?: string
+  }
+
+function buttonClassName({ variant, size, className }: ButtonSharedProps) {
   var cls = 'sm-btn'
   if (variant === 'primary') cls += ' sm-btn-primary'
   else if (variant === 'danger') cls += ' sm-btn-danger'
   else cls += ' sm-btn-secondary'
   if (size === 'sm') cls += ' sm-btn-sm'
   if (size === 'lg') cls += ' sm-btn-lg'
-
-  if (href) return <a href={href} className={cls} style={style}>{children}</a>
-  return <button className={cls} onClick={onClick} disabled={disabled} style={style} type={type || 'button'}>{children}</button>
+  if (className) cls += ' ' + className
+  return cls
 }
+
+function ButtonInner(
+  props: ButtonProps,
+  ref: React.ForwardedRef<HTMLButtonElement | HTMLAnchorElement>,
+) {
+  var cls = buttonClassName(props)
+  if (props.href !== undefined) {
+    var anchor = props as ButtonAnchorProps
+    var { children, variant: _variant, size: _size, className: _className, href, ...nativeAnchor } = anchor
+    return <a ref={ref as React.ForwardedRef<HTMLAnchorElement>} href={href} className={cls} {...nativeAnchor}>{children}</a>
+  }
+  var button = props as ButtonNativeProps
+  var { children, variant: _variant, size: _size, className: _className, href: _href, type = 'button', ...nativeButton } = button
+  return <button ref={ref as React.ForwardedRef<HTMLButtonElement>} className={cls} type={type} {...nativeButton}>{children}</button>
+}
+
+type ButtonComponent = {
+  (props: ButtonNativeProps & React.RefAttributes<HTMLButtonElement>): React.ReactElement | null
+  (props: ButtonAnchorProps & React.RefAttributes<HTMLAnchorElement>): React.ReactElement | null
+  (props: ButtonCompatibilityProps): React.ReactElement | null
+  (
+    props:
+      | (ButtonNativeProps & React.RefAttributes<HTMLButtonElement>)
+      | (ButtonAnchorProps & React.RefAttributes<HTMLAnchorElement>),
+  ): React.ReactElement | null
+}
+
+export const Button = React.forwardRef(ButtonInner) as ButtonComponent
 
 // ── StatCard ──────────────────────────────────────────────────────────────────
 
@@ -136,14 +180,40 @@ export interface TabsProps {
 }
 
 export function Tabs({ tabs, active, onChange }: TabsProps) {
+  var tabRefs = React.useRef<Array<HTMLButtonElement | null>>([])
+
+  function focusTab(index: number) {
+    var tab = tabs[index]
+    if (!tab) return
+    tabRefs.current[index]?.focus()
+    onChange(tab.key)
+  }
+
+  function handleKeyDown(event: React.KeyboardEvent<HTMLButtonElement>, index: number) {
+    var target: number | null = null
+    if (event.key === 'ArrowRight') target = (index + 1) % tabs.length
+    if (event.key === 'ArrowLeft') target = (index - 1 + tabs.length) % tabs.length
+    if (event.key === 'Home') target = 0
+    if (event.key === 'End') target = tabs.length - 1
+    if (target === null || tabs.length === 0) return
+    event.preventDefault()
+    focusTab(target)
+  }
+
   return (
-    <div className="sm-tabs">
-      {tabs.map(function(tab) {
+    <div className="sm-tabs" role="tablist">
+      {tabs.map(function(tab, index) {
         return (
           <button
             key={tab.key}
+            ref={function(node) { tabRefs.current[index] = node }}
             className={'sm-tab' + (active === tab.key ? ' active' : '')}
+            type="button"
+            role="tab"
+            aria-selected={active === tab.key}
+            tabIndex={active === tab.key ? 0 : -1}
             onClick={function() { onChange(tab.key) }}
+            onKeyDown={function(event) { handleKeyDown(event, index) }}
           >
             {tab.label}
           </button>
@@ -291,8 +361,22 @@ export function Empty({ icon, title, message }: EmptyProps) {
 
 // ── Spinner ───────────────────────────────────────────────────────────────────
 
-export function Spinner() {
-  return <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 60 }}><div className="spinner" /></div>
+export interface SpinnerProps {
+  size?: number
+  label?: string
+  inline?: boolean
+}
+
+export function Spinner({ size = 28, label = 'Loading', inline = false }: SpinnerProps) {
+  return (
+    <div
+      className={'sm-spinner-wrap' + (inline ? ' sm-spinner-wrap-inline' : '')}
+      role="status"
+      aria-label={label}
+    >
+      <div className="spinner" style={{ width: size, height: size }} />
+    </div>
+  )
 }
 
 // ── ScoreRing ─────────────────────────────────────────────────────────────────

@@ -47,6 +47,10 @@
 .sm-btn-lg { padding: 14px 28px; font-size: 16px; }
 .sm-btn:disabled { opacity: 0.5; cursor: not-allowed; }
 
+/* ======= SPINNER ======= */
+.sm-spinner-wrap { display: flex; align-items: center; justify-content: center; padding: 60px; }
+.sm-spinner-wrap-inline { display: inline-flex; padding: 0; }
+
 /* ======= TABS ======= */
 .sm-tabs { display: flex; gap: 3px; background: var(--bg-subtle); border-radius: 10px; padding: 3px; margin-bottom: 24px; }
 .sm-tab { padding: 8px 18px; border-radius: 8px; border: none; background: transparent; color: var(--muted); font-size: 13px; font-weight: 600; font-family: var(--font); cursor: pointer; transition: all 0.15s; }

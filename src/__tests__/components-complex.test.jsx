@@ -23,7 +23,7 @@ describe('Tabs', function() {
 
   it('marks active tab with active class', function() {
     render(<Tabs tabs={tabs} active="b" onChange={vi.fn()} />)
-    var buttons = screen.getAllByRole('button')
+    var buttons = screen.getAllByRole('tab')
     expect(buttons[1]).toHaveClass('active')
     expect(buttons[0]).not.toHaveClass('active')
   })
@@ -33,6 +33,31 @@ describe('Tabs', function() {
     render(<Tabs tabs={tabs} active="a" onChange={fn} />)
     await userEvent.click(screen.getByText('Beta'))
     expect(fn).toHaveBeenCalledWith('b')
+  })
+
+  it('exposes tab semantics and selected state', function() {
+    render(<Tabs tabs={tabs} active="a" onChange={vi.fn()} />)
+    expect(screen.getByRole('tablist')).toBeInTheDocument()
+    expect(screen.getByRole('tab', { name: 'Alpha' })).toHaveAttribute('aria-selected', 'true')
+    expect(screen.getByRole('tab', { name: 'Beta' })).toHaveAttribute('aria-selected', 'false')
+    expect(screen.getByRole('tab', { name: 'Alpha' })).toHaveAttribute('type', 'button')
+  })
+
+  it('uses roving focus and keyboard navigation', async function() {
+    var fn = vi.fn()
+    render(<Tabs tabs={tabs} active="a" onChange={fn} />)
+    var alpha = screen.getByRole('tab', { name: 'Alpha' })
+    var beta = screen.getByRole('tab', { name: 'Beta' })
+    var gamma = screen.getByRole('tab', { name: 'Gamma' })
+    expect(alpha).toHaveAttribute('tabindex', '0')
+    expect(beta).toHaveAttribute('tabindex', '-1')
+    alpha.focus()
+    await userEvent.keyboard('{ArrowRight}')
+    expect(beta).toHaveFocus()
+    expect(fn).toHaveBeenLastCalledWith('b')
+    await userEvent.keyboard('{End}')
+    expect(gamma).toHaveFocus()
+    expect(fn).toHaveBeenLastCalledWith('c')
   })
 })
 

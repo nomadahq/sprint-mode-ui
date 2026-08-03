@@ -1,3 +1,4 @@
+import { createRef } from 'react'
 import { render, screen } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { describe, it, expect, vi } from 'vitest'
@@ -28,6 +29,14 @@ describe('Card', function() {
     const { container } = render(<Card accent="#ff0000">x</Card>)
     expect(container.firstChild.style.borderColor).toBe('rgb(255, 0, 0)')
   })
+
+  it('forwards native attributes and its ref to the card element', function() {
+    var ref = createRef()
+    render(<Card ref={ref} aria-label="Project summary" data-testid="card">x</Card>)
+    var card = screen.getByLabelText('Project summary')
+    expect(card).toHaveAttribute('data-testid', 'card')
+    expect(ref.current).toBe(card)
+  })
 })
 
 // ── CardBody ─────────────────────────────────────────────────────────────────
@@ -41,6 +50,14 @@ describe('CardBody', function() {
   it('applies sm-card-body class', function() {
     const { container } = render(<CardBody>x</CardBody>)
     expect(container.firstChild).toHaveClass('sm-card-body')
+  })
+
+  it('merges className and forwards native attributes', function() {
+    var ref = createRef()
+    render(<CardBody ref={ref} className="summary-body" data-testid="body">x</CardBody>)
+    var body = screen.getByTestId('body')
+    expect(body).toHaveClass('sm-card-body', 'summary-body')
+    expect(ref.current).toBe(body)
   })
 })
 
@@ -61,6 +78,14 @@ describe('Pill', function() {
     const { container } = render(<Pill color="green">x</Pill>)
     expect(container.firstChild).toHaveClass('sm-pill-green')
   })
+
+  it('merges className and forwards native attributes', function() {
+    var ref = createRef()
+    render(<Pill ref={ref} className="source-pill" title="Source status">Live</Pill>)
+    var pill = screen.getByTitle('Source status')
+    expect(pill).toHaveClass('sm-pill', 'source-pill')
+    expect(ref.current).toBe(pill)
+  })
 })
 
 // ── Badge ─────────────────────────────────────────────────────────────────────
@@ -79,6 +104,14 @@ describe('Badge', function() {
   it('applies given color class', function() {
     const { container } = render(<Badge color="red">x</Badge>)
     expect(container.firstChild).toHaveClass('sm-badge-red')
+  })
+
+  it('merges className and forwards native attributes', function() {
+    var ref = createRef()
+    render(<Badge ref={ref} className="count-badge" aria-label="Three unread">3</Badge>)
+    var badge = screen.getByLabelText('Three unread')
+    expect(badge).toHaveClass('sm-badge', 'count-badge')
+    expect(ref.current).toBe(badge)
   })
 })
 
@@ -130,6 +163,37 @@ describe('Button', function() {
   it('is disabled when disabled prop is set', function() {
     render(<Button disabled>x</Button>)
     expect(screen.getByRole('button', { name: 'x' })).toBeDisabled()
+  })
+
+  it('forwards native props, className, and ref to a button', function() {
+    var ref = createRef()
+    render(
+      <Button ref={ref} className="hub-action" aria-label="Create space" data-testid="action">
+        Create
+      </Button>,
+    )
+    var button = screen.getByRole('button', { name: 'Create space' })
+    expect(button).toHaveClass('sm-btn', 'hub-action')
+    expect(button).toHaveAttribute('data-testid', 'action')
+    expect(ref.current).toBe(button)
+  })
+
+  it('forwards anchor attributes when href is given', function() {
+    var ref = createRef()
+    render(<Button ref={ref} href="/spaces" target="_blank" rel="noreferrer" aria-label="Open spaces">Spaces</Button>)
+    var link = screen.getByRole('link', { name: 'Open spaces' })
+    expect(link).toHaveAttribute('target', '_blank')
+    expect(link).toHaveAttribute('rel', 'noreferrer')
+    expect(ref.current).toBe(link)
+  })
+
+  it('renders an empty href as an anchor and forwards its anchor ref', function() {
+    var ref = createRef()
+    render(<Button ref={ref} href="">Current page</Button>)
+    var link = screen.getByText('Current page')
+    expect(link.tagName).toBe('A')
+    expect(link).toHaveAttribute('href', '')
+    expect(ref.current).toBe(link)
   })
 })
 
@@ -201,5 +265,12 @@ describe('Spinner', function() {
   it('renders without crashing', function() {
     const { container } = render(<Spinner />)
     expect(container.querySelector('.spinner')).toBeInTheDocument()
+  })
+
+  it('renders a compact labelled status at the requested size', function() {
+    render(<Spinner size={16} label="Loading threads" inline />)
+    var status = screen.getByRole('status', { name: 'Loading threads' })
+    expect(status).toHaveClass('sm-spinner-wrap', 'sm-spinner-wrap-inline')
+    expect(status.querySelector('.spinner')).toHaveStyle({ width: '16px', height: '16px' })
   })
 })

@@ -1,39 +1,43 @@
-import { default as React, ReactNode, CSSProperties } from 'react';
-export interface CardProps {
-    children?: ReactNode;
-    className?: string;
-    style?: CSSProperties;
+import { default as React, ReactNode } from 'react';
+export interface CardProps extends React.HTMLAttributes<HTMLDivElement> {
     accent?: string;
 }
-export declare function Card({ children, className, style, accent }: CardProps): React.JSX.Element;
-export interface CardBodyProps {
-    children?: ReactNode;
-    style?: CSSProperties;
-}
-export declare function CardBody({ children, style }: CardBodyProps): React.JSX.Element;
-export interface PillProps {
-    children?: ReactNode;
+export declare const Card: React.ForwardRefExoticComponent<CardProps & React.RefAttributes<HTMLDivElement>>;
+export type CardBodyProps = React.HTMLAttributes<HTMLDivElement>;
+export declare const CardBody: React.ForwardRefExoticComponent<CardBodyProps & React.RefAttributes<HTMLDivElement>>;
+export interface PillProps extends React.HTMLAttributes<HTMLSpanElement> {
     color?: string;
-    style?: CSSProperties;
 }
-export declare function Pill({ children, color, style }: PillProps): React.JSX.Element;
-export interface BadgeProps {
-    children?: ReactNode;
+export declare const Pill: React.ForwardRefExoticComponent<PillProps & React.RefAttributes<HTMLSpanElement>>;
+export interface BadgeProps extends React.HTMLAttributes<HTMLSpanElement> {
     color?: string;
-    style?: CSSProperties;
 }
-export declare function Badge({ children, color, style }: BadgeProps): React.JSX.Element;
-export interface ButtonProps {
+export declare const Badge: React.ForwardRefExoticComponent<BadgeProps & React.RefAttributes<HTMLSpanElement>>;
+interface ButtonSharedProps {
     children?: ReactNode;
     variant?: 'primary' | 'secondary' | 'danger';
     size?: 'sm' | 'lg';
-    onClick?: React.MouseEventHandler<HTMLButtonElement>;
-    disabled?: boolean;
-    style?: CSSProperties;
-    href?: string;
-    type?: 'button' | 'submit' | 'reset';
+    className?: string;
 }
-export declare function Button({ children, variant, size, onClick, disabled, style, href, type }: ButtonProps): React.JSX.Element;
+export type ButtonNativeProps = ButtonSharedProps & Omit<React.ButtonHTMLAttributes<HTMLButtonElement>, keyof ButtonSharedProps> & {
+    href?: undefined;
+};
+export type ButtonAnchorProps = ButtonSharedProps & Omit<React.AnchorHTMLAttributes<HTMLAnchorElement>, keyof ButtonSharedProps> & {
+    href: string;
+};
+export type ButtonProps = ButtonNativeProps | ButtonAnchorProps;
+export type ButtonCompatibilityProps = ButtonSharedProps & Omit<React.ButtonHTMLAttributes<HTMLButtonElement>, keyof ButtonSharedProps> & {
+    href?: string;
+    target?: React.HTMLAttributeAnchorTarget;
+    rel?: string;
+};
+type ButtonComponent = {
+    (props: ButtonNativeProps & React.RefAttributes<HTMLButtonElement>): React.ReactElement | null;
+    (props: ButtonAnchorProps & React.RefAttributes<HTMLAnchorElement>): React.ReactElement | null;
+    (props: ButtonCompatibilityProps): React.ReactElement | null;
+    (props: (ButtonNativeProps & React.RefAttributes<HTMLButtonElement>) | (ButtonAnchorProps & React.RefAttributes<HTMLAnchorElement>)): React.ReactElement | null;
+};
+export declare const Button: ButtonComponent;
 export interface StatCardProps {
     label: ReactNode;
     value: ReactNode;
@@ -93,7 +97,12 @@ export interface EmptyProps {
     message?: ReactNode;
 }
 export declare function Empty({ icon, title, message }: EmptyProps): React.JSX.Element;
-export declare function Spinner(): React.JSX.Element;
+export interface SpinnerProps {
+    size?: number;
+    label?: string;
+    inline?: boolean;
+}
+export declare function Spinner({ size, label, inline }: SpinnerProps): React.JSX.Element;
 export interface ScoreRingProps {
     score?: number;
     label?: string;
@@ -146,3 +155,4 @@ export declare function MultiSelect(props: MultiSelectProps): React.DetailedReac
         display: "inline-block";
     };
 }, HTMLDivElement>;
+export {};

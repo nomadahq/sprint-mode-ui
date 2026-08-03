@@ -2752,6 +2752,13 @@ export function BugPanel(props: BugPanelProps) {
           {loading && <ToastSkeleton />}
           {!loading && items.length === 0 && <div style={S.empty}>{listEmptyCopy()}</div>}
           {!loading && renderListBody(bugs.filter(function(b) {
+            // BUG-1151 round 3 (WAFFLE-FIX-1B): the deep-linked row is exempt
+            // from the client-side tab/people re-filters. The focused item
+            // usually lives outside the active tab's statuses (a fixed bug
+            // while the board shows the queue) — rounds 1-2 fixed the URL
+            // plumbing and the state wipe, and this filter then dropped the
+            // row at render. The pin ref already marks exactly that row.
+            if (focusKeepRef.current && b.id === focusKeepRef.current) return true
             // Status filter: admin uses tab, reporter uses pill
             if (isAdmin) {
               // WAFFLE-2: with a current sm-api the server already applied the

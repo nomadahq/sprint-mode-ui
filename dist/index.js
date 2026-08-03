@@ -110714,6 +110714,7 @@ function p9(t) {
 							children: ti()
 						}),
 						!O && ii(T.filter(function(e) {
+							if (dr.current && e.id === dr.current) return !0;
 							if (r) {
 								var t = t9.find(function(e) {
 									return e.id === N;

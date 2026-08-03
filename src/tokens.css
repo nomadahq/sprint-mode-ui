@@ -66,8 +66,10 @@
   --tint-collect:          #fce8e8;
 
   /* Accent — default to sprint-mode blue */
-  --accent:    #2362ea;
-  --accent-10: rgba(35, 98, 234, 0.1);
+  --accent:             #2362ea;
+  --accent-hover:       #1d4ed8;
+  --accent-foreground:  #fff;
+  --accent-10:          rgba(35, 98, 234, 0.1);
 }
 
 /* ─── Dark mode token overrides ───────────────────────────────────────────── */
@@ -124,7 +126,7 @@
 [data-product="sprint-mode"]  { --accent: #2362ea; --accent-10: rgba(35, 98, 234, 0.1); }
 [data-product="studios"]      { --accent: #7947d1; --accent-10: rgba(121, 71, 209, 0.1); }
 [data-product="mode"]        { --accent: #0c917b; --accent-hover: #0a7d6a; --accent-10: rgba(12,145,123,.1); --accent-20: rgba(12,145,123,.2); --accent-tint: #e6f4f1; }
-[data-product="hub"]          { --accent: #4f5d93; --accent-10: rgba(79, 93, 147, 0.1); }
+[data-product="hub"]          { --accent: #4f5d93; --accent-hover: #3f4a76; --accent-foreground: #fff; --accent-10: rgba(79, 93, 147, 0.1); }
 [data-product="sprint-capital"] { --accent: #1fac6a; --accent-10: rgba(31, 172, 106, 0.1); }
 [data-product="privacyai"]    { --accent: #0891b2; --accent-10: rgba(8, 145, 178, 0.1); }
 [data-product="investor"]     { --accent: #2362ea; --accent-10: rgba(35, 98, 234, 0.1); }

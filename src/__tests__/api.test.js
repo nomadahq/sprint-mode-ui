@@ -49,7 +49,8 @@ describe('formatDate', function() {
   })
 
   it('formats a valid ISO date string', function() {
-    var result = formatDate('2025-03-15T00:00:00Z')
+    // Midday UTC stays on March 15 across every supported local timezone.
+    var result = formatDate('2025-03-15T12:00:00Z')
     expect(result).toMatch(/Mar/)
     expect(result).toMatch(/15/)
     expect(result).toMatch(/2025/)

@@ -37,7 +37,7 @@
 
 /* ======= BUTTONS ======= */
 .sm-btn { display: inline-flex; align-items: center; gap: 8px; padding: 10px 20px; border-radius: var(--radius-sm); font-family: var(--font); font-size: 13px; font-weight: 600; border: none; cursor: pointer; transition: all 0.15s; text-decoration: none; line-height: 1; }
-.sm-btn-primary { background: var(--accent); color: #fff; }
+.sm-btn-primary { background: var(--accent); color: var(--accent-foreground); }
 .sm-btn-primary:hover { background: var(--accent-hover); }
 .sm-btn-secondary { background: var(--bg-card); color: var(--foreground); border: 1px solid var(--border); }
 .sm-btn-secondary:hover { background: var(--bg-subtle); border-color: var(--accent); color: var(--accent); }
@@ -54,7 +54,7 @@
 /* ======= TABS ======= */
 .sm-tabs { display: flex; gap: 3px; background: var(--bg-subtle); border-radius: 10px; padding: 3px; margin-bottom: 24px; }
 .sm-tab { padding: 8px 18px; border-radius: 8px; border: none; background: transparent; color: var(--muted); font-size: 13px; font-weight: 600; font-family: var(--font); cursor: pointer; transition: all 0.15s; }
-.sm-tab.active { background: var(--accent); color: #fff; }
+.sm-tab.active { background: var(--accent); color: var(--accent-foreground); }
 .sm-tab:hover:not(.active) { background: var(--border); color: var(--foreground); }
 
 /* ======= PROGRESS ======= */

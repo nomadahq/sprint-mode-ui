@@ -1,7 +1,10 @@
 // Shared dark mode detection + mark URL utilities.
 // Used by Layout, AccountSwitcher, NoAccessScreen, user-menu-standalone, Login.
 
-var SVG_MARK_PRODUCTS = ['admin','studios','signal','mode','hub','privacyai','sprint-mode','sprint-capital','platform','dev','docs','investors','nomada']
+// ADMIN-NAV-DYNAMIC-1 follow-up (Aaron ruling 2026-08-02): 'platform' removed -
+// Platform is not a portal and has no brand mark. Sections whose key is NOT in
+// this list fall through to their explicit sectionIcon in Layout.
+var SVG_MARK_PRODUCTS = ['admin','studios','signal','mode','hub','privacyai','sprint-mode','sprint-capital','dev','docs','investors','nomada']
 
 // Pre-auth surfaces (Login, link-account) mount outside Layout, so nothing
 // applies the resolved theme attribute unless the portal's index.html

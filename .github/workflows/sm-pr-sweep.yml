@@ -1,0 +1,49 @@
+name: sm pr sweep
+
+# Finds open PRs that have stopped progressing and pings whoever can act on
+# each one. On Team-plan private repos the queue is strict required checks +
+# auto-merge + /merge's CLIENT-SIDE rebase loop, so a PR becomes unrecoverable
+# the moment its opener's process exits. This is the server-side counterpart.
+#
+# schedule-only ON PURPOSE: with no PR-event trigger this can never become a
+# required check, so a bug in the sweep can never block a merge.
+
+on:
+  schedule:
+    - cron: '*/15 * * * *'
+  workflow_dispatch:
+    inputs:
+      dry_run:
+        description: 'Classify and report without commenting'
+        type: boolean
+        default: false
+
+permissions:
+  contents: read
+  pull-requests: write
+  checks: read
+
+concurrency:
+  group: sm-pr-sweep-${{ github.repository }}
+  cancel-in-progress: true
+
+jobs:
+  sweep:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Sweep open PRs
+        env:
+          GH_TOKEN: ${{ github.token }}
+          KIT_EVENTS_SECRET: ${{ secrets.KIT_EVENTS_SECRET_KIT }}
+          # via env, not inlined into the script: keeps workflow input out of
+          # the shell text entirely
+          DRY_RUN: ${{ inputs.dry_run }}
+        run: |
+          THRESHOLD=$(grep '^stale_after_minutes=' .sm-workflow.conf 2>/dev/null | head -1 | cut -d= -f2)
+          [ -n "${THRESHOLD:-}" ] || THRESHOLD=60
+          SWEEP=$(grep '^sweep=' .sm-workflow.conf 2>/dev/null | head -1 | cut -d= -f2)
+          if [ "${SWEEP:-on}" = "off" ]; then echo "sweep=off in .sm-workflow.conf — skipping."; exit 0; fi
+          set -- --repo "$GITHUB_REPOSITORY" --threshold "$THRESHOLD"
+          if [ "${DRY_RUN:-false}" = "true" ]; then set -- "$@" --dry-run; fi
+          python3 scripts/pr-sweep.py sweep "$@"

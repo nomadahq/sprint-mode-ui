@@ -1395,17 +1395,11 @@ export function BugPanel(props: BugPanelProps) {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [apiBase])
 
-  // Scroll to deep-linked bug once it's rendered
-  useEffect(function() {
-    if (deepLinkBugId.current && bugs.length > 0) {
-      var id = deepLinkBugId.current
-      deepLinkBugId.current = null
-      setTimeout(function() {
-        var el = document.querySelector('[data-bug-id="' + id + '"]')
-        if (el) el.scrollIntoView({ behavior: 'smooth', block: 'start' })
-      }, 100)
-    }
-  }, [bugs])
+  // BUG-1151 round 5 (WAFFLE-FIX-1B): the legacy scroll that lived here was
+  // RETIRED. It raced the pendingFocus scroll — two smooth scrollIntoView
+  // calls in quick succession cancel each other in real browsers (jsdom
+  // records both and hides the fight). pendingFocus is the single owner of
+  // deep-link focus and scrolling.
 
   // WAFFLE-0: vocab fetches for work board filters.
   // Subsystems: any bugs-access level. Assignees: admin only (route 403s otherwise).
@@ -1601,10 +1595,27 @@ export function BugPanel(props: BugPanelProps) {
     var id = pendingFocus
     var present = bugs.some(function(b) { return b.id === id })
     if (present) {
-      requestAnimationFrame(function() {
-        var el = document.querySelector('[data-bug-id="' + id + '"]')
-        if (el && (el as HTMLElement).scrollIntoView) (el as HTMLElement).scrollIntoView({ block: 'start', behavior: prefersReducedMotion() ? 'auto' : 'smooth' })
-      })
+      // BUG-1151 round 5: instant scroll + settle loop. Smooth scrolling is
+      // cancellable (any competing scroll or user input kills it mid-flight)
+      // and the sections above the list keep growing as their data arrives,
+      // moving the target after an early scroll. Scroll instantly, then
+      // re-assert every 300ms for ~1.8s whenever the row has drifted out of
+      // the upper viewport, and stop early once it holds position.
+      var attempts = 0
+      var settle = function() {
+        attempts += 1
+        var el = document.querySelector('[data-bug-id="' + id + '"]') as HTMLElement | null
+        if (el && el.scrollIntoView) {
+          var r = el.getBoundingClientRect()
+          // First attempt always asserts the scroll; later attempts only
+          // re-assert if content loading above has pushed the row away.
+          var settled = attempts > 1 && r.top >= -8 && r.top < Math.max(160, window.innerHeight * 0.4)
+          if (!settled) el.scrollIntoView({ block: 'start', behavior: 'auto' })
+          if (settled) return
+        }
+        if (attempts < 7) setTimeout(settle, 300)
+      }
+      requestAnimationFrame(settle)
       fetchedFocusRef.current = null
       setPendingFocus(null)
       return

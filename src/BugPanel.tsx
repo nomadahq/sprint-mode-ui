@@ -1342,6 +1342,7 @@ export function BugPanel(props: BugPanelProps) {
   // first — URL right, card nowhere. focusKeepRef pins the focused row:
   // page-0 loads merge it back in if the fresh slice doesn't contain it.
   var focusKeepRef = useRef<string | null>(null)
+  var firstLoadDoneRef = useRef(false)
   useEffect(function() {
     var bugId = props.focusBugId || null
     if (!bugId) {
@@ -1518,6 +1519,7 @@ export function BugPanel(props: BugPanelProps) {
       .then(function(r) { return r.json() })
       .then(function(d: { data?: Bug[]; counts?: BugCounts; total?: number }) {
         var items: Bug[] = Array.isArray(d.data) ? d.data : []
+        if (off === 0) firstLoadDoneRef.current = true
         if (off === 0) setBugs(function(prev) {
           var keepId = focusKeepRef.current
           if (keepId && !items.some(function(b) { return b.id === keepId })) {
@@ -1584,8 +1586,18 @@ export function BugPanel(props: BugPanelProps) {
   // prepend, then scroll the card into view. fetchedFocusRef stops a re-fetch
   // loop if the row can't land (e.g. deleted between clicks).
   var fetchedFocusRef = useRef<string | null>(null)
+  // BUG-1151 round 4 (WAFFLE-FIX-1B, CiC 2026-08-04): on a mount-time deep
+  // link (?bug= / /items/:key fresh load) this effect used to run BEFORE the
+  // first page-0 load had even started — `loading` was still false — so the
+  // ensure path prepended the row, scrolled while it was the only row on the
+  // page (a visual no-op at scroll position 0), and cleared pendingFocus.
+  // The real list then arrived and re-sorted the row thousands of pixels
+  // down, with the scroll already spent. Focus now waits for the first
+  // page-0 load to settle, so the scroll targets the row's real position.
+  // (Post-load navigations — the Cmd+K path — are unaffected: the latch is
+  // already open by then.)
   useEffect(function() {
-    if (!pendingFocus || loading) return
+    if (!pendingFocus || loading || !firstLoadDoneRef.current) return
     var id = pendingFocus
     var present = bugs.some(function(b) { return b.id === id })
     if (present) {

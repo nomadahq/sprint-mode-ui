@@ -89,6 +89,40 @@ describe('deep-link focus (BUG-1151)', function() {
   })
 })
 
+describe('mount-time deep link scrolls after the list settles (round 4)', function() {
+  it('calls scrollIntoView for an item sitting deep in the natural list', async function() {
+    // The focus target IS in the list slice, at a non-top position — the 5R
+    // shape: the scroll must fire against the settled list, not before it.
+    var scrolls = []
+    Element.prototype.scrollIntoView = function() { scrolls.push(this.getAttribute && this.getAttribute('data-bug-id')) }
+    var deepRow = Object.assign({}, OFFLIST, { status: 'open' })
+    var fetchMock = mockApi()
+    fetchMock.mockImplementation(function(url) {
+      var u = String(url)
+      var body
+      if (u.indexOf('/api/bugs/taxonomy') !== -1) body = { ok: true, data: { products: ['waffle'], subsystems: ['shell'] } }
+      else if (u.indexOf('/api/bugs/my-day') !== -1) body = { ok: true, data: EMPTY_MY_DAY }
+      else if (u.indexOf('/api/bugs/subsystems') !== -1) body = { ok: true, data: [] }
+      else if (u.indexOf('/api/bugs/assignees') !== -1) body = { ok: true, data: [], reporters: [] }
+      else if (u.indexOf('/api/bugs/squares') !== -1) body = { ok: true, data: [] }
+      else if (u.indexOf('/api/bugs/tags') !== -1) body = { ok: true, data: [] }
+      else if (u.indexOf('/api/bugs/bug_offlist') !== -1) body = { ok: true, data: deepRow }
+      else if (u.indexOf('/api/bugs?') !== -1) body = { ok: true, data: QUEUE.concat([deepRow]), total: 3 }
+      else body = { ok: true, data: [] }
+      return Promise.resolve({ ok: true, json: function() { return Promise.resolve(body) } })
+    })
+    render(
+      <BugPanel standalone visible isAdmin apiBase="" product="waffle" focusBugId="bug_offlist" />,
+    )
+    await waitFor(function() {
+      expect(scrolls.indexOf('bug_offlist')).toBeGreaterThan(-1)
+    }, { timeout: 4000 })
+    // And the row is rendered in its natural position, not prepended to the top
+    var rows = Array.prototype.slice.call(document.querySelectorAll('[data-bug-id]')).map(function(el) { return el.getAttribute('data-bug-id') })
+    expect(rows.indexOf('bug_offlist')).toBeGreaterThan(0)
+  })
+})
+
 describe('?square= URL init (checkpoint 6)', function() {
   it('renders the board when the URL carries ?square=', async function() {
     mockApi()

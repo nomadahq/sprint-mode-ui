@@ -1492,6 +1492,14 @@ const Layout: React.FC<LayoutProps> = function Layout(props: LayoutProps) {
   })
   var collapsedState = _cs[0]; var setCollapsedState = _cs[1]
 
+  // NAV-COLLAPSE-FIX (2026-08-03): the collapsed prop below is coerced with
+  // !! so EVERY section is externally managed when navSections mode is on
+  // (NavSection's isExternallyManaged requires a defined value). Untouched
+  // sections used to fall back to internal useState, which is destroyed when
+  // a heading group collapses (unmount) — manual collapse state was lost and
+  // sections remounted expanded. With coercion, all toggles flow through
+  // toggleCollapse, live in Layout state, persist to localStorage, and
+  // survive group collapse/expand.
   function toggleCollapse(key: string) {
     setCollapsedState(function(prev) {
       var next = Object.assign({}, prev)
@@ -1799,7 +1807,7 @@ const Layout: React.FC<LayoutProps> = function Layout(props: LayoutProps) {
                   tint={pc.tint}
                   product={section.key}
                   flat={sections.length === 1 || section.flat || section.nav!.flat}
-                  collapsed={navSections ? collapsedState[section.key] : undefined}
+                  collapsed={navSections ? !!collapsedState[section.key] : undefined}
                   onToggle={navSections ? function() { toggleCollapse(section.key) } : undefined}
                   railCollapsed={railCollapsed}
                   onRailEnter={openRailFlyout}

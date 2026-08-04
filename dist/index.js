@@ -113211,7 +113211,7 @@ var BNe = function(t) {
 													tint: t.tint,
 													product: e.key,
 													flat: Ot.length === 1 || e.flat || e.nav.flat,
-													collapsed: r ? Tt[e.key] : void 0,
+													collapsed: r ? !!Tt[e.key] : void 0,
 													onToggle: r ? function() {
 														Dt(e.key);
 													} : void 0,

@@ -12,7 +12,19 @@ jobs:
       - name: Compare pack version against the kit
         env:
           GH_TOKEN: ${{ secrets.SM_WORKFLOW_READ_TOKEN }}
+          KIT_EVENTS_SECRET: ${{ secrets.KIT_EVENTS_SECRET_KIT }}
         run: |
+          # emit: fire-and-forget into the WAFFLE work_events log
+          # (WAFFLE-EVENT-SCHEMA.md); never blocks the job; skips when the
+          # secret isn't configured.
+          emit() {
+            [ -n "${KIT_EVENTS_SECRET:-}" ] || { echo "emit: no secret — skipped"; return 0; }
+            curl -fsS -X POST https://webhook-hub.sprintmode.ai/events \
+              -H "Authorization: Bearer $KIT_EVENTS_SECRET" -H "Content-Type: application/json" \
+              -d "{\"ts\":\"$(date -u +%FT%TZ)\",\"source\":\"kit\",\"event_type\":\"$1\",\"repo\":\"${GITHUB_REPOSITORY##*/}\",\"sha\":\"$GITHUB_SHA\",\"actor\":\"$GITHUB_ACTOR\",\"payload\":$2,\"evidence_url\":\"$GITHUB_SERVER_URL/$GITHUB_REPOSITORY/actions/runs/$GITHUB_RUN_ID\"}" \
+              >/dev/null 2>&1 || echo "::warning::event emit failed (non-blocking)"
+          }
+          RSHORT="${GITHUB_REPOSITORY##*/}"
           REPO_V=$(grep '^version=' .sm-workflow.conf | head -1 | cut -d= -f2)
           if [ -z "$REPO_V" ]; then echo "::error::.sm-workflow.conf missing version="; exit 1; fi
           # Fail-open on fetch errors: a kit outage must never brick the fleet.
@@ -24,9 +36,13 @@ jobs:
           fi
           echo "repo=$REPO_V kit=$KIT_V min=$KIT_MIN"
           if [ "$REPO_V" -lt "$KIT_MIN" ]; then
+            emit kit.drift_stamp "{\"repo\":\"$RSHORT\",\"stamp_version\":$REPO_V,\"kit_version\":$KIT_V,\"verdict\":\"below_floor\"}"
             echo "::error::Pack version $REPO_V is below the safety floor $KIT_MIN. Run 'wf sync' and land the update."
             exit 1
           fi
           if [ "$REPO_V" -lt "$KIT_V" ]; then
+            emit kit.drift_stamp "{\"repo\":\"$RSHORT\",\"stamp_version\":$REPO_V,\"kit_version\":$KIT_V,\"verdict\":\"behind\"}"
             echo "::warning::Pack version $REPO_V is behind kit $KIT_V. Run 'wf sync' when convenient."
+          else
+            emit kit.drift_stamp "{\"repo\":\"$RSHORT\",\"stamp_version\":$REPO_V,\"kit_version\":$KIT_V,\"verdict\":\"current\"}"
           fi

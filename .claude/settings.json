@@ -1,4 +1,13 @@
 {
+  "permissions": {
+    "allow": [
+      "mcp__waffle__createWorkItem",
+      "mcp__waffle__updateWorkItem",
+      "mcp__waffle__transitionWorkItem",
+      "mcp__waffle__addComment",
+      "mcp__waffle__createSquare"
+    ]
+  },
   "hooks": {
     "PreToolUse": [
       {

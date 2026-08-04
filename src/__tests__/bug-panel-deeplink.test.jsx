@@ -123,6 +123,46 @@ describe('mount-time deep link scrolls after the list settles (round 4)', functi
   })
 })
 
+describe('ensure-fetch race: concurrent loads must not kill the focus (round 6)', function() {
+  it('scrolls to the ensured row even when other loads land while the detail fetch is in flight', async function() {
+    // Production shape: list loads fast, detail fetch is SLOW, and the
+    // rollup/counts loads mutate `bugs` deps in the meantime — the old bail
+    // cleared pendingFocus in that window.
+    var scrolls = []
+    Element.prototype.scrollIntoView = function() { scrolls.push(this.getAttribute && this.getAttribute('data-bug-id')) }
+    var fetchMock = mockApi()
+    fetchMock.mockImplementation(function(url) {
+      var u = String(url)
+      var body
+      var delay = 0
+      if (u.indexOf('/api/bugs/taxonomy') !== -1) body = { ok: true, data: { products: ['waffle'], subsystems: ['shell'] } }
+      else if (u.indexOf('/api/bugs/my-day') !== -1) { body = { ok: true, data: EMPTY_MY_DAY }; delay = 40 }
+      else if (u.indexOf('/api/bugs/subsystems') !== -1) body = { ok: true, data: [] }
+      else if (u.indexOf('/api/bugs/assignees') !== -1) body = { ok: true, data: [], reporters: [] }
+      else if (u.indexOf('/api/bugs/squares') !== -1) body = { ok: true, data: [] }
+      else if (u.indexOf('/api/bugs/tags') !== -1) body = { ok: true, data: [] }
+      else if (u.indexOf('/api/bugs/bug_offlist') !== -1) { body = { ok: true, data: OFFLIST }; delay = 250 }
+      else if (u.indexOf('rollup=1') !== -1) { body = { ok: true, data: [{ id: 'bug_row1', title: 'Newest queue row', status: 'open', product: 'waffle', created_at: '2026-08-01T10:00:00Z' }], total: 1 }; delay = 80 }
+      else if (u.indexOf('limit=2000') !== -1) { body = { ok: true, data: QUEUE, total: 2 }; delay = 120 }
+      else if (u.indexOf('/api/bugs?') !== -1) body = { ok: true, data: QUEUE, total: 2 }
+      return new Promise(function(res) {
+        setTimeout(function() {
+          res({ ok: true, json: function() { return Promise.resolve(body) } })
+        }, delay)
+      })
+    })
+    render(
+      <BugPanel standalone visible isAdmin apiBase="" product="waffle" focusBugId="bug_offlist" />,
+    )
+    await waitFor(function() {
+      expect(screen.getAllByText(/Cmd\+K search finds items/).length).toBeGreaterThan(0)
+    }, { timeout: 5000 })
+    await waitFor(function() {
+      expect(scrolls.indexOf('bug_offlist')).toBeGreaterThan(-1)
+    }, { timeout: 5000 })
+  })
+})
+
 describe('?square= URL init (checkpoint 6)', function() {
   it('renders the board when the URL carries ?square=', async function() {
     mockApi()

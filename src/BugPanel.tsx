@@ -1620,7 +1620,17 @@ export function BugPanel(props: BugPanelProps) {
       setPendingFocus(null)
       return
     }
-    if (fetchedFocusRef.current === id) { fetchedFocusRef.current = null; setPendingFocus(null); return }
+    if (fetchedFocusRef.current === id) return
+    // BUG-1151 round 6 (WAFFLE-FIX-1B, instrumented real-Chromium run): the
+    // branch above used to CLEAR pendingFocus ("already fetched, still not
+    // present"). But this effect re-runs on every `bugs` change, and in
+    // production the rollup / tab-counts / my-day loads always land while
+    // the ensure fetch is still in flight — so the bail fired first, the
+    // prepend arrived to a dead focus, and no scroll ever happened. jsdom's
+    // instant mocks never interleave, which is why four rounds passed in
+    // tests and failed live. In-flight now means WAIT; the fetch's own
+    // completion handlers clear focus on failure, and the present branch
+    // clears it after the scroll.
     fetchedFocusRef.current = id
     focusKeepRef.current = id
     apiFetch(apiBase + '/api/bugs/' + id, { credentials: 'include' })

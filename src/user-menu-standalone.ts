@@ -237,7 +237,7 @@ function UserMenu(props: { session: Session; logoutHref: string }) {
                         var _isDk = typeof document !== 'undefined' && (document.documentElement.getAttribute('data-theme') === 'dark' || (!document.documentElement.getAttribute('data-theme') && window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches))
                         if (p.logo_mark_url) {
                           var _sub = p.logo_mark_url.match(/\/portals\/([^/]+)\//)
-                          var _prods = ['admin','studios','signal','mode','hub','privacyai','sprint-mode','sprint-capital','platform','dev','docs','investors','nomada']
+                          var _prods = ['admin','studios','signal','mode','hub','privacyai','sprint-mode','sprint-capital','dev','docs','investors','nomada']
                           if (_sub && _prods.indexOf(_sub[1]) !== -1) {
                             var _themedUrl = _isDk
                               ? 'https://api.sprintmode.ai/brand/' + _sub[1] + '-mark-dark.svg?v=4'

@@ -104076,7 +104076,6 @@ var x7 = [
 	"privacyai",
 	"sprint-mode",
 	"sprint-capital",
-	"platform",
 	"dev",
 	"docs",
 	"investors",

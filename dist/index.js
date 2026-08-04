@@ -108575,11 +108575,7 @@ function p9(t) {
 				requestAnimationFrame(n), vr.current = null, rt(null);
 				return;
 			}
-			if (vr.current === e) {
-				vr.current = null, rt(null);
-				return;
-			}
-			vr.current = e, dr.current = e, _(o + "/api/bugs/" + e, { credentials: "include" }).then(function(e) {
+			vr.current !== e && (vr.current = e, dr.current = e, _(o + "/api/bugs/" + e, { credentials: "include" }).then(function(e) {
 				return e.json();
 			}).then(function(t) {
 				t.ok && t.data ? E(function(n) {
@@ -108589,7 +108585,7 @@ function p9(t) {
 				}) : (vr.current = null, rt(null));
 			}).catch(function() {
 				vr.current = null, rt(null);
-			});
+			}));
 		}
 	}, [
 		J,

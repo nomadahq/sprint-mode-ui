@@ -7,6 +7,10 @@ import React, { useState, useEffect } from 'react'
 
 interface NotificationPrefsProps {
   apiBase?: string
+  // Portal scope for prefs (sm-api routes accept ?portal=; default 'global').
+  // Portal-wide behavior lives here in the shared surface - portals pass
+  // their subdomain and consume; no per-portal proxy pinning.
+  portal?: string
   // 'full' shows all 3 channels (admin use); 'simple' shows in-app only (client portals)
   mode?: 'simple' | 'full'
   title?: string
@@ -36,6 +40,7 @@ function TogglePill({ on, onChange }: { on: boolean; onChange: (v: boolean) => v
 
 export function NotificationPrefs(props: NotificationPrefsProps) {
   var apiBase = props.apiBase !== undefined ? props.apiBase : ''
+  var portalQ = props.portal ? '?portal=' + encodeURIComponent(props.portal) : ''
   var mode = props.mode || 'simple'
   var title = props.title || 'Notification Settings'
   var subtitle = props.subtitle || 'Manage how you receive notifications'
@@ -48,7 +53,7 @@ export function NotificationPrefs(props: NotificationPrefsProps) {
   var _error = useState<string | null>(null); var error = _error[0]; var setError = _error[1]
 
   useEffect(function() {
-    fetch(apiBase + '/api/notifications/prefs', { credentials: 'include' })
+    fetch(apiBase + '/api/notifications/prefs' + portalQ, { credentials: 'include' })
       .then(function(r) { return r.json() })
       .then(function(d: any) {
         if (d.ok && d.data) {
@@ -61,12 +66,12 @@ export function NotificationPrefs(props: NotificationPrefsProps) {
         setLoading(false)
       })
       .catch(function() { setLoading(false) })
-  }, [apiBase])
+  }, [apiBase, props.portal])
 
   function save() {
     setSaving(true)
     setError(null)
-    fetch(apiBase + '/api/notifications/prefs', {
+    fetch(apiBase + '/api/notifications/prefs' + portalQ, {
       method: 'PATCH',
       credentials: 'include',
       headers: { 'Content-Type': 'application/json' },

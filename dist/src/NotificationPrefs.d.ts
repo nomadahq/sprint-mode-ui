@@ -1,6 +1,7 @@
 import { default as React } from 'react';
 interface NotificationPrefsProps {
     apiBase?: string;
+    portal?: string;
     mode?: 'simple' | 'full';
     title?: string;
     subtitle?: string;

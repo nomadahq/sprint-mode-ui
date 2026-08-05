@@ -1,6 +1,10 @@
 <!-- sm-workflow:begin -->
 # Working in this repo — contract for humans and AI agents
 
+The Workflow Kit gives experienced software engineers and people without
+software-engineering experience the same AI-anchored delivery path. Experience changes
+how much explanation a person needs, not the Waffle, evidence, review, or landing gates.
+
 ## Landing code
 - Never push to a landing branch (see `.sm-workflow.conf` → `landing_branches`).
   Every change lands via PR through the merge queue: run **/merge**.
@@ -13,6 +17,65 @@
   a stated reason are the only other exits.
 - If a landing branch is red: stop merging. The breaking author reverts or
   fixes within 30 minutes. Reverting is always acceptable.
+
+## Tickets
+- Waffle is the only task source of truth. **`/ticket` is the launch gate** for
+  new work: search, shape, preview the complete payload, require explicit human
+  confirmation, create once, and re-fetch the stored item. `/waffle` operates
+  items that already exist. Repository design and plan documents support the item;
+  they never authorize or expand it.
+- Work starts only from an existing item that is Ready and names `Why`, `Scope`,
+  `Done when`, `Constraints`, `Out of scope`, the exact allowed repository,
+  operating mode, pilot tag, and the written HOLD policy reference.
+- One branch, working session and PR bind to one Waffle item. Put the display id
+  in the branch name — `bug-812-dmarc-records`, `feat-640-inbox-filters` — and
+  link the item in the PR. A repository document never authorizes or reprioritizes work.
+- Execute only the stored scope. A useful improvement outside it becomes a separate
+  `/ticket`; do not bundle it, silently amend acceptance criteria, or bend the roadmap.
+- Move an item to `in_progress` only when work actually starts. Move it to `fixed`
+  only when the change is landed and verified — green CI proves the build, not the deploy.
+- A defect you find and are not fixing now gets its own item, noting what you were
+  doing when it surfaced. An unrecorded fix is invisible work.
+- The board is the index. Do not keep a second list of the same work in the repo.
+- Agents reach the board through the Waffle MCP (`mcp__waffle__*`). Hooks, the guard
+  and CI **cannot** — they have no MCP. Automated status changes ride the kit's event
+  channel; never put a Waffle key in a workflow file.
+- **Every board write goes through its MCP verb.** Never write the Waffle database
+  directly, and never route around an approval prompt by doing so: a direct write
+  notifies nobody and leaves no ledger row, so the work becomes invisible to everyone
+  but you. The pack pre-approves the five write verbs precisely so an unattended run
+  never faces that choice. `revokeKey` is not among them and never runs unattended.
+
+## HOLD and autonomous execution
+- **HOLD is policy, not judgment.** The written HOLD classes and gates define
+  important PRs. Executors cannot invent, waive, downgrade, remove, or self-approve
+  a HOLD; record the policy reference, class, evidence, required approver, and outcome.
+- **Human attention:** Waffle is the canonical record; email is a delivery fallback.
+  Ready work names a Decision owner, a Waffle-delivered fallback channel, and an
+  acknowledgment policy. On a decision or HOLD, stop, set the policy-defined state,
+  and add a structured Waffle comment. Never guess a recipient or send email directly.
+  The proposed `human.attention_required` routing and delivery acknowledgment are not
+  live yet; until they are, targeted delivery must be reported as unverified.
+- `/autopilot` is unavailable unless `.sm-workflow.conf` contains the explicitly
+  reviewed `agent_pilot=on`. The default is off. Enabling the skill does not bypass
+  Waffle readiness, scope, spend controls, HOLD, CI, PR review, or the merge queue.
+- Every workflow skill first runs `wf repo-check` and stops outside an exact
+  `github.com/sprint-mode/*` origin.
+
+## Native delivery lifecycle
+- Use `/design` only when a Ready item leaves a material decision unresolved; already
+  decided work goes directly to `/plan`.
+- `/plan` maps every stored `Done when` criterion to independently testable tasks,
+  evidence, dependencies, risks, and finite execution controls.
+- `/execute` implements the approved plan on the feature branch. It cannot push, open
+  a PR, review, merge, queue, or deploy.
+- `/merge` is the landing entry point: it opens or recovers the PR, invokes
+  `/review-pr`, re-fetches the exact head and green CI, then enters the merge queue.
+- `/review-pr` always launches a fresh bounded read-only AI reviewer for the exact live
+  PR base and head. A changed head invalidates approval; the reviewer never patches or
+  comments directly.
+- Record phase and completion evidence back in Waffle. Local design, plan, or runtime
+  state is never a parallel ticketing layer.
 
 ## Migrations (repos with src/schema/migrations/)
 - Numbers must be unique vs the target branch. Ceiling:

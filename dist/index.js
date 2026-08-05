@@ -117568,53 +117568,53 @@ function EPe({ on: t, onChange: n }) {
 	} }));
 }
 function DPe(t) {
-	var n = t.apiBase === void 0 ? "" : t.apiBase, r = t.mode || "simple", a = t.title || "Notification Settings", o = t.subtitle || "Manage how you receive notifications", s = c({
+	var n = t.apiBase === void 0 ? "" : t.apiBase, r = t.portal ? "?portal=" + encodeURIComponent(t.portal) : "", a = t.mode || "simple", o = t.title || "Notification Settings", s = t.subtitle || "Manage how you receive notifications", l = c({
 		app_enabled: !0,
 		slack_enabled: !1,
 		email_enabled: !1
-	}), l = s[0], u = s[1], d = c(!0), f = d[0], p = d[1], m = c(!1), h = m[0], g = m[1], _ = c(!1), v = _[0], y = _[1], b = c(null), x = b[0], S = b[1];
+	}), u = l[0], d = l[1], f = c(!0), p = f[0], m = f[1], h = c(!1), g = h[0], _ = h[1], v = c(!1), y = v[0], b = v[1], x = c(null), S = x[0], C = x[1];
 	i(function() {
-		fetch(n + "/api/notifications/prefs", { credentials: "include" }).then(function(e) {
+		fetch(n + "/api/notifications/prefs" + r, { credentials: "include" }).then(function(e) {
 			return e.json();
 		}).then(function(e) {
-			e.ok && e.data && u({
+			e.ok && e.data && d({
 				app_enabled: e.data.app_enabled !== 0,
 				slack_enabled: !!e.data.slack_enabled,
 				email_enabled: !!e.data.email_enabled
-			}), p(!1);
+			}), m(!1);
 		}).catch(function() {
-			p(!1);
+			m(!1);
 		});
-	}, [n]);
-	function C() {
-		g(!0), S(null), fetch(n + "/api/notifications/prefs", {
+	}, [n, t.portal]);
+	function w() {
+		_(!0), C(null), fetch(n + "/api/notifications/prefs" + r, {
 			method: "PATCH",
 			credentials: "include",
 			headers: { "Content-Type": "application/json" },
 			body: JSON.stringify({
-				app_enabled: l.app_enabled,
-				slack_enabled: l.slack_enabled,
-				email_enabled: l.email_enabled
+				app_enabled: u.app_enabled,
+				slack_enabled: u.slack_enabled,
+				email_enabled: u.email_enabled
 			})
 		}).then(function(e) {
 			return e.json();
 		}).then(function(e) {
-			e.ok ? (y(!0), setTimeout(function() {
-				y(!1);
-			}, 2e3)) : S(e.error || "Failed to save");
+			e.ok ? (b(!0), setTimeout(function() {
+				b(!1);
+			}, 2e3)) : C(e.error || "Failed to save");
 		}).catch(function() {
-			S("Network error");
+			C("Network error");
 		}).finally(function() {
-			g(!1);
+			_(!1);
 		});
 	}
-	function w(e) {
-		u(function(t) {
+	function T(e) {
+		d(function(t) {
 			var n = Object.assign({}, t);
 			return n[e] = !n[e], n;
 		});
 	}
-	var T = r === "full" ? [
+	var E = a === "full" ? [
 		{
 			key: "app_enabled",
 			label: "In-app",
@@ -117635,7 +117635,7 @@ function DPe(t) {
 		label: "In-app notifications",
 		description: "Bell badge and updates feed"
 	}];
-	return f ? e.createElement("div", { style: {
+	return p ? e.createElement("div", { style: {
 		padding: 32,
 		display: "flex",
 		alignItems: "center",
@@ -117649,11 +117649,11 @@ function DPe(t) {
 		fontWeight: 700,
 		margin: "0 0 4px",
 		color: "var(--foreground)"
-	} }, a), e.createElement("p", { style: {
+	} }, o), e.createElement("p", { style: {
 		fontSize: 13,
 		color: "var(--muted)",
 		margin: 0
-	} }, o)), e.createElement("div", { style: {
+	} }, s)), e.createElement("div", { style: {
 		border: "1px solid var(--border)",
 		borderRadius: 10,
 		overflow: "hidden",
@@ -117667,7 +117667,7 @@ function DPe(t) {
 		color: "var(--muted)",
 		textTransform: "uppercase",
 		letterSpacing: "0.06em"
-	} }, "Delivery channels"), T.map(function(t, n) {
+	} }, "Delivery channels"), E.map(function(t, n) {
 		return e.createElement("div", {
 			key: t.key,
 			style: {
@@ -117675,7 +117675,7 @@ function DPe(t) {
 				alignItems: "center",
 				justifyContent: "space-between",
 				padding: "14px 16px",
-				borderBottom: n < T.length - 1 ? "1px solid var(--border)" : "none"
+				borderBottom: n < E.length - 1 ? "1px solid var(--border)" : "none"
 			}
 		}, e.createElement("div", null, e.createElement("div", { style: {
 			fontSize: 14,
@@ -117686,34 +117686,34 @@ function DPe(t) {
 			color: "var(--muted)",
 			marginTop: 2
 		} }, t.description)), e.createElement(EPe, {
-			on: l[t.key],
+			on: u[t.key],
 			onChange: function() {
-				w(t.key);
+				T(t.key);
 			}
 		}));
-	})), x ? e.createElement("div", { style: {
+	})), S ? e.createElement("div", { style: {
 		padding: "10px 14px",
 		background: "rgba(239,68,68,.1)",
 		color: "#dc2626",
 		borderRadius: 7,
 		fontSize: 13,
 		marginBottom: 16
-	} }, x) : null, e.createElement("button", {
-		onClick: C,
-		disabled: h,
+	} }, S) : null, e.createElement("button", {
+		onClick: w,
+		disabled: g,
 		style: {
 			padding: "8px 20px",
 			borderRadius: 8,
 			border: "none",
-			background: v ? "#16a34a" : "var(--accent)",
+			background: y ? "#16a34a" : "var(--accent)",
 			color: "#fff",
 			fontSize: 13,
 			fontWeight: 600,
-			cursor: h ? "default" : "pointer",
-			opacity: h ? .7 : 1,
+			cursor: g ? "default" : "pointer",
+			opacity: g ? .7 : 1,
 			transition: "background .2s, opacity .2s"
 		}
-	}, v ? "✓ Saved" : h ? "Saving..." : "Save preferences"));
+	}, y ? "✓ Saved" : g ? "Saving..." : "Save preferences"));
 }
 //#endregion
 //#region src/DocumentDetail.jsx

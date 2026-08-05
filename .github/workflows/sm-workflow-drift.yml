@@ -24,6 +24,24 @@ jobs:
               -d "{\"ts\":\"$(date -u +%FT%TZ)\",\"source\":\"kit\",\"event_type\":\"$1\",\"repo\":\"${GITHUB_REPOSITORY##*/}\",\"sha\":\"$GITHUB_SHA\",\"actor\":\"$GITHUB_ACTOR\",\"payload\":$2,\"evidence_url\":\"$GITHUB_SERVER_URL/$GITHUB_REPOSITORY/actions/runs/$GITHUB_RUN_ID\"}" \
               >/dev/null 2>&1 || echo "::warning::event emit failed (non-blocking)"
           }
+          # Versions are semver (N.N.N) with legacy bare-integer stamps meaning
+          # N.0.0 (TASK-1384). Adopted repos do not carry the kit's
+          # libexec/wf_version.py, so the same grammar is inlined here — shell
+          # -lt chokes on "13.1.0" and would silently report "current".
+          # Prints lt|eq|gt; exits nonzero (failing the step) on a malformed value.
+          vrel() { python3 -c '
+          import sys
+          DIGITS = set("0123456789")
+          def parse(text):
+              parts = text.split(".")
+              if len(parts) == 1:
+                  parts = [parts[0], "0", "0"]
+              if len(parts) != 3 or any(not p or set(p) - DIGITS for p in parts):
+                  raise SystemExit(2)
+              return tuple(int(p) for p in parts)
+          a, b = parse(sys.argv[1]), parse(sys.argv[2])
+          print("lt" if a < b else "eq" if a == b else "gt")
+          ' "$1" "$2"; }
           RSHORT="${GITHUB_REPOSITORY##*/}"
           REPO_V=$(grep '^version=' .sm-workflow.conf | head -1 | cut -d= -f2)
           if [ -z "$REPO_V" ]; then echo "::error::.sm-workflow.conf missing version="; exit 1; fi
@@ -35,14 +53,17 @@ jobs:
             exit 0
           fi
           echo "repo=$REPO_V kit=$KIT_V min=$KIT_MIN"
-          if [ "$REPO_V" -lt "$KIT_MIN" ]; then
-            emit kit.drift_stamp "{\"repo\":\"$RSHORT\",\"stamp_version\":$REPO_V,\"kit_version\":$KIT_V,\"verdict\":\"below_floor\"}"
+          REL_MIN=$(vrel "$REPO_V" "$KIT_MIN")
+          REL_KIT=$(vrel "$REPO_V" "$KIT_V")
+          # stamp_version/kit_version are quoted: "13.1.0" is not a JSON number.
+          if [ "$REL_MIN" = "lt" ]; then
+            emit kit.drift_stamp "{\"repo\":\"$RSHORT\",\"stamp_version\":\"$REPO_V\",\"kit_version\":\"$KIT_V\",\"verdict\":\"below_floor\"}"
             echo "::error::Pack version $REPO_V is below the safety floor $KIT_MIN. Run 'wf sync' and land the update."
             exit 1
           fi
-          if [ "$REPO_V" -lt "$KIT_V" ]; then
-            emit kit.drift_stamp "{\"repo\":\"$RSHORT\",\"stamp_version\":$REPO_V,\"kit_version\":$KIT_V,\"verdict\":\"behind\"}"
+          if [ "$REL_KIT" = "lt" ]; then
+            emit kit.drift_stamp "{\"repo\":\"$RSHORT\",\"stamp_version\":\"$REPO_V\",\"kit_version\":\"$KIT_V\",\"verdict\":\"behind\"}"
             echo "::warning::Pack version $REPO_V is behind kit $KIT_V. Run 'wf sync' when convenient."
           else
-            emit kit.drift_stamp "{\"repo\":\"$RSHORT\",\"stamp_version\":$REPO_V,\"kit_version\":$KIT_V,\"verdict\":\"current\"}"
+            emit kit.drift_stamp "{\"repo\":\"$RSHORT\",\"stamp_version\":\"$REPO_V\",\"kit_version\":\"$KIT_V\",\"verdict\":\"current\"}"
           fi

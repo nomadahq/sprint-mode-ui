@@ -5,7 +5,8 @@
       "mcp__waffle__updateWorkItem",
       "mcp__waffle__transitionWorkItem",
       "mcp__waffle__addComment",
-      "mcp__waffle__createSquare"
+      "mcp__waffle__createWaffle",
+      "mcp__waffle__claimWorkItem"
     ]
   },
   "hooks": {

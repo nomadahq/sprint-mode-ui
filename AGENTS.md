@@ -43,8 +43,10 @@ how much explanation a person needs, not the Waffle, evidence, review, or landin
 - **Every board write goes through its MCP verb.** Never write the Waffle database
   directly, and never route around an approval prompt by doing so: a direct write
   notifies nobody and leaves no ledger row, so the work becomes invisible to everyone
-  but you. The pack pre-approves the five write verbs precisely so an unattended run
-  never faces that choice. `revokeKey` is not among them and never runs unattended.
+  but you. The pack pre-approves the six write verbs precisely so an unattended run
+  never faces that choice. `revokeKey` and the launchpad spend verbs
+  (`activateLaunch`, `setEngine` on, `applyRecommendation`) are never among them and
+  never run unattended; the spend verbs the server additionally refuses headless.
 
 ## HOLD and autonomous execution
 - **HOLD is policy, not judgment.** The written HOLD classes and gates define

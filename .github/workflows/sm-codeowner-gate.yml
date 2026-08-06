@@ -35,9 +35,42 @@ jobs:
           fi
           # CODEOWNERS from the BASE branch — a PR must not be able to edit
           # its own gate out of existence.
-          if ! gh api "repos/$REPO/contents/.github/CODEOWNERS?ref=$BASE" --jq .content 2>/dev/null | base64 -d > /tmp/codeowners; then
-            echo "No CODEOWNERS on $BASE — nothing to gate."
-            exit 0
+          #
+          # Branch on gh's OWN exit status, never the pipeline's. Steps run under
+          # `bash -e` without pipefail, so a pipe reports only its last command:
+          # `base64` exits 0 on empty input, and on an API error gh writes the
+          # error JSON to stdout, so either way the old `if ! gh ... | base64`
+          # turned ANY failure — 5xx, secondary rate limit, token blip — into
+          # "no CODEOWNERS" and the gate passed having checked nothing. A 404 is
+          # a real answer (the file is genuinely absent, as on an adoption PR's
+          # base); anything else is an unverifiable state and fails closed.
+          rc=0
+          gh api "repos/$REPO/contents/.github/CODEOWNERS?ref=$BASE" --jq .content \
+            > /tmp/codeowners.b64 2>/tmp/codeowners.err || rc=$?
+          if [ "$rc" -ne 0 ]; then
+            # A 404 says "not found" without saying WHAT was not found: the file,
+            # the ref, or the repository. Only a file-level 404 means "no
+            # CODEOWNERS"; the others mean we could not look. Confirm the base is
+            # readable before treating absence as an answer.
+            if grep -q 'HTTP 404' /tmp/codeowners.err \
+               && gh api "repos/$REPO/commits/$BASE" --jq .sha >/dev/null 2>&1; then
+              echo "No CODEOWNERS on $BASE — nothing to gate."
+              exit 0
+            fi
+            echo "::error::Could not read CODEOWNERS from $BASE (gh exit $rc) — failing closed rather than passing an unchecked gate."
+            cat /tmp/codeowners.err >&2
+            exit 1
+          fi
+          # A 2xx with an empty body is not "an empty CODEOWNERS": every adopted
+          # repo carries the managed block, so nothing here is a broken response,
+          # and an unverifiable state is not a pass.
+          if [ ! -s /tmp/codeowners.b64 ]; then
+            echo "::error::Empty CODEOWNERS response from $BASE — failing closed."
+            exit 1
+          fi
+          if ! base64 -d < /tmp/codeowners.b64 > /tmp/codeowners; then
+            echo "::error::CODEOWNERS on $BASE could not be decoded — failing closed."
+            exit 1
           fi
           gh api "repos/$REPO/pulls/$PR/files" --paginate --jq '.[].filename' > /tmp/files
           gh api "repos/$REPO/pulls/$PR/reviews" --paginate > /tmp/reviews.json

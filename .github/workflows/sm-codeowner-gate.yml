@@ -54,49 +54,121 @@ jobs:
             # readable before treating absence as an answer.
             if grep -q 'HTTP 404' /tmp/codeowners.err \
                && gh api "repos/$REPO/commits/$BASE" --jq .sha >/dev/null 2>&1; then
-              echo "No CODEOWNERS on $BASE — nothing to gate."
+              echo "No CODEOWNERS on $BASE - nothing to gate."
               exit 0
             fi
-            echo "::error::Could not read CODEOWNERS from $BASE (gh exit $rc) — failing closed rather than passing an unchecked gate."
+            echo "::error::Could not read CODEOWNERS from $BASE (gh exit $rc) - failing closed rather than passing an unchecked gate."
             cat /tmp/codeowners.err >&2
             exit 1
           fi
-          # A 2xx with an empty body is not "an empty CODEOWNERS": every adopted
-          # repo carries the managed block, so nothing here is a broken response,
-          # and an unverifiable state is not a pass.
-          if [ ! -s /tmp/codeowners.b64 ]; then
-            echo "::error::Empty CODEOWNERS response from $BASE — failing closed."
-            exit 1
-          fi
           if ! base64 -d < /tmp/codeowners.b64 > /tmp/codeowners; then
-            echo "::error::CODEOWNERS on $BASE could not be decoded — failing closed."
+            echo "::error::CODEOWNERS on $BASE could not be decoded - failing closed."
             exit 1
           fi
           gh api "repos/$REPO/pulls/$PR/files" --paginate --jq '.[].filename' > /tmp/files
           gh api "repos/$REPO/pulls/$PR/reviews" --paginate > /tmp/reviews.json
           python3 - <<'PY'
-          import json, os, sys
+          import json, os, re, sys
 
           author = os.environ["AUTHOR"]
+          # encoding is pinned deliberately. open() would otherwise take it from
+          # the runner locale, and that decides whether a corrupt payload fails
+          # closed: the bytes a `null` .content decodes to are invalid UTF-8 (so
+          # this raises, correctly) but are perfectly good latin-1, where they
+          # would parse as one garbage pattern and the gate would report "no
+          # codeowner-listed paths touched". -sig so a BOM is consumed rather
+          # than glued onto the first pattern, where it could never match.
+          # This diagnostic stays ASCII: on a non-UTF-8 runner a non-ASCII one
+          # dies encoding itself, losing the annotation it exists to print.
+          try:
+              raw = open("/tmp/codeowners", encoding="utf-8-sig").read()
+          except UnicodeDecodeError:
+              print("::error::CODEOWNERS on %s is not valid UTF-8 - failing closed."
+                    % os.environ.get("BASE", "the base branch"))
+              sys.exit(1)
           patterns = []
-          for line in open("/tmp/codeowners"):
+          for line in raw.splitlines():
               line = line.strip()
               if not line or line.startswith("#"):
                   continue
               patterns.append(line.split()[0])
+          # Zero patterns is not "nothing is owned" — it is a CODEOWNERS we could
+          # not read as one. BUG-1644: a >1MB blob answers `content: ""` with
+          # `encoding: none`, which is non-empty encoded and decodes to nothing;
+          # whitespace-only and comments-only land here too. Every one of them
+          # would otherwise reach "no codeowner-listed paths touched" and pass a
+          # gate that checked nothing. The genuine-absence case exits far above,
+          # on the confirmed 404.
+          if not patterns:
+              print("::error::CODEOWNERS on %s yielded no patterns - failing closed."
+                    % os.environ.get("BASE", "the base branch"))
+              sys.exit(1)
 
           def matches(f, p):
-              # Anchored-prefix semantics: covers /dir/ and /file patterns
-              # (the only shapes the sm-workflow pack and repo additions use).
-              p = p.lstrip("/")
-              if p.endswith("/"):
-                  return f.startswith(p)
-              return f == p or f.startswith(p + "/")
+              # CODEOWNERS uses gitignore-style patterns. Anchored prefixes were
+              # all this understood, so every glob became a pattern that matched
+              # nothing (BUG-1659) — and `*`, the most common line there is, made
+              # a repo look fully protected while gating nothing. Translate to a
+              # regex instead: `*` within a segment, `**` across, `?` one
+              # character, a leading `/` anchors to the root, a trailing `/`
+              # means the directory's contents.
+              anchored = p.startswith("/")
+              dir_only = p.endswith("/")
+              body = p.strip("/")
+              if not body:
+                  return True          # a bare "/" is the root: everything
+              out, i = "", 0
+              while i < len(body):
+                  # A leading "**/" is "anywhere", the same as writing the rest
+                  # of the pattern alone — it must not force a directory, or
+                  # "**/*.env" leaves a root .env unguarded.
+                  if i == 0 and body[:3] == "**/":
+                      out += "(?:.*/)?"
+                      i += 3
+                      continue
+                  # "/**/" spans zero or more directories, so the slashes around
+                  # it collapse into the same group: /docs/**/*.md owns
+                  # docs/x.md as well as docs/a/b/x.md.
+                  if body[i:i + 4] == "/**/":
+                      out += "/(?:.*/)?"
+                      i += 4
+                      continue
+                  c = body[i]
+                  if c == "*":
+                      # "**" spans segments only when it IS a segment. In
+                      # "a**/b" gitignore reads two ordinary stars, so treating
+                      # it as ".*" would demand taps GitHub does not.
+                      whole = (i == 0 or body[i - 1] == "/") and \
+                              body[i + 2:i + 3] in ("", "/")
+                      if body[i + 1:i + 2] == "*" and whole:
+                          out += ".*"
+                          i += 2
+                          continue
+                      out += "[^/]*"
+                  elif c == "?":
+                      out += "[^/]"
+                  else:
+                      out += re.escape(c)
+                  i += 1
+              # Unanchored patterns match at any depth, as gitignore does.
+              prefix = "" if anchored else r"(?:.*/)?"
+              # A directory pattern owns what is under it. A plain name may BE a
+              # directory, so it owns its contents too. A wildcard final segment
+              # does not: GitHub documents "docs/*" as matching docs/x.md but not
+              # docs/sub/x.md, and widening it would demand taps it should not.
+              last = body.rsplit("/", 1)[-1]
+              if dir_only:
+                  suffix = "/.*"
+              elif "*" in last or "?" in last:
+                  suffix = ""
+              else:
+                  suffix = r"(?:/.*)?"
+              return re.fullmatch(prefix + out + suffix, f) is not None
 
           files = [l.strip() for l in open("/tmp/files") if l.strip()]
           touched = sorted({f for f in files for p in patterns if matches(f, p)})
           if not touched:
-              print("No codeowner-listed paths touched — gate passes.")
+              print("No codeowner-listed paths touched - gate passes.")
               sys.exit(0)
 
           print("Codeowner paths touched:")
@@ -115,10 +187,10 @@ jobs:
               and r.get("author_association") in ("OWNER", "MEMBER", "COLLABORATOR")
           ]
           if approvers:
-              print("Approved by:", ", ".join(approvers), "— gate passes.")
+              print("Approved by:", ", ".join(approvers), "- gate passes.")
               sys.exit(0)
           print("::error::This PR touches codeowner paths and requires an approving "
-                "review from a non-author org member. None found yet — the gate "
+                "review from a non-author org member. None found yet - the gate "
                 "re-runs automatically when a review is submitted.")
           sys.exit(1)
           PY

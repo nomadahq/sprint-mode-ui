@@ -166,7 +166,7 @@ describe('BugPanel product field', function() {
     await userEvent.click(await screen.findByText('+ New item'))
 
     await userEvent.selectOptions(await screen.findByLabelText('Product'), 'beta')
-    await userEvent.type(screen.getByPlaceholderText('Bug title'), 'Something broke')
+    await userEvent.type(screen.getByPlaceholderText('Title'), 'Something broke')
     await userEvent.click(screen.getByText('Submit'))
 
     await waitFor(function() {

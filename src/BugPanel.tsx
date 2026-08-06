@@ -81,7 +81,8 @@ export interface Bug {
   subsystem?: string | null
   due_date?: string | null
   tags?: string | null
-  square_id?: string | null
+  waffle_id?: string | null
+  square_id?: string | null // deprecated read alias (IA v2 window) — server dual-emits
   // WAFFLE-3.5 display IDs (sm-api computes display_id from the global
   // display_number + current type; prefix changes on retype, number never)
   display_number?: number | null
@@ -1364,15 +1365,16 @@ export function BugPanel(props: BugPanelProps) {
     }
   }, [open, props.focusBugId])
 
-  // WAFFLE-FIX-1B: Squares + Tags vocabularies for the filter dropdowns
-  // (and Square names for the By Square grouping labels).
+  // WAFFLE-FIX-1B: Waffles + Tags vocabularies for the filter dropdowns
+  // (and waffle names for the By-waffle grouping labels). TASK-1620:
+  // canonical /api/bugs/waffles + waffle_id; ?square= URL contract unchanged.
   useEffect(function() {
-    apiFetch(apiBase + '/api/bugs/squares', { credentials: 'include' })
+    apiFetch(apiBase + '/api/bugs/waffles', { credentials: 'include' })
       .then(function(r) { return r.json() })
       .then(function(d: { ok?: boolean; data?: Array<{ id: string; name: string }> }) {
         // Guard the shape: an older sm-api (or a host proxy that routes this
         // path to the generic bugs list) must degrade to an empty dropdown,
-        // never crash the panel on non-square rows.
+        // never crash the panel on non-waffle rows.
         if (d && Array.isArray(d.data)) setSquaresList(d.data.filter(function(sq) { return sq && typeof sq.id === 'string' && sq.id.indexOf('sq_') === 0 && typeof sq.name === 'string' }))
       })
       .catch(function() {})
@@ -1491,7 +1493,7 @@ export function BugPanel(props: BugPanelProps) {
     if (filterPriority !== 'all') params.push('priority=' + filterPriority)
     if (filterAssignee !== 'all') params.push('assigned_to=' + encodeURIComponent(filterAssignee))
     if (filterSubsystem !== 'all') params.push('subsystem=' + encodeURIComponent(filterSubsystem))
-    if (filterSquare !== 'all') params.push('square_id=' + encodeURIComponent(filterSquare))
+    if (filterSquare !== 'all') params.push('waffle_id=' + encodeURIComponent(filterSquare))
     if (filterTag !== 'all') params.push('tags=' + encodeURIComponent(filterTag))
     if (filterSource !== 'all') params.push('source=' + filterSource)
     if (debouncedSearch.trim()) params.push('q=' + encodeURIComponent(debouncedSearch.trim()))
@@ -2050,7 +2052,7 @@ export function BugPanel(props: BugPanelProps) {
     if (filterPriority !== 'all') params.push('priority=' + filterPriority)
     if (filterAssignee !== 'all') params.push('assigned_to=' + encodeURIComponent(filterAssignee))
     if (filterSubsystem !== 'all') params.push('subsystem=' + encodeURIComponent(filterSubsystem))
-    if (filterSquare !== 'all') params.push('square_id=' + encodeURIComponent(filterSquare))
+    if (filterSquare !== 'all') params.push('waffle_id=' + encodeURIComponent(filterSquare))
     if (filterTag !== 'all') params.push('tags=' + encodeURIComponent(filterTag))
     if (filterSource !== 'all') params.push('source=' + filterSource)
     if (filterPerson !== 'all') params.push('submitted_by_name=' + encodeURIComponent(filterPerson))
@@ -2147,7 +2149,7 @@ export function BugPanel(props: BugPanelProps) {
       : groupBy === 'product'
         ? function(b: Bug) { return b.product || '' }
         : groupBy === 'square'
-          ? function(b: Bug) { return b.square_id || '' }
+          ? function(b: Bug) { return b.waffle_id || b.square_id || '' }
           : function(b: Bug) { return b.subsystem || '' }
     var groups: Record<string, Bug[]> = {}
     var order: string[] = []
@@ -2168,7 +2170,7 @@ export function BugPanel(props: BugPanelProps) {
           var groupTitle = groupBy === 'assignee'
         ? groupLabelForAssignee(k)
         : groupBy === 'square'
-          ? (k ? ((squaresList.find(function(sq) { return sq.id === k }) || { name: k }).name) : 'No Square')
+          ? (k ? ((squaresList.find(function(sq) { return sq.id === k }) || { name: k }).name) : 'No waffle')
           : (k || (groupBy === 'subsystem' ? '(no subsystem)' : '(no product)'))
           return (
             <React.Fragment key={k || '__none__'}>
@@ -2594,11 +2596,11 @@ export function BugPanel(props: BugPanelProps) {
               <option value="all">Portals</option>
               {filterProductOptions.map(function(p) { return <option key={p} value={p}>{p}</option> })}
             </select>
-            {/* WAFFLE-FIX-1B (Gate 1 approved): Squares filter — the umbrella lens */}
+            {/* WAFFLE-FIX-1B (Gate 1 approved): Waffles filter — the container lens */}
             <select style={S.filterSelect} value={filterSquare} onChange={function(e) { setFilterSquare(e.target.value) }}>
-              <option value="all">Squares</option>
+              <option value="all">Waffles</option>
               {squaresList.map(function(sq) { return <option key={sq.id} value={sq.id}>{sq.name}</option> })}
-              <option value="none">No Square</option>
+              <option value="none">No waffle</option>
             </select>
             <select style={S.filterSelect} value={filterType} onChange={function(e) { setFilterType(e.target.value) }}>
               <option value="all">Types</option>
@@ -2680,7 +2682,7 @@ export function BugPanel(props: BugPanelProps) {
                 <select style={S.filterSelect} value={groupBy} onChange={function(e) { setGroupBy(e.target.value) }} title="Group the list">
                   <option value="none">No grouping</option>
                   <option value="assignee">By Assignee</option>
-                  <option value="square">By Square</option>
+                  <option value="square">By waffle</option>
                   <option value="product">By Product</option>
                   <option value="subsystem">By Subsystem</option>
                   <option value="overdue">Overdue First</option>
@@ -2844,7 +2846,7 @@ export function BugPanel(props: BugPanelProps) {
                 <input aria-label="Product" style={S.formSelect} placeholder="product" value={fProduct} onChange={function(e) { setFProduct(e.target.value) }} />
               )}
             </div>
-            <input style={S.formInput} placeholder="Bug title" value={fTitle}
+            <input style={S.formInput} placeholder="Title" value={fTitle}
               onChange={function(e) { setFTitle(e.target.value) }}
               onKeyDown={function(e) { if (e.key === 'Enter' && !e.shiftKey) handleSubmit() }} autoFocus />
             <textarea style={S.formTextarea} rows={2} placeholder="Description" value={fDesc}

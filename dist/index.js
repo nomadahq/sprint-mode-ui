@@ -108380,7 +108380,7 @@ function p9(t) {
 		var e = t.focusBugId || null;
 		e ||= new URLSearchParams(window.location.search).get("bug"), e && (x(!0), z(e), ur.current = e, dr.current = e, rt(e));
 	}, [S, t.focusBugId]), i(function() {
-		_(o + "/api/bugs/squares", { credentials: "include" }).then(function(e) {
+		_(o + "/api/bugs/waffles", { credentials: "include" }).then(function(e) {
 			return e.json();
 		}).then(function(e) {
 			e && Array.isArray(e.data) && He(e.data.filter(function(e) {
@@ -108470,7 +108470,7 @@ function p9(t) {
 		var t = e || 0;
 		t === 0 ? k(!0) : jt(!0);
 		var n = [];
-		_e !== "all" && n.push("product=" + _e), be !== "all" && n.push("type=" + be), Ce !== "all" && n.push("priority=" + Ce), ke !== "all" && n.push("assigned_to=" + encodeURIComponent(ke)), Me !== "all" && n.push("subsystem=" + encodeURIComponent(Me)), Fe !== "all" && n.push("square_id=" + encodeURIComponent(Fe)), Re !== "all" && n.push("tags=" + encodeURIComponent(Re)), j !== "all" && n.push("source=" + j), dn.trim() && n.push("q=" + encodeURIComponent(dn.trim())), r ? (n.push("tab=" + N), n.push("sort=" + dt), Ee !== "all" && n.push("submitted_by_name=" + encodeURIComponent(Ee)), n.push("limit=" + mNe), n.push("offset=" + t)) : n.push("limit=1000"), _(o + "/api/bugs?" + n.join("&"), { credentials: "include" }).then(function(e) {
+		_e !== "all" && n.push("product=" + _e), be !== "all" && n.push("type=" + be), Ce !== "all" && n.push("priority=" + Ce), ke !== "all" && n.push("assigned_to=" + encodeURIComponent(ke)), Me !== "all" && n.push("subsystem=" + encodeURIComponent(Me)), Fe !== "all" && n.push("waffle_id=" + encodeURIComponent(Fe)), Re !== "all" && n.push("tags=" + encodeURIComponent(Re)), j !== "all" && n.push("source=" + j), dn.trim() && n.push("q=" + encodeURIComponent(dn.trim())), r ? (n.push("tab=" + N), n.push("sort=" + dt), Ee !== "all" && n.push("submitted_by_name=" + encodeURIComponent(Ee)), n.push("limit=" + mNe), n.push("offset=" + t)) : n.push("limit=1000"), _(o + "/api/bugs?" + n.join("&"), { credentials: "include" }).then(function(e) {
 			return e.json();
 		}).then(function(e) {
 			var n = Array.isArray(e.data) ? e.data : [];
@@ -108948,7 +108948,7 @@ function p9(t) {
 	var Vr = c([]), Hr = Vr[0], Ur = Vr[1], Wr = c(!1), Gr = Wr[0], Kr = Wr[1], qr = n(function() {
 		Kr(!0);
 		var e = ["limit=200", "sort=" + dt];
-		_e !== "all" && e.push("product=" + _e), be !== "all" && e.push("type=" + be), Ce !== "all" && e.push("priority=" + Ce), ke !== "all" && e.push("assigned_to=" + encodeURIComponent(ke)), Me !== "all" && e.push("subsystem=" + encodeURIComponent(Me)), Fe !== "all" && e.push("square_id=" + encodeURIComponent(Fe)), Re !== "all" && e.push("tags=" + encodeURIComponent(Re)), j !== "all" && e.push("source=" + j), Ee !== "all" && e.push("submitted_by_name=" + encodeURIComponent(Ee)), dn.trim() && e.push("q=" + encodeURIComponent(dn.trim())), _(o + "/api/bugs?" + e.join("&"), { credentials: "include" }).then(function(e) {
+		_e !== "all" && e.push("product=" + _e), be !== "all" && e.push("type=" + be), Ce !== "all" && e.push("priority=" + Ce), ke !== "all" && e.push("assigned_to=" + encodeURIComponent(ke)), Me !== "all" && e.push("subsystem=" + encodeURIComponent(Me)), Fe !== "all" && e.push("waffle_id=" + encodeURIComponent(Fe)), Re !== "all" && e.push("tags=" + encodeURIComponent(Re)), j !== "all" && e.push("source=" + j), Ee !== "all" && e.push("submitted_by_name=" + encodeURIComponent(Ee)), dn.trim() && e.push("q=" + encodeURIComponent(dn.trim())), _(o + "/api/bugs?" + e.join("&"), { credentials: "include" }).then(function(e) {
 			return e.json();
 		}).then(function(e) {
 			Ur(Array.isArray(e.data) ? e.data : []), Kr(!1);
@@ -109081,7 +109081,7 @@ function p9(t) {
 		} : Bt === "product" ? function(e) {
 			return e.product || "";
 		} : Bt === "square" ? function(e) {
-			return e.square_id || "";
+			return e.waffle_id || e.square_id || "";
 		} : function(e) {
 			return e.subsystem || "";
 		}, o = {}, s = [];
@@ -109093,7 +109093,7 @@ function p9(t) {
 		}), /* @__PURE__ */ u(l, { children: s.map(function(t) {
 			var n = Bt === "assignee" ? ii(t) : Bt === "square" ? t ? (Ve.find(function(e) {
 				return e.id === t;
-			}) || { name: t }).name : "No Square" : t || (Bt === "subsystem" ? "(no subsystem)" : "(no product)");
+			}) || { name: t }).name : "No waffle" : t || (Bt === "subsystem" ? "(no subsystem)" : "(no product)");
 			return /* @__PURE__ */ d(e.Fragment, { children: [/* @__PURE__ */ d("div", {
 				style: Q.groupHeader,
 				children: [
@@ -110159,7 +110159,7 @@ function p9(t) {
 							children: [
 								/* @__PURE__ */ u("option", {
 									value: "all",
-									children: "Squares"
+									children: "Waffles"
 								}),
 								Ve.map(function(e) {
 									return /* @__PURE__ */ u("option", {
@@ -110169,7 +110169,7 @@ function p9(t) {
 								}),
 								/* @__PURE__ */ u("option", {
 									value: "none",
-									children: "No Square"
+									children: "No waffle"
 								})
 							]
 						}),
@@ -110391,7 +110391,7 @@ function p9(t) {
 									}),
 									/* @__PURE__ */ u("option", {
 										value: "square",
-										children: "By Square"
+										children: "By waffle"
 									}),
 									/* @__PURE__ */ u("option", {
 										value: "product",
@@ -110795,7 +110795,7 @@ function p9(t) {
 							}),
 							/* @__PURE__ */ u("input", {
 								style: Q.formInput,
-								placeholder: "Bug title",
+								placeholder: "Title",
 								value: U,
 								onChange: function(e) {
 									W(e.target.value);

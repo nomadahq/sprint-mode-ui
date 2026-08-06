@@ -72,6 +72,7 @@ export interface Bug {
     subsystem?: string | null;
     due_date?: string | null;
     tags?: string | null;
+    waffle_id?: string | null;
     square_id?: string | null;
     display_number?: number | null;
     display_id?: string | null;

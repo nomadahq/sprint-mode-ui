@@ -39,24 +39,25 @@ export interface PageGateProps {
 }
 
 /**
- * Page-level access decision. canViewSection semantics, plus: an explicitly
- * denied parent key ({portal} for {portal}.{page}) denies the child even when
- * the child key itself is granted — mirrors the Layout route guard.
+ * Page-level access decision — pure canViewSection semantics (single decision
+ * path with Layout nav filtering). Parent inheritance applies ONLY when the
+ * child key is absent from the row (canViewSection's own rule).
+ *
+ * Deliberately NO blanket "explicitly denied dot-prefix parent overrides a
+ * granted child" rule: a dot prefix is a namespace, not a hierarchy. Live
+ * counter-example (studios): bare `studios` is the SM-internal section key,
+ * explicitly denied on every customer role, while `studios.billing` is a
+ * customer page those roles hold a grant for — the prefix rule would deny it.
+ * The registry's parent_key column is the real hierarchy and is enforced
+ * server-side; the Layout route guard's parent check is nav-structure-scoped
+ * and stays where the nav structure exists.
  */
 export function canViewPage(
   perms: Permissions | null,
   role: string | null | undefined,
   permKey: string | undefined,
 ): boolean {
-  if (!permKey) return true
-  if (role === 'super_admin') return true
-  if (!canViewSection(perms, role, permKey)) return false
-  var dotIdx = permKey.indexOf('.')
-  if (dotIdx > 0 && perms && perms.sections) {
-    var parentEntry = perms.sections[permKey.substring(0, dotIdx)]
-    if (parentEntry && parentEntry.view === false) return false
-  }
-  return true
+  return canViewSection(perms, role, permKey)
 }
 
 /**

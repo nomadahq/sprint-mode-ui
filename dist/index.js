@@ -117718,14 +117718,7 @@ function kPe(t) {
 //#endregion
 //#region src/PageGate.tsx
 function G9(e, t, n) {
-	if (!n || t === "super_admin") return !0;
-	if (!O9(e, t, n)) return !1;
-	var r = n.indexOf(".");
-	if (r > 0 && e && e.sections) {
-		var i = e.sections[n.substring(0, r)];
-		if (i && i.view === !1) return !1;
-	}
-	return !0;
+	return O9(e, t, n);
 }
 function K9() {
 	return e.createElement("div", {

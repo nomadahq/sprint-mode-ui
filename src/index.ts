@@ -81,6 +81,14 @@ export type { AccountSwitcherProps } from './AccountSwitcher.tsx'
 export { NoAccessScreen } from './NoAccessScreen.tsx'
 export type { NoAccessScreenProps } from './NoAccessScreen.tsx'
 
+// Page-level permission gate — PORTAL-RBAC-SHELLS. Wrap every element-rendering,
+// non-user-space routed page. canViewSection/parsePerms are the shared decision
+// path (Layout nav, Layout route guard, and PageGate all resolve through them).
+export { PageGate, canViewPage, SectionDeniedPanel } from './PageGate.tsx'
+export type { PageGateProps } from './PageGate.tsx'
+export { canViewSection, parsePerms } from './Layout.tsx'
+export type { Permissions } from './Layout.tsx'
+
 // Document detail — universal 5-section document viewer
 export { DocumentDetail, TermCards, PipelineBar } from './DocumentDetail.jsx'
 

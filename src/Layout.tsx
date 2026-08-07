@@ -173,7 +173,7 @@ export function useSession() { return useContext(SessionContext) }
 
 // ─── View-As Context ────────────────────────────────────────────────────────
 
-interface ViewAsUser {
+export interface ViewAsUser {
   email: string
   name: string
   company_id?: string
@@ -862,12 +862,12 @@ var PRODUCT_COLORS: Record<string, { color: string; tint: string }> = {
 
 // ─── Permission Helpers ─────────────────────────────────────────────────────
 
-interface Permissions {
+export interface Permissions {
   sections?: Record<string, { view?: boolean; login?: boolean }>
   products?: Record<string, boolean>
 }
 
-function parsePerms(session: SessionData | ViewAsUser | null): Permissions | null {
+export function parsePerms(session: SessionData | ViewAsUser | null): Permissions | null {
   if (!session || !(session as any).permissions) return null
   try {
     var p = (session as any).permissions
@@ -881,7 +881,7 @@ function parsePerms(session: SessionData | ViewAsUser | null): Permissions | nul
   } catch (_e) { return null }
 }
 
-function canViewSection(perms: Permissions | null, role: string | null | undefined, key: string | undefined): boolean {
+export function canViewSection(perms: Permissions | null, role: string | null | undefined, key: string | undefined): boolean {
   if (!key) return true
   if (role === 'super_admin') return true
   // No permissions object at all → allow (session not loaded yet or legacy)

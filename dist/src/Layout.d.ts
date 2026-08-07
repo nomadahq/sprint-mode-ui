@@ -149,7 +149,7 @@ export interface LayoutProps {
     })[];
 }
 export declare function useSession(): SessionData | null;
-interface ViewAsUser {
+export interface ViewAsUser {
     email: string;
     name: string;
     company_id?: string;
@@ -173,5 +173,14 @@ export declare function useTheme(): {
 };
 export declare function CmdK(props: CmdKProps): React.FunctionComponentElement<React.FragmentProps> | null;
 export declare function PortalSwitcher(): null;
+export interface Permissions {
+    sections?: Record<string, {
+        view?: boolean;
+        login?: boolean;
+    }>;
+    products?: Record<string, boolean>;
+}
+export declare function parsePerms(session: SessionData | ViewAsUser | null): Permissions | null;
+export declare function canViewSection(perms: Permissions | null, role: string | null | undefined, key: string | undefined): boolean;
 declare const Layout: React.FC<LayoutProps>;
 export default Layout;

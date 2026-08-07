@@ -33,8 +33,15 @@ describe('canViewPage', () => {
     expect(canViewPage(perms, 'member', 'studios.meetings')).toBe(true)
   })
 
-  it('denies a granted child under an explicitly denied parent', () => {
-    var perms = parsePerms(sess('member', { studios: { view: false }, 'studios.meetings': { view: true } }))
+  it('a granted child key wins over an explicitly denied same-prefix key (namespace, not hierarchy)', () => {
+    // Live studios model: bare `studios` = SM-internal section, denied to
+    // customers; `studios.billing` = customer page they hold a grant for.
+    var perms = parsePerms(sess('member', { studios: { view: false }, 'studios.billing': { view: true } }))
+    expect(canViewPage(perms, 'member', 'studios.billing')).toBe(true)
+  })
+
+  it('an explicitly denied same-prefix key still denies a MISSING child (inheritance)', () => {
+    var perms = parsePerms(sess('member', { studios: { view: false }, dashboard: { view: true } }))
     expect(canViewPage(perms, 'member', 'studios.meetings')).toBe(false)
   })
 

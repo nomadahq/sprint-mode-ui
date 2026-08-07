@@ -1,6 +1,6 @@
 // page-gate.test.jsx — PORTAL-RBAC-SHELLS (square 1647)
 // PageGate semantics: canViewSection pass-through + explicit-parent deny.
-// The empty-permissions cases pin CURRENT allow-default behavior; the
+// The empty-permissions cases pin the FLIPPED deny-default behavior; the
 // deny-flip PR (decision RBAC-SMUI-DENY-FLIP) will amend those two tests.
 import React from 'react'
 import { render, screen } from '@testing-library/react'
@@ -53,10 +53,16 @@ describe('canViewPage', () => {
     expect(canViewPage(null, 'member', 'signal.people')).toBe(true)
   })
 
-  it('CURRENT default: empty permissions object allows (flips to deny in RBAC-SMUI-DENY-FLIP)', () => {
+  it('FLIPPED default: empty permissions object DENIES (RBAC-SMUI-DENY-FLIP, square 1647)', () => {
     var perms = parsePerms(sess('member', {}))
-    // parsePerms returns { sections: {} } — the empty-object branch
-    expect(canViewPage(perms, 'member', 'signal.people')).toBe(true)
+    // parsePerms returns { sections: {} } — the empty-object branch.
+    // An empty record post-flip means misconfigured/revoked, not legacy:
+    // every live role row was verified complete before this shipped.
+    expect(canViewPage(perms, 'member', 'signal.people')).toBe(false)
+  })
+
+  it('FLIPPED default: null permissions (session not loaded) still allows — flash-of-allow, never lockout', () => {
+    expect(canViewPage(null, 'member', 'signal.people')).toBe(true)
   })
 })
 

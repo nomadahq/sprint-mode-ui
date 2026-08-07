@@ -112064,7 +112064,8 @@ function D9(e) {
 	}
 }
 function O9(e, t, n) {
-	if (!n || t === "super_admin" || !e || !e.sections || Object.keys(e.sections).length === 0) return !0;
+	if (!n || t === "super_admin" || !e || !e.sections) return !0;
+	if (Object.keys(e.sections).length === 0) return !1;
 	var r = e.sections[n];
 	if (!r) {
 		var i = n.indexOf(".");

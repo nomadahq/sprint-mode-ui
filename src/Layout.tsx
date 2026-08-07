@@ -886,10 +886,14 @@ export function canViewSection(perms: Permissions | null, role: string | null | 
   if (role === 'super_admin') return true
   // No permissions object at all → allow (session not loaded yet or legacy)
   if (!perms || !perms.sections) return true
-  // No keys configured at all → allow (permissions exist but are empty —
-  // the admin fallback in resolvePermissions should have populated them,
-  // but if it didn't, don't lock everyone out)
-  if (Object.keys(perms.sections).length === 0) return true
+  // THE FLIP (PORTAL-RBAC-SHELLS, square 1647, Aaron go 2026-08-07):
+  // an EMPTY permissions record now DENIES. Every live role row on all
+  // eight portals was verified complete against the registry before this
+  // shipped, so an empty record means a misconfigured or revoked role —
+  // not a legacy row. A NULL/absent permissions object still allows
+  // (session not loaded yet / legacy sessions), which keeps the failure
+  // mode "flash of allow" rather than a lockout during session load.
+  if (Object.keys(perms.sections).length === 0) return false
   var entry = perms.sections[key]
   // Key not in permissions → deny (if other keys exist, this one was
   // intentionally excluded or set to none)

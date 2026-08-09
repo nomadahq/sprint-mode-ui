@@ -978,8 +978,6 @@ function SidebarSection({ label, sectionIcon, sectionColor, items, color, tint, 
       data-product={product}
       style={sectionStyle}
       data-label={label}
-      onMouseEnter={railCollapsed && onRailEnter ? function(e: React.MouseEvent<HTMLDivElement>) { onRailEnter(e.currentTarget, label, items) } : undefined}
-      onMouseLeave={railCollapsed && onRailLeave ? onRailLeave : undefined}
     >
       {!flat && (
         <button className="ps-section-header" onClick={handleToggle}>
@@ -1060,6 +1058,8 @@ function SidebarSection({ label, sectionIcon, sectionColor, items, color, tint, 
                   if (item.completed) cls += ' completed'
                   return cls
                 }}
+                onMouseEnter={railCollapsed && onRailEnter ? function(e: React.MouseEvent<HTMLElement>) { onRailEnter(e.currentTarget as HTMLElement, item.label, []) } : undefined}
+                onMouseLeave={railCollapsed && onRailLeave ? onRailLeave : undefined}
               >
                 {stepEl}
                 {' '}{item.label}
@@ -1846,7 +1846,9 @@ const Layout: React.FC<LayoutProps> = function Layout(props: LayoutProps) {
                 return canViewSection(effectivePerms, effectiveRole, item.permKey)
               }).map(function(item) {
                 return (
-                  <NavLink key={item.to} to={item.to} className={function(p) { return 'ps-item' + (p.isActive ? ' active' : '') }}>
+                  <NavLink key={item.to} to={item.to} className={function(p) { return 'ps-item' + (p.isActive ? ' active' : '') }}
+                    onMouseEnter={railCollapsed ? function(e: React.MouseEvent<HTMLElement>) { openRailFlyout(e.currentTarget as HTMLElement, item.label, []) } : undefined}
+                    onMouseLeave={railCollapsed ? closeRailFlyoutSoon : undefined}>
                     {item.Icon && <item.Icon />}{' '}{item.label}
                   </NavLink>
                 )

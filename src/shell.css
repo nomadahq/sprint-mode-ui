@@ -168,18 +168,18 @@
 }
 .portal-sidebar.rail .ps-heading > span:hover { color: var(--foreground); }
 
-/* Section header: icon only, centered */
-.portal-sidebar.rail .ps-section-header { justify-content: center; gap: 0; padding: 9px 8px; font-size: 0; }
-.portal-sidebar.rail .ps-section-chevron { display: none; }
-.portal-sidebar.rail .ps-section-header:hover { background: var(--bg-subtle); }
+/* Section headers vanish in the rail: the rail is a flat column of page
+   icons (admin look). Groups are toggled from the expanded sidebar. */
+.portal-sidebar.rail .ps-section-header { display: none; }
 
-/* Flat sections (e.g. Dashboard) + bottom nav: item icons centered, labels hidden */
-.portal-sidebar.rail .ps-flat .ps-item,
-.portal-sidebar.rail .portal-sidebar-bottom-nav .ps-item { justify-content: center; gap: 0; padding: 9px 8px; font-size: 0; }
+/* Every rail item - flat, grouped, and bottom nav - is an icon-only row.
+   Labels come back via the per-item hover flyout. */
+.portal-sidebar.rail .ps-item { justify-content: center; gap: 0; padding: 9px 8px; font-size: 0; }
 
-/* Non-flat sections: hide the inline submenu in the rail; it's shown via the
-   JS-positioned flyout instead. */
-.portal-sidebar.rail .ps-section:not(.ps-flat) .ps-section-items { display: none; }
+/* Grouped items stay visible in the rail even when the group is collapsed
+   in the expanded sidebar - the rail shows every page's icon. */
+.portal-sidebar.rail .ps-section .ps-section-items { display: block; }
+.portal-sidebar.rail .ps-section.collapsed .ps-section-items { display: block; }
 
 /* Rail flyout: a fixed-position panel rendered at the shell level and positioned
    by JS (inline `top`, clamped to the viewport so lower icons flip up and never

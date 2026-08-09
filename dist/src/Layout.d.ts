@@ -81,6 +81,10 @@ export interface NavSection {
     product?: string;
     flat?: boolean;
     type?: string;
+    /** Render this (non-flat) section collapsed until the user opens it.
+     *  User toggles persist to localStorage and win over this default;
+     *  a child route becoming active still auto-opens the group. */
+    defaultCollapsed?: boolean;
 }
 export interface HeaderCta {
     label: string;

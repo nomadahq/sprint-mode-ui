@@ -545,6 +545,7 @@ function HeaderUserMenu(props: {
   profilePath?: string
   logoutHref: string
   userMenuExtra?: React.ReactNode
+  portalSubdomain?: string
 }) {
   var session = props.session; var profilePath = props.profilePath; var logoutHref = props.logoutHref
   var userMenuExtra = props.userMenuExtra
@@ -590,7 +591,7 @@ function HeaderUserMenu(props: {
         'Notification Settings'
       ),
       userMenuExtra || null,
-      React.createElement(AccountSwitcher, null),
+      React.createElement(AccountSwitcher, { product: props.portalSubdomain || undefined }),
       React.createElement('a', { href: logoutHref, style: { display: 'block', padding: '8px 10px', borderRadius: 6, fontSize: 13, color: 'var(--foreground)', textDecoration: 'none' } }, 'Sign out')
     ) : null
   )
@@ -1726,7 +1727,7 @@ const Layout: React.FC<LayoutProps> = function Layout(props: LayoutProps) {
     ),
     notificationBellEnabled ? React.createElement(NotificationBellNav, { apiBase: notificationApiBase, href: notificationHref, onNavigate: function(href: string) { navigate(href) } }) : null,
     bugPanelEnabled ? React.createElement(BugPanelHeaderButton, { onClick: function() { setBugPanelOpen(function(v) { return !v }) } }) : null,
-    React.createElement(HeaderUserMenu, { session: session, profilePath: profilePath, logoutHref: logoutHref, userMenuExtra: userMenuExtra })
+    React.createElement(HeaderUserMenu, { session: session, profilePath: profilePath, logoutHref: logoutHref, userMenuExtra: userMenuExtra, portalSubdomain: portalSubdomain })
   ) : null
 
   return (

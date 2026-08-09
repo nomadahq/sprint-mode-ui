@@ -8,6 +8,10 @@ import { themedMarkFromLogoUrl } from './dark-mode'
 export interface AccountSwitcherProps {
   /** API base URL (empty string for same-origin) */
   apiBase?: string
+  /** Portal subdomain — sent as X-SM-Product so the API resolves THIS
+   *  portal's session cookie. Without it the linked-accounts fetch reads
+   *  the wrong cookie and returns nothing on non-admin portals (Waffle). */
+  product?: string
 }
 
 interface PortalInfo {
@@ -78,15 +82,17 @@ var CACHE_TTL = 60000 // refresh in background after 60 s
 
 export function AccountSwitcher(props: AccountSwitcherProps) {
   var apiBase = props.apiBase || ''
+  var product = props.product || ''
+  var cacheKey = apiBase + '|' + product
 
-  var cached = _linkedCache[apiBase]
+  var cached = _linkedCache[cacheKey]
   var _accounts = useState<LinkedAccount[]>(cached ? cached.accounts : []); var accounts = _accounts[0]; var setAccounts = _accounts[1]
   var _loaded = useState(!!cached); var loaded = _loaded[0]; var setLoaded = _loaded[1]
   var _expanded = useState<string | null>(null); var expanded = _expanded[0]; var setExpanded = _expanded[1]
   var _meUserId = useState(cached ? cached.meUserId : ''); var meUserId = _meUserId[0]; var setMeUserId = _meUserId[1]
 
   var fetchAccounts = useCallback(function() {
-    var linkedP = fetch(apiBase + '/api/auth/linked-accounts', { credentials: 'include' })
+    var linkedP = fetch(apiBase + '/api/auth/linked-accounts', { credentials: 'include', headers: product ? { 'X-SM-Product': product } : {} })
       .then(function(r) { return r.json() })
       .then(function(data: { ok: boolean; data?: { accounts: LinkedAccount[] } }) {
         if (data.ok && data.data) {
@@ -99,7 +105,7 @@ export function AccountSwitcher(props: AccountSwitcherProps) {
       })
       .catch(function() { return null })
 
-    var meP = fetch(apiBase + '/auth/me', { credentials: 'include' })
+    var meP = fetch(apiBase + '/auth/me', { credentials: 'include', headers: product ? { 'X-SM-Product': product } : {} })
       .then(function(r) { return r.json() })
       .then(function(data: { ok: boolean; user?: { id: string } }) {
         if (data.ok && data.user) {
@@ -117,14 +123,14 @@ export function AccountSwitcher(props: AccountSwitcherProps) {
       var uid = results[1] as string | null
       if (accts) {
         var cur = accts.find(function(a) { return a.is_current })
-        _linkedCache[apiBase] = {
+        _linkedCache[cacheKey] = {
           accounts: accts,
           meUserId: uid || (cur ? cur.user_id : ''),
           ts: Date.now(),
         }
       }
     })
-  }, [apiBase])
+  }, [apiBase, product])
 
   useEffect(function() {
     // If cache is fresh, skip the fetch entirely
@@ -158,6 +164,20 @@ export function AccountSwitcher(props: AccountSwitcherProps) {
     : ''
 
   if (!loaded) return null
+
+  // Link-success confirmation: when the link flow returns with ?linked=<email>,
+  // show a one-time banner naming the account and how to use it. Cleared from
+  // the URL so a refresh doesn't repeat it.
+  var linkedParam: string | null = null
+  try {
+    var _sp = new URLSearchParams(window.location.search)
+    linkedParam = _sp.get('linked')
+    if (linkedParam) {
+      _sp.delete('linked')
+      var _qs = _sp.toString()
+      window.history.replaceState({}, '', window.location.pathname + (_qs ? '?' + _qs : ''))
+    }
+  } catch (_e) { linkedParam = null }
 
   var otherAccounts = accounts.filter(function(a) { return !a.is_current })
 
@@ -226,6 +246,16 @@ export function AccountSwitcher(props: AccountSwitcherProps) {
   // Default view: account list
   return React.createElement(React.Fragment, null,
     React.createElement('div', { style: { height: 1, background: 'var(--border)', margin: '4px 0' } }),
+
+    linkedParam
+      ? React.createElement('div', {
+          style: {
+            margin: '4px 8px 6px', padding: '8px 10px', borderRadius: 6,
+            background: 'var(--green-light, #e6f4ea)', color: 'hsl(142,71%,26%)',
+            fontSize: 12, lineHeight: 1.4,
+          }
+        }, linkedParam + ' is now linked. Switch to it anytime from this menu.')
+      : null,
 
     otherAccounts.length > 0
       ? React.createElement('div', {

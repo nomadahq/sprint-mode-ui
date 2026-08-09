@@ -112754,6 +112754,12 @@ var HNe = function(t) {
 		return {};
 	}), Tt = wt[0], Et = wt[1];
 	function Dt(e) {
+		var t = e.nav && e.nav.items || [], n = typeof window < "u" ? window.location.pathname : "";
+		return t.some(function(e) {
+			return !e.to || e.external ? !1 : e.exact ? n === e.to : n.indexOf(e.to) === 0;
+		});
+	}
+	function Ot(e) {
 		Et(function(t) {
 			var n = Object.assign({}, t);
 			n[e] = !t[e];
@@ -112777,24 +112783,24 @@ var HNe = function(t) {
 		portalName: t.title || t.portalSubdomain || "",
 		email: ue
 	});
-	var Ot = [], kt = Y && t.viewAsClientNav ? t.viewAsClientNav : r;
-	if (kt) kt.forEach(function(e) {
+	var kt = [], At = Y && t.viewAsClientNav ? t.viewAsClientNav : r;
+	if (At) At.forEach(function(e) {
 		if (e.type === "heading") {
-			Ot.push({
+			kt.push({
 				key: e.key || e.label,
 				heading: e.label
 			});
 			return;
 		}
 		if (e.heading) {
-			Ot.push(e);
+			kt.push(e);
 			return;
 		}
 		if (!(e.product && !k9(Ct, St, e.product))) {
 			var t = (e.items || []).filter(function(e) {
 				return O9(Ct, St, e.permKey);
 			});
-			t.length !== 0 && Ot.push({
+			t.length !== 0 && kt.push({
 				key: e.key || e.label,
 				nav: {
 					label: e.label,
@@ -112809,32 +112815,32 @@ var HNe = function(t) {
 		}
 	});
 	else {
-		var At = Object.assign({}, BNe, n || {}), jt = U?.products || [];
-		jt.length > 0 && At["sprint-mode"] && Ot.push({
+		var jt = Object.assign({}, BNe, n || {}), Mt = U?.products || [];
+		Mt.length > 0 && jt["sprint-mode"] && kt.push({
 			key: "sprint-mode",
-			nav: At["sprint-mode"]
-		}), jt.forEach(function(e) {
-			e !== "sprint-mode" && At[e] && Ot.push({
+			nav: jt["sprint-mode"]
+		}), Mt.forEach(function(e) {
+			e !== "sprint-mode" && jt[e] && kt.push({
 				key: e,
-				nav: At[e]
+				nav: jt[e]
 			});
 		});
 	}
-	Ot.forEach(function(e) {
+	kt.forEach(function(e) {
 		e.nav && (e.nav.items = e.nav.items.map(function(e) {
 			return e.icon && !e.Icon && (e = Object.assign({}, e, { Icon: VNe(e.icon) })), e;
 		}));
 	});
-	var Mt = U ? (U.name || U.email || "?").split(" ").map(function(e) {
+	var Nt = U ? (U.name || U.email || "?").split(" ").map(function(e) {
 		return e[0] || "";
-	}).join("").slice(0, 2).toUpperCase() : "?", Nt = U && U.photo, Pt = z.config && z.config.logo_horizontal_url, Ft = z.config && z.config.logo_dark_url, It = _ || Pt || "/logo-sprint-mode-horizontal.png", Lt = v || z.config && z.config.name || "Sprint Mode", X = It;
-	_7() && (Ft ? X = Ft : It.indexOf(".png") !== -1 && (X = It.replace(".png", "-dark.png")));
-	var Rt = !!(y || b), zt = [];
-	k || (Ot.forEach(function(e) {
+	}).join("").slice(0, 2).toUpperCase() : "?", Pt = U && U.photo, Ft = z.config && z.config.logo_horizontal_url, It = z.config && z.config.logo_dark_url, Lt = _ || Ft || "/logo-sprint-mode-horizontal.png", X = v || z.config && z.config.name || "Sprint Mode", Rt = Lt;
+	_7() && (It ? Rt = It : Lt.indexOf(".png") !== -1 && (Rt = Lt.replace(".png", "-dark.png")));
+	var zt = !!(y || b), Bt = [];
+	k || (kt.forEach(function(e) {
 		if (e.nav) {
 			var t = e.nav.label;
 			e.nav.items.forEach(function(e) {
-				e.to && !e.disabled && !e.external && zt.push({
+				e.to && !e.disabled && !e.external && Bt.push({
 					label: e.label,
 					to: e.to,
 					section: t,
@@ -112845,14 +112851,14 @@ var HNe = function(t) {
 			});
 		}
 	}), a && a.forEach(function(e) {
-		e.to && zt.push({
+		e.to && Bt.push({
 			label: e.label,
 			to: e.to,
 			Icon: e.Icon || void 0
 		});
 	}));
-	var Bt = k || zt, Vt = U?.bugs_access || 0, Ht = !A && (Vt >= 1 || !!ve);
-	function Ut(e) {
+	var Vt = k || Bt, Ht = U?.bugs_access || 0, Ut = !A && (Ht >= 1 || !!ve);
+	function Wt(e) {
 		return fetch(P + "/api/bugs?q=" + encodeURIComponent(e) + "&limit=8", { credentials: "include" }).then(function(e) {
 			return e.ok ? e.json() : null;
 		}).then(function(e) {
@@ -112870,15 +112876,15 @@ var HNe = function(t) {
 			};
 		});
 	}
-	var Wt = A || (Ht ? Ut : void 0), Gt = E || "/api/auth/logout?redirect=" + encodeURIComponent((typeof window < "u" ? window.location.origin : "") + "/auth/login"), Kt = $e && typeof $e == "string" ? $e : null, qt = tt && (Kt === "team" || Kt === "both") && lt.length > 0, Jt = tt && (Kt === "customers" || Kt === "both" || !Kt && ft.length > 0);
-	function Yt(t) {
+	var Gt = A || (Ut ? Wt : void 0), Kt = E || "/api/auth/logout?redirect=" + encodeURIComponent((typeof window < "u" ? window.location.origin : "") + "/auth/login"), qt = $e && typeof $e == "string" ? $e : null, Jt = tt && (qt === "team" || qt === "both") && lt.length > 0, Yt = tt && (qt === "customers" || qt === "both" || !qt && ft.length > 0);
+	function Xt(t) {
 		var n = t.name || t.company_name || (t.email ? t.email.split("@")[0] : t.id || "?");
 		return e.createElement("option", {
 			key: t.email || t.id,
 			value: t.email
 		}, n);
 	}
-	var Xt = qt ? e.createElement(e.Fragment, null, e.createElement("select", {
+	var Zt = Jt ? e.createElement(e.Fragment, null, e.createElement("select", {
 		value: J ? J.email : "",
 		onChange: function(e) {
 			yt(e.target.value);
@@ -112895,7 +112901,7 @@ var HNe = function(t) {
 		}
 	}, e.createElement("option", { value: "" }, "View as team…"), ...lt.filter(function(e) {
 		return e.email !== (U && U.email);
-	}).map(Yt)), J ? e.createElement("button", {
+	}).map(Xt)), J ? e.createElement("button", {
 		onClick: function() {
 			rt(null);
 		},
@@ -112909,7 +112915,7 @@ var HNe = function(t) {
 			fontWeight: 600,
 			cursor: "pointer"
 		}
-	}, "✕") : null) : null, Zt = Jt ? e.createElement(e.Fragment, null, e.createElement("select", {
+	}, "✕") : null) : null, Qt = Yt ? e.createElement(e.Fragment, null, e.createElement("select", {
 		value: Y ? Y.email : "",
 		onChange: function(e) {
 			bt(e.target.value);
@@ -112926,7 +112932,7 @@ var HNe = function(t) {
 		}
 	}, e.createElement("option", { value: "" }, "View as client…"), ...ft.filter(function(e) {
 		return e.email !== (U && U.email);
-	}).map(Yt)), Y ? e.createElement("button", {
+	}).map(Xt)), Y ? e.createElement("button", {
 		onClick: function() {
 			at(null);
 		},
@@ -112940,7 +112946,7 @@ var HNe = function(t) {
 			fontWeight: 600,
 			cursor: "pointer"
 		}
-	}, "✕") : null) : null, Qt = Xt || Zt ? e.createElement(e.Fragment, null, Xt, Zt) : null, $t = Rt && U ? e.createElement(e.Fragment, null, B ? e.createElement("button", {
+	}, "✕") : null) : null, $t = Zt || Qt ? e.createElement(e.Fragment, null, Zt, Qt) : null, en = zt && U ? e.createElement(e.Fragment, null, B ? e.createElement("button", {
 		onClick: function() {
 			Re(!0);
 		},
@@ -113003,7 +113009,7 @@ var HNe = function(t) {
 	} }) : null, e.createElement(INe, {
 		session: U,
 		profilePath: D,
-		logoutHref: Gt,
+		logoutHref: Kt,
 		userMenuExtra: N
 	})) : null;
 	return /* @__PURE__ */ u(f9.Provider, {
@@ -113013,9 +113019,9 @@ var HNe = function(t) {
 			children: /* @__PURE__ */ u(m9.Provider, {
 				value: Y,
 				children: /* @__PURE__ */ d("div", {
-					className: "shell" + (Rt ? " shell-with-header" : ""),
+					className: "shell" + (zt ? " shell-with-header" : ""),
 					children: [
-						Rt && /* @__PURE__ */ u("header", {
+						zt && /* @__PURE__ */ u("header", {
 							className: "shell-header",
 							children: /* @__PURE__ */ d("div", {
 								className: "shell-header-inner",
@@ -113067,8 +113073,8 @@ var HNe = function(t) {
 											}),
 											ee ? e.createElement("span", { className: "shell-header-byline" }, ee) : null
 										] }) : /* @__PURE__ */ u("img", {
-											src: X,
-											alt: Lt,
+											src: Rt,
+											alt: X,
 											style: {
 												height: 24,
 												width: "auto"
@@ -113099,10 +113105,10 @@ var HNe = function(t) {
 											e.currentTarget.style.borderColor = "", e.currentTarget.style.color = "var(--muted)";
 										}
 									}, typeof navigator < "u" && navigator.platform && navigator.platform.indexOf("Mac") !== -1 ? "⌘C" : "Ctrl+C") : null]
-								}), (Qt || L || b || $t) && /* @__PURE__ */ d("div", {
+								}), ($t || L || b || en) && /* @__PURE__ */ d("div", {
 									className: "shell-header-right",
 									children: [
-										Qt,
+										$t,
 										L && e.createElement("button", {
 											onClick: L.onClick,
 											style: {
@@ -113126,7 +113132,7 @@ var HNe = function(t) {
 											}
 										}, L.label),
 										b,
-										$t
+										en
 									]
 								})]
 							})
@@ -113138,7 +113144,7 @@ var HNe = function(t) {
 									className: "portal-sidebar" + (be ? " open" : "") + (Ee ? " rail" : ""),
 									id: "portalSidebar",
 									children: [
-										!Rt && /* @__PURE__ */ d("div", {
+										!zt && /* @__PURE__ */ d("div", {
 											className: "portal-sidebar-logo",
 											style: {
 												display: "flex",
@@ -113146,8 +113152,8 @@ var HNe = function(t) {
 												gap: 6
 											},
 											children: [/* @__PURE__ */ u("img", {
-												src: X,
-												alt: Lt,
+												src: Rt,
+												alt: X,
 												style: {
 													height: 24,
 													width: "auto"
@@ -113179,7 +113185,7 @@ var HNe = function(t) {
 										}),
 										/* @__PURE__ */ u("nav", {
 											className: "portal-sidebar-nav",
-											children: Ot.map(function(e) {
+											children: kt.map(function(e) {
 												if (e.heading) return /* @__PURE__ */ u("div", {
 													className: "ps-heading",
 													style: {
@@ -113202,10 +113208,10 @@ var HNe = function(t) {
 													color: t.color,
 													tint: t.tint,
 													product: e.key,
-													flat: Ot.length === 1 || e.flat || e.nav.flat,
-													collapsed: r ? Tt[e.key] === void 0 ? !!e.defaultCollapsed : !!Tt[e.key] : void 0,
+													flat: kt.length === 1 || e.flat || e.nav.flat,
+													collapsed: r ? Tt[e.key] === void 0 ? !!e.defaultCollapsed && !Dt(e) : !!Tt[e.key] : void 0,
 													onToggle: r ? function() {
-														Dt(e.key);
+														Ot(e.key);
 													} : void 0,
 													railCollapsed: Ee,
 													onRailEnter: Ne,
@@ -113232,15 +113238,15 @@ var HNe = function(t) {
 											})
 										}),
 										x,
-										!Rt && /* @__PURE__ */ d("div", {
+										!zt && /* @__PURE__ */ d("div", {
 											className: "portal-sidebar-user",
 											children: [/* @__PURE__ */ u("button", {
 												className: "portal-avatar",
 												onClick: function(e) {
 													e.stopPropagation(), we(!Ce);
 												},
-												children: Nt ? e.createElement("img", {
-													src: Nt,
+												children: Pt ? e.createElement("img", {
+													src: Pt,
 													alt: "",
 													style: {
 														width: "100%",
@@ -113249,7 +113255,7 @@ var HNe = function(t) {
 														objectFit: "cover",
 														display: "block"
 													}
-												}) : Mt
+												}) : Nt
 											}), /* @__PURE__ */ d("div", { children: [/* @__PURE__ */ u("div", {
 												className: "portal-sidebar-user-name",
 												children: U ? U.name || U.email : ""
@@ -113258,7 +113264,7 @@ var HNe = function(t) {
 												children: U && U.company_name || ""
 											})] })]
 										}),
-										!Rt && Ce && /* @__PURE__ */ d("div", {
+										!zt && Ce && /* @__PURE__ */ d("div", {
 											className: "portal-dropdown",
 											style: {
 												position: "fixed",
@@ -113283,7 +113289,7 @@ var HNe = function(t) {
 													children: "Profile"
 												}),
 												/* @__PURE__ */ u("a", {
-													href: Gt,
+													href: Kt,
 													children: "Sign out"
 												})
 											]
@@ -113388,9 +113394,9 @@ var HNe = function(t) {
 												borderRadius: 1
 											} })
 										]
-									}), !Rt && /* @__PURE__ */ u("img", {
-										src: X,
-										alt: Lt,
+									}), !zt && /* @__PURE__ */ u("img", {
+										src: Rt,
+										alt: X,
 										style: {
 											height: 24,
 											width: "auto"
@@ -113516,12 +113522,12 @@ var HNe = function(t) {
 							onClose: function() {
 								Re(!1);
 							},
-							items: Bt,
+							items: Vt,
 							onNavigate: function(e) {
 								Je(e);
 							},
 							placeholder: O,
-							onSearch: Wt,
+							onSearch: Gt,
 							recentKey: j
 						}),
 						ge && /* @__PURE__ */ u(c9, {

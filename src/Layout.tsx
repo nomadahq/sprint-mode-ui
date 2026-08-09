@@ -1509,6 +1509,19 @@ const Layout: React.FC<LayoutProps> = function Layout(props: LayoutProps) {
   // sections remounted expanded. With coercion, all toggles flow through
   // toggleCollapse, live in Layout state, persist to localStorage, and
   // survive group collapse/expand.
+  // defaultCollapsed sections yield to deep links: when the current route
+  // lives inside the section, the default is open (a stored user toggle
+  // still wins). Resolved here rather than via SidebarSection's post-mount
+  // effect so a direct page load reveals its own nav group.
+  function sectionHasActiveRoute(sec: BuiltSection): boolean {
+    var items = (sec.nav && sec.nav.items) || []
+    var path = typeof window !== 'undefined' ? window.location.pathname : ''
+    return items.some(function(item) {
+      if (!item.to || item.external) return false
+      return item.exact ? path === item.to : path.indexOf(item.to) === 0
+    })
+  }
+
   function toggleCollapse(key: string) {
     setCollapsedState(function(prev) {
       var next = Object.assign({}, prev)
@@ -1817,7 +1830,7 @@ const Layout: React.FC<LayoutProps> = function Layout(props: LayoutProps) {
                   tint={pc.tint}
                   product={section.key}
                   flat={sections.length === 1 || section.flat || section.nav!.flat}
-                  collapsed={navSections ? (collapsedState[section.key] !== undefined ? !!collapsedState[section.key] : !!section.defaultCollapsed) : undefined}
+                  collapsed={navSections ? (collapsedState[section.key] !== undefined ? !!collapsedState[section.key] : (!!section.defaultCollapsed && !sectionHasActiveRoute(section))) : undefined}
                   onToggle={navSections ? function() { toggleCollapse(section.key) } : undefined}
                   railCollapsed={railCollapsed}
                   onRailEnter={openRailFlyout}

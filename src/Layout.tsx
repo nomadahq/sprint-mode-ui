@@ -113,6 +113,10 @@ export interface NavSection {
   product?: string
   flat?: boolean
   type?: string
+  /** Render this (non-flat) section collapsed until the user opens it.
+   *  User toggles persist to localStorage and win over this default;
+   *  a child route becoming active still auto-opens the group. */
+  defaultCollapsed?: boolean
 }
 
 export interface HeaderCta {
@@ -1147,6 +1151,7 @@ interface BuiltSection {
     flat?: boolean
   }
   product?: string
+  defaultCollapsed?: boolean
   flat?: boolean
 }
 
@@ -1551,6 +1556,7 @@ const Layout: React.FC<LayoutProps> = function Layout(props: LayoutProps) {
         },
         product: section.product,
         flat: section.flat,
+        defaultCollapsed: section.defaultCollapsed,
       })
     })
   } else {
@@ -1811,7 +1817,7 @@ const Layout: React.FC<LayoutProps> = function Layout(props: LayoutProps) {
                   tint={pc.tint}
                   product={section.key}
                   flat={sections.length === 1 || section.flat || section.nav!.flat}
-                  collapsed={navSections ? !!collapsedState[section.key] : undefined}
+                  collapsed={navSections ? (collapsedState[section.key] !== undefined ? !!collapsedState[section.key] : !!section.defaultCollapsed) : undefined}
                   onToggle={navSections ? function() { toggleCollapse(section.key) } : undefined}
                   railCollapsed={railCollapsed}
                   onRailEnter={openRailFlyout}

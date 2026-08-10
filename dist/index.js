@@ -112130,6 +112130,10 @@ function zNe({ label: t, sectionIcon: n, sectionColor: r, items: a, color: o, ti
 		children: [!v && /* @__PURE__ */ d("button", {
 			className: "ps-section-header",
 			onClick: A,
+			onMouseEnter: y && b ? function(e) {
+				b(e.currentTarget, t, a);
+			} : void 0,
+			onMouseLeave: y && x ? x : void 0,
 			children: [
 				n && (() => {
 					var t = v7(h);
@@ -112228,7 +112232,7 @@ function zNe({ label: t, sectionIcon: n, sectionColor: r, items: a, color: o, ti
 						return e.isActive && (n += " active"), t.locked && (n += " locked"), t.completed && (n += " completed"), n;
 					},
 					onMouseEnter: y && b ? function(e) {
-						b(e.currentTarget, t.label, []);
+						b(e.currentTarget, t.label, [t]);
 					} : void 0,
 					onMouseLeave: y && x ? x : void 0,
 					children: [
@@ -113256,7 +113260,7 @@ var HNe = function(t) {
 														return "ps-item" + (e.isActive ? " active" : "");
 													},
 													onMouseEnter: Ee ? function(t) {
-														Ne(t.currentTarget, e.label, []);
+														Ne(t.currentTarget, e.label, [e]);
 													} : void 0,
 													onMouseLeave: Ee ? Fe : void 0,
 													children: [

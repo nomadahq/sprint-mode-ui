@@ -168,9 +168,18 @@
 }
 .portal-sidebar.rail .ps-heading > span:hover { color: var(--foreground); }
 
-/* Section headers vanish in the rail: the rail is a flat column of page
-   icons (admin look). Groups are toggled from the expanded sidebar. */
-.portal-sidebar.rail .ps-section-header { display: none; }
+/* Section headers in the rail render like admin's tiny uppercase heading
+   labels above their item icons - the icon and chevron hide, the text
+   shrinks. Hovering the label opens the grouped flyout. */
+.portal-sidebar.rail .ps-section-header {
+  display: flex; justify-content: center;
+  font-size: 8px; font-weight: 700; letter-spacing: 0.3px;
+  text-transform: uppercase; color: var(--muted);
+  padding: 14px 4px 4px; background: none; height: auto;
+  white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+}
+.portal-sidebar.rail .ps-section-header:hover { color: var(--foreground); background: none; }
+.portal-sidebar.rail .ps-section-header svg { display: none; }
 
 /* Every rail item - flat, grouped, and bottom nav - is an icon-only row.
    Labels come back via the per-item hover flyout. */

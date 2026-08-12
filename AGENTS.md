@@ -15,6 +15,9 @@ how much explanation a person needs, not the Waffle, evidence, review, or landin
 - **No red PRs:** a PR that fails CI is fixed until green before any new work —
   never merged, never worked around, never abandoned. Reverting or closing with
   a stated reason are the only other exits.
+  One exception: a PR red only on `codeowner-gate` is waiting on a human
+  approval, not broken — stop, record it on the Waffle item, and move on; the
+  gate re-runs itself when the review is submitted.
 - If a landing branch is red: stop merging. The breaking author reverts or
   fixes within 30 minutes. Reverting is always acceptable.
 

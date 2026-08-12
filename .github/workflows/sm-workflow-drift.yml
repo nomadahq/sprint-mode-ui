@@ -26,8 +26,17 @@ jobs:
           }
           # Versions are semver (N.N.N) with legacy bare-integer stamps meaning
           # N.0.0 (TASK-1384). Adopted repos do not carry the kit's
-          # libexec/wf_version.py, so the same grammar is inlined here — shell
-          # -lt chokes on "13.1.0" and would silently report "current".
+          # libexec/wf_version.py, so the grammar is inlined here — shell -lt
+          # chokes on "13.1.0" and would silently report "current".
+          #
+          # It is ALMOST the same grammar: TASK-1422 taught the kit's comparator
+          # to reject a leading zero ("013" must not parse as 13), and this copy
+          # still accepts it. So an adopted repo stamped `013` reads as 13 here,
+          # while the kit's own release guard calls it malformed by name and
+          # `wf doctor` fails it closed against the floor without ever naming
+          # the typo. Tightening a pack template changes fleet behavior on the
+          # next `wf sync`, which is outside that item's stored scope — recorded
+          # rather than smuggled in.
           # Prints lt|eq|gt; exits nonzero (failing the step) on a malformed value.
           vrel() { python3 -c '
           import sys
@@ -43,7 +52,17 @@ jobs:
           print("lt" if a < b else "eq" if a == b else "gt")
           ' "$1" "$2"; }
           RSHORT="${GITHUB_REPOSITORY##*/}"
-          REPO_V=$(grep '^version=' .sm-workflow.conf | head -1 | cut -d= -f2)
+          # `|| true` guards the diagnostic below against a shell change, and
+          # the exact mechanism matters because it is easy to get wrong in both
+          # directions. A step with no `shell:` key runs under `bash -e` only,
+          # and a pipeline's status is its LAST command's — `cut` succeeds on
+          # empty input — so today a missing `version=` reaches the `::error::`
+          # and reports itself correctly. Add `shell: bash` (which GitHub runs
+          # as `bash -eo pipefail`) and grep's failure starts propagating: the
+          # step then dies HERE, silently, and the diagnostic never prints.
+          # That is a one-line, innocuous-looking edit away, so pin it rather
+          # than rely on the absence of a key. Tested under both shells.
+          REPO_V=$(grep '^version=' .sm-workflow.conf | head -1 | cut -d= -f2) || true
           if [ -z "$REPO_V" ]; then echo "::error::.sm-workflow.conf missing version="; exit 1; fi
           # Fail-open on fetch errors: a kit outage must never brick the fleet.
           KIT_V=$(gh api repos/sprint-mode/sm-workflow/contents/VERSION --jq '.content' 2>/dev/null | base64 -d | tr -d '[:space:]') || true

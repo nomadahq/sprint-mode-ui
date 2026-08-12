@@ -21,7 +21,16 @@ done
 
 MIG_DIR="src/schema/migrations"
 [ -d "$ROOT/$MIG_DIR" ] || exit 0
-git fetch origin main --quiet 2>/dev/null || true
+# Constrained sandbox (BUG-1841): CLAUDE_CODE_REMOTE=true or hook_profile=fast
+# skips the unbounded network fetch; the local origin/main ref still checks and
+# CI re-checks migrations on the PR.
+if [ "${CLAUDE_CODE_REMOTE:-}" = "true" ] \
+  || { [ -f "$ROOT/.sm-workflow.conf" ] \
+       && grep -q '^hook_profile=fast$' "$ROOT/.sm-workflow.conf" 2>/dev/null; }; then
+  :
+else
+  git fetch origin main --quiet 2>/dev/null || true
+fi
 git rev-parse --verify --quiet origin/main >/dev/null || exit 0
 
 ALLOW=""

@@ -4,6 +4,7 @@
 /.githooks/                   @sprint-mode/reviewers
 /.claude/                     @sprint-mode/reviewers
 /scripts/guard-git.sh         @sprint-mode/reviewers
+/scripts/hook-env.sh          @sprint-mode/reviewers
 /scripts/pr-sweep.py          @sprint-mode/reviewers
 /AGENTS.md                    @sprint-mode/reviewers
 /CLAUDE.md                    @sprint-mode/reviewers

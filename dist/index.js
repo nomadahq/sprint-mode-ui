@@ -112911,7 +112911,23 @@ var HNe = function(t) {
 	})();
 	var rn = it.filter(function(e) {
 		return e.email !== (W && W.email);
-	}).filter(tn), an = $t && Qt ? _t : Qt ? "team" : "customer", on = e.createElement("svg", {
+	}).filter(tn), an = $t && Qt ? _t : Qt ? "team" : "customer", on = {
+		hr: !0,
+		cpa: !0,
+		qa: !0,
+		ai: !0,
+		mcp: !0,
+		sso: !0,
+		api: !0
+	};
+	function sn(e) {
+		if (e.role_label) return e.role_label;
+		var t = e.role || e.portal_role || "";
+		return t ? t.split("_").map(function(e) {
+			return on[e] ? e.toUpperCase() : e.charAt(0).toUpperCase() + e.slice(1);
+		}).join(" ") : "";
+	}
+	var cn = e.createElement("svg", {
 		viewBox: "0 0 24 24",
 		width: 14,
 		height: 14,
@@ -112924,7 +112940,7 @@ var HNe = function(t) {
 		cx: 12,
 		cy: 12,
 		r: 3
-	})), sn = (Qt || $t) && !J ? e.createElement("div", {
+	})), ln = (Qt || $t) && !J ? e.createElement("div", {
 		className: "shell-va",
 		onClick: function(e) {
 			e.stopPropagation();
@@ -112935,7 +112951,7 @@ var HNe = function(t) {
 			ht(!mt);
 		},
 		disabled: dt
-	}, "View as ", on), mt ? e.createElement("div", { className: "shell-va-pop" }, $t && Qt ? e.createElement("div", { className: "shell-va-tabs" }, e.createElement("button", {
+	}, "View as ", cn), mt ? e.createElement("div", { className: "shell-va-pop" }, $t && Qt ? e.createElement("div", { className: "shell-va-tabs" }, e.createElement("button", {
 		className: "shell-va-tab" + (an === "customer" ? " active" : ""),
 		onClick: function() {
 			vt("customer");
@@ -112967,7 +112983,7 @@ var HNe = function(t) {
 					Tt(t);
 				},
 				disabled: dt
-			}, e.createElement("span", { className: "shell-va-person-name" }, t.name || (t.email ? t.email.split("@")[0] : "?")), e.createElement("span", { className: "shell-va-person-role" }, t.role || t.portal_role || ""));
+			}, e.createElement("span", { className: "shell-va-person-name" }, t.name || (t.email ? t.email.split("@")[0] : "?")), e.createElement("span", { className: "shell-va-person-role" }, sn(t)));
 		}));
 	}) : rn.length === 0 ? e.createElement("div", { className: "shell-va-empty" }, "No matches") : rn.map(function(t) {
 		return e.createElement("button", {
@@ -112977,12 +112993,12 @@ var HNe = function(t) {
 				wt(t);
 			},
 			disabled: dt
-		}, e.createElement("span", { className: "shell-va-person-name" }, t.name || (t.email ? t.email.split("@")[0] : "?")), e.createElement("span", { className: "shell-va-person-role" }, t.role || t.portal_role || ""));
-	}))) : null) : null, cn = J ? e.createElement("div", { className: "shell-va-lens" }, e.createElement("span", { className: "shell-va-lens-label" }, on, " ", J.name || J.email || "", J.lens === "customer" && J.company_name ? " · " + J.company_name : ""), e.createElement("button", {
+		}, e.createElement("span", { className: "shell-va-person-name" }, t.name || (t.email ? t.email.split("@")[0] : "?")), e.createElement("span", { className: "shell-va-person-role" }, sn(t)));
+	}))) : null) : null, un = J ? e.createElement("div", { className: "shell-va-lens" }, e.createElement("span", { className: "shell-va-lens-label" }, cn, " ", J.name || J.email || "", J.lens === "customer" && J.company_name ? " · " + J.company_name : ""), e.createElement("button", {
 		className: "shell-va-lens-exit",
 		onClick: Ct,
 		disabled: dt
-	}, "Exit")) : null, ln = X && W ? e.createElement(e.Fragment, null, B ? e.createElement("button", {
+	}, "Exit")) : null, dn = X && W ? e.createElement(e.Fragment, null, B ? e.createElement("button", {
 		onClick: function() {
 			Fe(!0);
 		},
@@ -113142,11 +113158,11 @@ var HNe = function(t) {
 											e.currentTarget.style.borderColor = "", e.currentTarget.style.color = "var(--muted)";
 										}
 									}, typeof navigator < "u" && navigator.platform && navigator.platform.indexOf("Mac") !== -1 ? "⌘C" : "Ctrl+C") : null]
-								}), (sn || cn || F || b || ln) && /* @__PURE__ */ d("div", {
+								}), (ln || un || F || b || dn) && /* @__PURE__ */ d("div", {
 									className: "shell-header-right",
 									children: [
-										cn,
-										sn,
+										un,
+										ln,
 										F && e.createElement("button", {
 											onClick: F.onClick,
 											style: {
@@ -113170,7 +113186,7 @@ var HNe = function(t) {
 											}
 										}, F.label),
 										b,
-										ln
+										dn
 									]
 								})]
 							})

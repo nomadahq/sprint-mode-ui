@@ -191,6 +191,7 @@ export interface ViewAsUser {
   id?: string
   user_id?: string
   contact_id?: string
+  role_label?: string
   permissions?: string | Record<string, unknown>
 }
 
@@ -1692,6 +1693,20 @@ const Layout: React.FC<LayoutProps> = function Layout(props: LayoutProps) {
   var vaTeamList = teamDropUsers.filter(function(u) { return u.email !== (session && session.email) }).filter(vaMatch)
   var vaActiveTab: 'customer' | 'team' = showCustomerTab && showTeamTab ? vaTab : (showTeamTab ? 'team' : 'customer')
 
+  // Role labels are PER PORTAL (portal_roles.display_name) — the same role
+  // key can carry different names on different portals. APIs send role_label
+  // when a display_name exists; otherwise humanize the key (never render raw
+  // snake_case keys to people).
+  var VA_ACRONYMS: Record<string, boolean> = { hr: true, cpa: true, qa: true, ai: true, mcp: true, sso: true, api: true }
+  function vaRoleLabel(u: ViewAsUser): string {
+    if (u.role_label) return u.role_label
+    var key = u.role || u.portal_role || ''
+    if (!key) return ''
+    return key.split('_').map(function(w) {
+      return VA_ACRONYMS[w] ? w.toUpperCase() : (w.charAt(0).toUpperCase() + w.slice(1))
+    }).join(' ')
+  }
+
   var vaEyeIcon = React.createElement('svg', { viewBox: '0 0 24 24', width: 14, height: 14, fill: 'none', stroke: 'currentColor', strokeWidth: 2, strokeLinecap: 'round' as const, strokeLinejoin: 'round' as const },
     React.createElement('path', { d: 'M2 12s3.5-7 10-7 10 7 10 7-3.5 7-10 7-10-7-10-7z' }),
     React.createElement('circle', { cx: 12, cy: 12, r: 3 }))
@@ -1726,13 +1741,13 @@ const Layout: React.FC<LayoutProps> = function Layout(props: LayoutProps) {
                 co.members.map(function(u) {
                   return React.createElement('button', { key: u.email || u.id, className: 'shell-va-person', onClick: function() { selectCustomerPerson(u) }, disabled: vaBusy },
                     React.createElement('span', { className: 'shell-va-person-name' }, u.name || (u.email ? u.email.split('@')[0] : '?')),
-                    React.createElement('span', { className: 'shell-va-person-role' }, u.role || u.portal_role || ''))
+                    React.createElement('span', { className: 'shell-va-person-role' }, vaRoleLabel(u)))
                 }))
             }))
           : (vaTeamList.length === 0 ? React.createElement('div', { className: 'shell-va-empty' }, 'No matches') : vaTeamList.map(function(u) {
               return React.createElement('button', { key: u.email || u.id, className: 'shell-va-person shell-va-person-team', onClick: function() { selectTeamMember(u) }, disabled: vaBusy },
                 React.createElement('span', { className: 'shell-va-person-name' }, u.name || (u.email ? u.email.split('@')[0] : '?')),
-                React.createElement('span', { className: 'shell-va-person-role' }, u.role || u.portal_role || ''))
+                React.createElement('span', { className: 'shell-va-person-role' }, vaRoleLabel(u)))
             }))
       )
     ) : null

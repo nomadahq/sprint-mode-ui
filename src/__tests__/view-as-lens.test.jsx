@@ -58,7 +58,7 @@ beforeEach(() => {
 
 describe('server lens header state', () => {
   it('renders the lens chip (name · company) and Exit from session.viewing_as — no banner', () => {
-    global.fetch = vi.fn(() => Promise.resolve({ ok: true, json: () => Promise.resolve({}) }))
+    vi.stubGlobal('fetch', vi.fn(() => Promise.resolve({ ok: true, json: () => Promise.resolve({}) })))
     renderLayout(lensSession())
     expect(screen.getByText(/Claire Fontaine/)).toBeInTheDocument()
     expect(screen.getByText(/Northwind Ops/)).toBeInTheDocument()
@@ -69,10 +69,10 @@ describe('server lens header state', () => {
 
   it('Exit POSTs /api/auth/exit-view-as', async () => {
     var calls = []
-    global.fetch = vi.fn(function(url, opts) {
+    vi.stubGlobal('fetch', vi.fn(function(url, opts) {
       calls.push({ url: url, opts: opts })
       return Promise.resolve({ ok: true, json: () => Promise.resolve({ ok: true }) })
-    })
+    }))
     // jsdom reload is not implemented — stub it
     var reload = vi.fn()
     Object.defineProperty(window, 'location', { value: Object.assign({}, window.location, { reload: reload }), writable: true })
@@ -84,9 +84,9 @@ describe('server lens header state', () => {
   })
 
   it('does not read or write sessionStorage for view-as', () => {
-    global.fetch = vi.fn(() => Promise.resolve({ ok: true, json: () => Promise.resolve({}) }))
-    var getItem = vi.spyOn(Storage.prototype, 'getItem')
-    var setItem = vi.spyOn(Storage.prototype, 'setItem')
+    vi.stubGlobal('fetch', vi.fn(() => Promise.resolve({ ok: true, json: () => Promise.resolve({}) })))
+    var getItem = vi.spyOn(window.sessionStorage, 'getItem')
+    var setItem = vi.spyOn(window.sessionStorage, 'setItem')
     renderLayout(lensSession())
     var vaKeys = function(spy) {
       return spy.mock.calls.map(function(c) { return String(c[0]) }).filter(function(k) { return k.indexOf('sm-view-as') === 0 })
@@ -99,7 +99,7 @@ describe('server lens header state', () => {
 describe('picker selection', () => {
   it('team member selection POSTs team_member_user_id to /api/auth/view-as', async () => {
     var calls = []
-    global.fetch = vi.fn(function(url, opts) {
+    vi.stubGlobal('fetch', vi.fn(function(url, opts) {
       calls.push({ url: url, opts: opts })
       if (String(url).indexOf('/api/view-as-users') === 0) {
         return Promise.resolve({ ok: true, json: () => Promise.resolve({ ok: true, data: {
@@ -108,7 +108,7 @@ describe('picker selection', () => {
         } }) })
       }
       return Promise.resolve({ ok: true, json: () => Promise.resolve({ ok: true }) })
-    })
+    }))
     var reload = vi.fn()
     Object.defineProperty(window, 'location', { value: Object.assign({}, window.location, { reload: reload }), writable: true })
     renderLayout(baseSession(), { viewAsApi: '/api/view-as-users' })
@@ -125,7 +125,7 @@ describe('picker selection', () => {
 
   it('customer person selection POSTs email + member_user_id; company row anchors on first member', async () => {
     var calls = []
-    global.fetch = vi.fn(function(url, opts) {
+    vi.stubGlobal('fetch', vi.fn(function(url, opts) {
       calls.push({ url: url, opts: opts })
       if (String(url).indexOf('/api/view-as-users') === 0) {
         return Promise.resolve({ ok: true, json: () => Promise.resolve({ ok: true, data: {
@@ -137,7 +137,7 @@ describe('picker selection', () => {
         } }) })
       }
       return Promise.resolve({ ok: true, json: () => Promise.resolve({ ok: true }) })
-    })
+    }))
     var reload = vi.fn()
     Object.defineProperty(window, 'location', { value: Object.assign({}, window.location, { reload: reload }), writable: true })
     renderLayout(baseSession(), { viewAsApi: '/api/view-as-users' })
@@ -151,7 +151,7 @@ describe('picker selection', () => {
   })
 
   it('picker button is hidden while a lens is active (header carries the state)', () => {
-    global.fetch = vi.fn(() => Promise.resolve({ ok: true, json: () => Promise.resolve({}) }))
+    vi.stubGlobal('fetch', vi.fn(() => Promise.resolve({ ok: true, json: () => Promise.resolve({}) })))
     renderLayout(lensSession())
     expect(screen.queryByText(/^View as/)).toBeNull()
   })

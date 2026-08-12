@@ -119,6 +119,8 @@ export interface LayoutProps {
     sidebarBottom?: React.ReactNode;
     viewAsEnabled?: boolean;
     viewAsApi?: string;
+    /** Deprecated (PORTAL-RBAC-VIEWAS-3): the server lens needs no client detail
+     *  fetch. Accepted for backward compatibility, ignored. */
     viewAsDetailApi?: string;
     headerIcon?: React.ReactNode;
     onLogout?: string;
@@ -163,6 +165,8 @@ export interface ViewAsUser {
     role_type?: string;
     products?: string[];
     id?: string;
+    user_id?: string;
+    contact_id?: string;
     permissions?: string | Record<string, unknown>;
 }
 export declare var ViewAsContext: React.Context<ViewAsUser | null>;

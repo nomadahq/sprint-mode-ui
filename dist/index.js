@@ -112646,7 +112646,7 @@ var HNe = function(t) {
 			ne(e), G(!1);
 		});
 	}, []);
-	var Ze = t.portalSubdomain, Qe = Ze && W && W.portals && W.portals[Ze] ? W.portals[Ze].view_as : null, $e = W && (W.role === "super_admin" || W.portal_role === "super_admin" || W.role === "admin" || W.portal_role === "admin" || W.is_sm_team), et = Qe === null ? S && (R ? !!W : $e) : S !== !1 && Qe, J = W && W.viewing_as || null, tt = J && J.lens === "team" ? {
+	var Ze = t.portalSubdomain, Qe = Ze && W && W.portals && W.portals[Ze] ? W.portals[Ze].view_as : null, $e = W && (W.role === "super_admin" || W.portal_role === "super_admin" || W.role === "admin" || W.portal_role === "admin" || W.is_sm_team), et = Qe === null ? S && (R ? !!W : $e) : S !== !1 && Qe, J = W && W.viewing_as || null, tt = J && (J.lens === "team" || J.lens === "both") ? {
 		email: J.email || "",
 		name: J.name || "",
 		company_id: J.company_id || void 0,
@@ -112655,9 +112655,9 @@ var HNe = function(t) {
 		role: J.effective_role || "member",
 		role_type: "team",
 		id: J.user_id || void 0
-	} : null, nt = J && J.lens === "customer" ? {
+	} : null, nt = J && (J.lens === "customer" || J.lens === "both") ? {
 		email: J.email || "",
-		name: J.name || "",
+		name: (J.lens === "both" ? J.customer_name : J.name) || "",
 		company_id: J.company_id || void 0,
 		company_name: J.company_name || "",
 		portal_role: J.effective_role || "member",
@@ -112911,7 +112911,7 @@ var HNe = function(t) {
 	})();
 	var rn = it.filter(function(e) {
 		return e.email !== (W && W.email);
-	}).filter(tn), an = $t && Qt ? _t : Qt ? "team" : "customer", on = {
+	}).filter(tn), an = J ? J.lens : null, on = !!(J && an !== "both" && Zt === "both"), sn = on ? an === "team" ? "customer" : "team" : $t && Qt ? _t : Qt ? "team" : "customer", cn = {
 		hr: !0,
 		cpa: !0,
 		qa: !0,
@@ -112920,14 +112920,14 @@ var HNe = function(t) {
 		sso: !0,
 		api: !0
 	};
-	function sn(e) {
+	function ln(e) {
 		if (e.role_label) return e.role_label;
 		var t = e.role || e.portal_role || "";
 		return t ? t.split("_").map(function(e) {
-			return on[e] ? e.toUpperCase() : e.charAt(0).toUpperCase() + e.slice(1);
+			return cn[e] ? e.toUpperCase() : e.charAt(0).toUpperCase() + e.slice(1);
 		}).join(" ") : "";
 	}
-	var cn = e.createElement("svg", {
+	var un = e.createElement("svg", {
 		viewBox: "0 0 24 24",
 		width: 14,
 		height: 14,
@@ -112940,7 +112940,7 @@ var HNe = function(t) {
 		cx: 12,
 		cy: 12,
 		r: 3
-	})), ln = (Qt || $t) && !J ? e.createElement("div", {
+	})), dn = (Qt || $t) && (!J || on) ? e.createElement("div", {
 		className: "shell-va",
 		onClick: function(e) {
 			e.stopPropagation();
@@ -112951,24 +112951,24 @@ var HNe = function(t) {
 			ht(!mt);
 		},
 		disabled: dt
-	}, "View as ", cn), mt ? e.createElement("div", { className: "shell-va-pop" }, $t && Qt ? e.createElement("div", { className: "shell-va-tabs" }, e.createElement("button", {
-		className: "shell-va-tab" + (an === "customer" ? " active" : ""),
+	}, "View as ", un), mt ? e.createElement("div", { className: "shell-va-pop" }, $t && Qt && !on ? e.createElement("div", { className: "shell-va-tabs" }, e.createElement("button", {
+		className: "shell-va-tab" + (sn === "customer" ? " active" : ""),
 		onClick: function() {
 			vt("customer");
 		}
 	}, "Customer"), e.createElement("button", {
-		className: "shell-va-tab" + (an === "team" ? " active" : ""),
+		className: "shell-va-tab" + (sn === "team" ? " active" : ""),
 		onClick: function() {
 			vt("team");
 		}
 	}, "Team")) : null, e.createElement("input", {
 		className: "shell-va-search",
-		placeholder: an === "customer" ? "Find a company or person" : "Find a team member",
+		placeholder: sn === "customer" ? "Find a company or person" : "Find a team member",
 		value: bt,
 		onChange: function(e) {
 			xt(e.target.value);
 		}
-	}), e.createElement("div", { className: "shell-va-list" }, an === "customer" ? nn.length === 0 ? e.createElement("div", { className: "shell-va-empty" }, "No matches") : nn.map(function(t) {
+	}), e.createElement("div", { className: "shell-va-list" }, sn === "customer" ? nn.length === 0 ? e.createElement("div", { className: "shell-va-empty" }, "No matches") : nn.map(function(t) {
 		return e.createElement(e.Fragment, { key: t.key }, e.createElement("button", {
 			className: "shell-va-co",
 			onClick: function() {
@@ -112983,7 +112983,7 @@ var HNe = function(t) {
 					Tt(t);
 				},
 				disabled: dt
-			}, e.createElement("span", { className: "shell-va-person-name" }, t.name || (t.email ? t.email.split("@")[0] : "?")), e.createElement("span", { className: "shell-va-person-role" }, sn(t)));
+			}, e.createElement("span", { className: "shell-va-person-name" }, t.name || (t.email ? t.email.split("@")[0] : "?")), e.createElement("span", { className: "shell-va-person-role" }, ln(t)));
 		}));
 	}) : rn.length === 0 ? e.createElement("div", { className: "shell-va-empty" }, "No matches") : rn.map(function(t) {
 		return e.createElement("button", {
@@ -112993,12 +112993,12 @@ var HNe = function(t) {
 				wt(t);
 			},
 			disabled: dt
-		}, e.createElement("span", { className: "shell-va-person-name" }, t.name || (t.email ? t.email.split("@")[0] : "?")), e.createElement("span", { className: "shell-va-person-role" }, sn(t)));
-	}))) : null) : null, un = J ? e.createElement("div", { className: "shell-va-lens" }, e.createElement("span", { className: "shell-va-lens-label" }, cn, " ", J.name || J.email || "", J.lens === "customer" && J.company_name ? " · " + J.company_name : ""), e.createElement("button", {
+		}, e.createElement("span", { className: "shell-va-person-name" }, t.name || (t.email ? t.email.split("@")[0] : "?")), e.createElement("span", { className: "shell-va-person-role" }, ln(t)));
+	}))) : null) : null, fn = J ? e.createElement("div", { className: "shell-va-lens" }, e.createElement("span", { className: "shell-va-lens-label" }, un, " ", J.name || J.email || "", J.lens === "both" ? " · viewing " + (J.customer_name || "") + (J.company_name ? " · " + J.company_name : "") : J.lens === "customer" && J.company_name ? " · " + J.company_name : ""), e.createElement("button", {
 		className: "shell-va-lens-exit",
 		onClick: Ct,
 		disabled: dt
-	}, "Exit")) : null, dn = X && W ? e.createElement(e.Fragment, null, B ? e.createElement("button", {
+	}, "Exit")) : null, pn = X && W ? e.createElement(e.Fragment, null, B ? e.createElement("button", {
 		onClick: function() {
 			Fe(!0);
 		},
@@ -113158,11 +113158,11 @@ var HNe = function(t) {
 											e.currentTarget.style.borderColor = "", e.currentTarget.style.color = "var(--muted)";
 										}
 									}, typeof navigator < "u" && navigator.platform && navigator.platform.indexOf("Mac") !== -1 ? "⌘C" : "Ctrl+C") : null]
-								}), (ln || un || F || b || dn) && /* @__PURE__ */ d("div", {
+								}), (dn || fn || F || b || pn) && /* @__PURE__ */ d("div", {
 									className: "shell-header-right",
 									children: [
-										un,
-										ln,
+										fn,
+										dn,
 										F && e.createElement("button", {
 											onClick: F.onClick,
 											style: {
@@ -113186,7 +113186,7 @@ var HNe = function(t) {
 											}
 										}, F.label),
 										b,
-										dn
+										pn
 									]
 								})]
 							})

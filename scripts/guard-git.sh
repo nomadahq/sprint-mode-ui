@@ -25,7 +25,24 @@ for b in $BRANCHES; do
   fi
 done
 if printf '%s' "$CMD" | grep -qE 'git[[:space:]]+(push|commit)[^|&;]*--no-verify'; then
-  deny "--no-verify is blocked: the hooks catch migration collisions and CI failures before they cost the queue."
+  # Constrained-sandbox exception (BUG-1841, decision owner ruling 2026-08-11,
+  # LANDING-PROCESS): `git commit --no-verify` is allowed when the environment
+  # is a constrained agent sandbox — CLAUDE_CODE_REMOTE=true (Claude Code cloud)
+  # or hook_profile=fast in .sm-workflow.conf. Temporary until the per-repo
+  # pre-commit fast-path lands fleet-wide. `git push --no-verify` never passes:
+  # pre-push carries the landing-branch and migration blocks.
+  ALLOW_NV=1
+  if ! printf '%s' "$CMD" | grep -qE 'git[[:space:]]+push[^|&;]*--no-verify'; then
+    if [ "${CLAUDE_CODE_REMOTE:-}" = "true" ]; then
+      ALLOW_NV=0
+    elif [ -n "$ROOT" ] && [ -f "$ROOT/.sm-workflow.conf" ] \
+      && grep -q '^hook_profile=fast$' "$ROOT/.sm-workflow.conf" 2>/dev/null; then
+      ALLOW_NV=0
+    fi
+  fi
+  if [ "$ALLOW_NV" -ne 0 ]; then
+    deny "--no-verify is blocked: the hooks catch migration collisions and CI failures before they cost the queue."
+  fi
 fi
 if printf '%s' "$CMD" | grep -qE 'gh pr merge[^|&;]*--admin'; then
   deny "Admin merges bypass the merge queue. Use 'gh pr merge --auto', or /merge."

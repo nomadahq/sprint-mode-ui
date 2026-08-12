@@ -147,6 +147,10 @@ export interface LayoutProps {
   /** Deprecated (PORTAL-RBAC-VIEWAS-3): the server lens needs no client detail
    *  fetch. Accepted for backward compatibility, ignored. */
   viewAsDetailApi?: string
+  /** Base URL for the lens endpoints (/auth/view-as, /auth/exit-view-as).
+   *  Defaults to https://api.sprintmode.ai -- override on custom-domain
+   *  portals whose cookies cannot cross to sprintmode.ai. */
+  viewAsAuthBase?: string
   headerIcon?: React.ReactNode
   onLogout?: string
   profilePath?: string
@@ -1421,12 +1425,21 @@ const Layout: React.FC<LayoutProps> = function Layout(props: LayoutProps) {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [session])
 
+  // Lens endpoints are called DIRECTLY on sm-api (not through the portal
+  // worker): every sprintmode.ai portal shares the .sprintmode.ai session
+  // cookie, CORS allows credentialed portal origins, and getSessionCookie
+  // resolves the per-portal cookie from X-SM-Product -- so one shared-layer
+  // path works fleet-wide with no per-portal proxy routes (a portal without
+  // a proxy route 405s, which is exactly what broke Studios). Custom-domain
+  // portals can override via viewAsAuthBase to a same-origin proxy.
+  var vaAuthBase = (props as { viewAsAuthBase?: string }).viewAsAuthBase || 'https://api.sprintmode.ai'
+
   function applyServerLens(body: Record<string, unknown>) {
     if (vaBusy) return
     setVaBusy(true)
     var headers: Record<string, string> = { 'Content-Type': 'application/json' }
     if (portalSubdomain) headers['X-SM-Product'] = portalSubdomain
-    fetch('/api/auth/view-as', {
+    fetch(vaAuthBase + '/auth/view-as', {
       method: 'POST',
       credentials: 'include',
       headers: headers,
@@ -1445,7 +1458,7 @@ const Layout: React.FC<LayoutProps> = function Layout(props: LayoutProps) {
     setVaBusy(true)
     var headers: Record<string, string> = {}
     if (portalSubdomain) headers['X-SM-Product'] = portalSubdomain
-    fetch('/api/auth/exit-view-as', { method: 'POST', credentials: 'include', headers: headers })
+    fetch(vaAuthBase + '/auth/exit-view-as', { method: 'POST', credentials: 'include', headers: headers })
       .then(function() { window.location.reload() })
       .catch(function() { setVaBusy(false) })
   }

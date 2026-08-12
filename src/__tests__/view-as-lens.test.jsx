@@ -79,7 +79,7 @@ describe('server lens header state', () => {
     renderLayout(lensSession())
     fireEvent.click(screen.getByText('Exit'))
     await waitFor(function() {
-      expect(calls.some(function(c) { return c.url === '/api/auth/exit-view-as' && c.opts.method === 'POST' })).toBe(true)
+      expect(calls.some(function(c) { return c.url === 'https://api.sprintmode.ai/auth/exit-view-as' && c.opts.method === 'POST' })).toBe(true)
     })
   })
 
@@ -117,7 +117,7 @@ describe('picker selection', () => {
     fireEvent.click(screen.getByText('Team'))
     fireEvent.click(await screen.findByText('Nikola Dulovic'))
     await waitFor(function() {
-      var post = calls.find(function(c) { return c.url === '/api/auth/view-as' })
+      var post = calls.find(function(c) { return c.url === 'https://api.sprintmode.ai/auth/view-as' })
       expect(post).toBeTruthy()
       expect(JSON.parse(post.opts.body)).toEqual({ team_member_user_id: 'usr_nikola' })
     })
@@ -144,7 +144,7 @@ describe('picker selection', () => {
     fireEvent.click(await screen.findByText(/View as/))
     fireEvent.click(await screen.findByText('Marc Idris'))
     await waitFor(function() {
-      var post = calls.find(function(c) { return c.url === '/api/auth/view-as' })
+      var post = calls.find(function(c) { return c.url === 'https://api.sprintmode.ai/auth/view-as' })
       expect(post).toBeTruthy()
       expect(JSON.parse(post.opts.body)).toEqual({ email: 'marc@northwind.example', member_user_id: 'usr_marc' })
     })

@@ -122,6 +122,10 @@ export interface LayoutProps {
     /** Deprecated (PORTAL-RBAC-VIEWAS-3): the server lens needs no client detail
      *  fetch. Accepted for backward compatibility, ignored. */
     viewAsDetailApi?: string;
+    /** Base URL for the lens endpoints (/auth/view-as, /auth/exit-view-as).
+     *  Defaults to https://api.sprintmode.ai -- override on custom-domain
+     *  portals whose cookies cannot cross to sprintmode.ai. */
+    viewAsAuthBase?: string;
     headerIcon?: React.ReactNode;
     onLogout?: string;
     profilePath?: string;

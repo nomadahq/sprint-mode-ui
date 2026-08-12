@@ -144,6 +144,8 @@ export interface LayoutProps {
   sidebarBottom?: React.ReactNode
   viewAsEnabled?: boolean
   viewAsApi?: string
+  /** Deprecated (PORTAL-RBAC-VIEWAS-3): the server lens needs no client detail
+   *  fetch. Accepted for backward compatibility, ignored. */
   viewAsDetailApi?: string
   headerIcon?: React.ReactNode
   onLogout?: string
@@ -187,6 +189,8 @@ export interface ViewAsUser {
   role_type?: string
   products?: string[]
   id?: string
+  user_id?: string
+  contact_id?: string
   permissions?: string | Record<string, unknown>
 }
 
@@ -1171,7 +1175,6 @@ const Layout: React.FC<LayoutProps> = function Layout(props: LayoutProps) {
   var sidebarBottom = props.sidebarBottom
   var viewAsEnabled = props.viewAsEnabled
   var viewAsApi = props.viewAsApi || '/api/db/admin-users'
-  var viewAsDetailApi = props.viewAsDetailApi
   var headerIcon = props.headerIcon
   var onLogout = props.onLogout
   var profilePath = props.profilePath
@@ -1340,30 +1343,44 @@ const Layout: React.FC<LayoutProps> = function Layout(props: LayoutProps) {
   var showViewAs = canViewAsFromSession !== null
     ? (viewAsEnabled !== false && canViewAsFromSession)
     : (viewAsEnabled && (viewAsAnyRole ? !!session : isSuperAdmin))
-  // Two independent view-as selections
-  var _vat = useState<ViewAsUser | null>(null); var viewAsTeam = _vat[0]; var setViewAsTeam = _vat[1]
-  var _vac = useState<ViewAsUser | null>(null); var viewAsCustomer = _vac[0]; var setViewAsCustomer = _vac[1]
-  // Legacy single viewAs alias: customer takes precedence for company_id scoping
-  var viewAs = viewAsCustomer || viewAsTeam
-  var setViewAs = setViewAsCustomer
-  // Separate user lists per dropdown
+  // ── Server lens (PORTAL-RBAC-VIEWAS-3) ─────────────────────────────────────
+  // View-as rides the SERVER: POST /api/auth/view-as sets viewing_as on the
+  // per-portal session cookie, and /auth/me returns the lensed role,
+  // permissions, sections, and company. The old client-side sessionStorage
+  // simulation is DELETED (Aaron ruling 2026-08-11, pdec d_c52f32a72370) —
+  // it rendered false data. The session is the single source of truth;
+  // selecting or exiting a lens reloads the page so every consumer re-reads
+  // the lensed session.
+  var serverLens = (session && (session as any).viewing_as) || null
+  var viewAsTeam: ViewAsUser | null = serverLens && serverLens.lens === 'team' ? {
+    email: serverLens.email || '',
+    name: serverLens.name || '',
+    company_id: serverLens.company_id || undefined,
+    company_name: serverLens.company_name || '',
+    portal_role: serverLens.effective_role || 'member',
+    role: serverLens.effective_role || 'member',
+    role_type: 'team',
+    id: serverLens.user_id || undefined,
+  } : null
+  var viewAsCustomer: ViewAsUser | null = serverLens && serverLens.lens === 'customer' ? {
+    email: serverLens.email || '',
+    name: serverLens.name || '',
+    company_id: serverLens.company_id || undefined,
+    company_name: serverLens.company_name || '',
+    portal_role: serverLens.effective_role || 'member',
+    role: serverLens.effective_role || 'member',
+    role_type: 'customer',
+    id: serverLens.contact_id || serverLens.user_id || undefined,
+  } : null
+  // Picker data lists. Entries may carry user_id/contact_id — required for
+  // person-based selection (team_member_user_id / member_user_id).
   var _at = useState<ViewAsUser[]>([]); var teamDropUsers = _at[0]; var setTeamDropUsers = _at[1]
   var _ac = useState<ViewAsUser[]>([]); var customerDropUsers = _ac[0]; var setCustomerDropUsers = _ac[1]
   var allUsers = teamDropUsers.concat(customerDropUsers)
-
-  useEffect(function() {
-    if (!session || !(session as any).viewing_as || viewAs) return
-    var va = (session as any).viewing_as
-    setViewAs({
-      email: va.email || '',
-      name: va.name || va.company_name || '',
-      company_id: va.company_id,
-      company_name: va.company_name || '',
-      portal_role: va.portal_role || 'member',
-      role: va.portal_role || 'member',
-      products: va.products || [],
-    })
-  }, [session])
+  var _vaBusy = useState(false); var vaBusy = _vaBusy[0]; var setVaBusy = _vaBusy[1]
+  var _vaOpen = useState(false); var vaPickerOpen = _vaOpen[0]; var setVaPickerOpen = _vaOpen[1]
+  var _vaTab = useState<'customer' | 'team'>('customer'); var vaTab = _vaTab[0]; var setVaTab = _vaTab[1]
+  var _vaQ = useState(''); var vaQuery = _vaQ[0]; var setVaQuery = _vaQ[1]
 
   useEffect(function() {
     if (!showViewAs) return
@@ -1393,101 +1410,88 @@ const Layout: React.FC<LayoutProps> = function Layout(props: LayoutProps) {
       .catch(function() {})
   }, [showViewAs, viewAsApi])
 
-  // Restore and persist two independent View As selections from sessionStorage
-  var _ssRestored = useState(false); var ssRestored = _ssRestored[0]; var setSsRestored = _ssRestored[1]
+  // Legacy notify props — fired with the server-lens values so host apps that
+  // still listen (e.g. sm-admin's onViewAsTeamChange) see the active lens.
+  // Host apps should gate on the SESSION (already lensed by /auth/me), not on
+  // these objects.
   useEffect(function() {
-    if (ssRestored || !portalSubdomain) return
-    if (teamDropUsers.length === 0 && customerDropUsers.length === 0) return
-    try {
-      var storedTeam = sessionStorage.getItem('sm-view-as-team-' + portalSubdomain)
-      if (storedTeam && !viewAsTeam) {
-        // PORTAL-PERMISSIONS-1: Restore via fetchViewAsDetail instead of
-        // setViewAsTeam(matchT). The dropdown user object only has email/name —
-        // no role or permissions. Without the detail fetch, canViewSection gets
-        // empty permissions and hides all nav sections after refresh.
-        var matchT = teamDropUsers.find(function(u) { return u.email === storedTeam })
-        if (matchT) fetchViewAsDetail(storedTeam, teamDropUsers, setViewAsTeam)
-      }
-      var storedCust = sessionStorage.getItem('sm-view-as-customer-' + portalSubdomain)
-      if (storedCust && !viewAsCustomer) {
-        var matchC = customerDropUsers.find(function(u) { return u.email === storedCust })
-        if (matchC) fetchViewAsDetail(storedCust, customerDropUsers, setViewAsCustomer)
-      }
-    } catch (_e) {}
-    setSsRestored(true)
-  }, [teamDropUsers, customerDropUsers, portalSubdomain])
-
-  // Persist team selection
-  useEffect(function() {
-    if (!portalSubdomain) return
-    try {
-      if (viewAsTeam) {
-        sessionStorage.setItem('sm-view-as-team-' + portalSubdomain, viewAsTeam.email)
-      } else if (ssRestored) {
-        sessionStorage.removeItem('sm-view-as-team-' + portalSubdomain)
-      }
-    } catch (_e) {}
     if (props.onViewAsTeamChange) props.onViewAsTeamChange(viewAsTeam)
-  }, [viewAsTeam, portalSubdomain, ssRestored])
-
-  // Persist customer selection
-  useEffect(function() {
-    if (!portalSubdomain) return
-    try {
-      if (viewAsCustomer) {
-        sessionStorage.setItem('sm-view-as-customer-' + portalSubdomain, viewAsCustomer.email)
-      } else if (ssRestored) {
-        sessionStorage.removeItem('sm-view-as-customer-' + portalSubdomain)
-      }
-    } catch (_e) {}
     if (props.onViewAsChange) props.onViewAsChange(viewAsCustomer)
-  }, [viewAsCustomer, portalSubdomain, ssRestored])
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [session])
 
-  function fetchViewAsDetail(email: string, fallbackList: ViewAsUser[], setter: (u: ViewAsUser | null) => void) {
-    if (!email) { setter(null); return }
-    var detailUrl = viewAsDetailApi
-      ? viewAsDetailApi.replace('{email}', encodeURIComponent(email))
-      : viewAsApi + '/' + encodeURIComponent(email)
-    fetch(detailUrl, { credentials: 'include' })
-      .then(function(r) { return r.ok ? r.json() : null })
-      .then(function(data: any) {
-        var user = data
-        if (data && data.ok && data.data) user = data.data
-        if (user) setter(user)
+  function applyServerLens(body: Record<string, unknown>) {
+    if (vaBusy) return
+    setVaBusy(true)
+    var headers: Record<string, string> = { 'Content-Type': 'application/json' }
+    if (portalSubdomain) headers['X-SM-Product'] = portalSubdomain
+    fetch('/api/auth/view-as', {
+      method: 'POST',
+      credentials: 'include',
+      headers: headers,
+      body: JSON.stringify(body),
+    })
+      .then(function(r) { return r.json().catch(function() { return null }) })
+      .then(function(d: any) {
+        if (d && d.ok) { window.location.reload(); return }
+        setVaBusy(false)
       })
-      .catch(function() {
-        var target = fallbackList.find(function(u) { return u.email === email })
-        if (target) setter(target)
-      })
+      .catch(function() { setVaBusy(false) })
   }
 
-  function handleViewAsTeam(email: string) { fetchViewAsDetail(email, teamDropUsers, setViewAsTeam) }
-  function handleViewAsCustomer(email: string) { fetchViewAsDetail(email, customerDropUsers, setViewAsCustomer) }
-  // Legacy handler — used by portal-view-as event (always customer/company context)
-  function handleViewAs(email: string) { fetchViewAsDetail(email, customerDropUsers, setViewAsCustomer) }
+  function exitServerLens() {
+    if (vaBusy) return
+    setVaBusy(true)
+    var headers: Record<string, string> = {}
+    if (portalSubdomain) headers['X-SM-Product'] = portalSubdomain
+    fetch('/api/auth/exit-view-as', { method: 'POST', credentials: 'include', headers: headers })
+      .then(function() { window.location.reload() })
+      .catch(function() { setVaBusy(false) })
+  }
 
-  // effectiveRole/Perms: team selection gates nav sections; customer selection scopes data only
-  var effectiveRole = viewAsTeam ? viewAsTeam.role : ((session as any)?.role || null)
-  var effectivePerms = viewAsTeam ? parsePerms(viewAsTeam) : parsePerms(session)
+  function selectTeamMember(u: ViewAsUser) {
+    if (u.user_id || u.id) applyServerLens({ team_member_user_id: u.user_id || u.id })
+    else if (u.role || u.portal_role) applyServerLens({ team_role: u.role || u.portal_role })
+  }
 
-  // Listen for 'portal-view-as' events from portal card buttons
+  function selectCustomerPerson(u: ViewAsUser) {
+    var body: Record<string, unknown> = u.email ? { email: u.email } : { contact_id: u.contact_id || u.id }
+    if (u.user_id) body.member_user_id = u.user_id
+    applyServerLens(body)
+  }
+
+  function selectCustomerCompany(members: ViewAsUser[]) {
+    // Company-level lens: anchor on the first member's contact; the server
+    // resolves the effective role (owner-member first, then portal default).
+    var first = members[0]
+    if (!first) return
+    applyServerLens(first.email ? { email: first.email } : { contact_id: first.contact_id || first.id })
+  }
+
+  // effectiveRole/Perms come straight from the session — /auth/me already
+  // resolves role, permissions, and sections through the lens when
+  // viewing_as is active. No client-side overrides.
+  var effectiveRole = (session as any)?.role || null
+  var effectivePerms = parsePerms(session)
+
+  // 'portal-view-as' events from portal card buttons → server customer lens
   useEffect(function() {
     function onPortalViewAs(e: any) {
       var detail = e.detail || {}
-      // Find matching user in allUsers by company ID or name
       var match = allUsers.find(function(u: any) {
         return u.id === detail.companyId || u.company_id === detail.companyId || u.name === detail.companyName || u.company_name === detail.companyName
       })
-      if (match && match.email) handleViewAs(match.email)
+      if (match && match.email) applyServerLens({ email: match.email })
     }
     window.addEventListener('portal-view-as', onPortalViewAs)
     return function() { window.removeEventListener('portal-view-as', onPortalViewAs) }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [allUsers])
 
   useEffect(function() { setMobileOpen(false) }, [location.pathname])
 
   useEffect(function() {
-    function handler() { setDropdownOpen(false) }
+    function handler() { setDropdownOpen(false); setVaPickerOpen(false) }
     document.addEventListener('click', handler)
     return function() { document.removeEventListener('click', handler) }
   }, [])
@@ -1661,46 +1665,87 @@ const Layout: React.FC<LayoutProps> = function Layout(props: LayoutProps) {
 
   // Determine view_as filter mode from session portal config ('team'|'customers'|'both'|string|false)
   var viewAsMode = canViewAsFromSession && typeof canViewAsFromSession === 'string' ? canViewAsFromSession : null
-  var showTeamDropdown = showViewAs && (viewAsMode === 'team' || viewAsMode === 'both') && teamDropUsers.length > 0
-  var showCustomerDropdown = showViewAs && (viewAsMode === 'customers' || viewAsMode === 'both' || (!viewAsMode && customerDropUsers.length > 0))
+  var showTeamTab = showViewAs && (viewAsMode === 'team' || viewAsMode === 'both') && teamDropUsers.length > 0
+  var showCustomerTab = showViewAs && (viewAsMode === 'customers' || viewAsMode === 'both' || (!viewAsMode && customerDropUsers.length > 0))
 
-  function makeUserOpt(u: ViewAsUser) {
-    var label = u.name || u.company_name || (u.email ? u.email.split('@')[0] : u.id || '?')
-    return React.createElement('option', { key: u.email || u.id, value: u.email }, label)
+  // Group customer entries by company for the picker (approved mock: company
+  // rows with their people beneath, role right-aligned).
+  var vaQ = vaQuery.trim().toLowerCase()
+  function vaMatch(u: ViewAsUser) {
+    if (!vaQ) return true
+    return (u.name || '').toLowerCase().indexOf(vaQ) !== -1 ||
+      (u.email || '').toLowerCase().indexOf(vaQ) !== -1 ||
+      (u.company_name || '').toLowerCase().indexOf(vaQ) !== -1
   }
+  var vaCompanies: { key: string; name: string; members: ViewAsUser[] }[] = []
+  ;(function() {
+    var byCo: Record<string, { key: string; name: string; members: ViewAsUser[] }> = {}
+    customerDropUsers.filter(vaMatch).forEach(function(u) {
+      var key = u.company_id || u.company_name || '_none'
+      if (!byCo[key]) {
+        byCo[key] = { key: key, name: u.company_name || 'No company', members: [] }
+        vaCompanies.push(byCo[key])
+      }
+      byCo[key].members.push(u)
+    })
+  })()
+  var vaTeamList = teamDropUsers.filter(function(u) { return u.email !== (session && session.email) }).filter(vaMatch)
+  var vaActiveTab: 'customer' | 'team' = showCustomerTab && showTeamTab ? vaTab : (showTeamTab ? 'team' : 'customer')
 
-  var teamSelect = showTeamDropdown ? React.createElement(React.Fragment, null,
-    React.createElement('select', {
-      value: viewAsTeam ? viewAsTeam.email : '',
-      onChange: function(e: React.ChangeEvent<HTMLSelectElement>) { handleViewAsTeam(e.target.value) },
-      style: { padding: '6px 10px', border: '1px solid var(--border)', borderRadius: 8, background: 'var(--bg)', color: 'var(--foreground)', fontSize: 13, cursor: 'pointer', maxWidth: 180 }
-    },
-      React.createElement('option', { value: '' }, 'View as team…'),
-      ...teamDropUsers.filter(function(u) { return u.email !== (session && session.email) }).map(makeUserOpt)
-    ),
-    viewAsTeam ? React.createElement('button', {
-      onClick: function() { setViewAsTeam(null) },
-      style: { padding: '5px 8px', border: '1px solid var(--border)', borderRadius: 8, background: 'var(--accent-10)', color: 'var(--accent)', fontSize: 12, fontWeight: 600, cursor: 'pointer' }
-    }, '\u2715') : null
+  var vaEyeIcon = React.createElement('svg', { viewBox: '0 0 24 24', width: 14, height: 14, fill: 'none', stroke: 'currentColor', strokeWidth: 2, strokeLinecap: 'round' as const, strokeLinejoin: 'round' as const },
+    React.createElement('path', { d: 'M2 12s3.5-7 10-7 10 7 10 7-3.5 7-10 7-10-7-10-7z' }),
+    React.createElement('circle', { cx: 12, cy: 12, r: 3 }))
+
+  // Approved mock: single "View as" button opening a tabbed popover.
+  // Hidden while a lens is active — the header carries the lens state instead.
+  var viewAsSelect = (showTeamTab || showCustomerTab) && !serverLens ? React.createElement('div', {
+    className: 'shell-va',
+    onClick: function(e: React.MouseEvent) { e.stopPropagation() },
+  },
+    React.createElement('button', {
+      className: 'shell-va-btn',
+      onClick: function() { setVaPickerOpen(!vaPickerOpen) },
+      disabled: vaBusy,
+    }, 'View as ', vaEyeIcon),
+    vaPickerOpen ? React.createElement('div', { className: 'shell-va-pop' },
+      (showCustomerTab && showTeamTab) ? React.createElement('div', { className: 'shell-va-tabs' },
+        React.createElement('button', { className: 'shell-va-tab' + (vaActiveTab === 'customer' ? ' active' : ''), onClick: function() { setVaTab('customer') } }, 'Customer'),
+        React.createElement('button', { className: 'shell-va-tab' + (vaActiveTab === 'team' ? ' active' : ''), onClick: function() { setVaTab('team') } }, 'Team')
+      ) : null,
+      React.createElement('input', {
+        className: 'shell-va-search',
+        placeholder: vaActiveTab === 'customer' ? 'Find a company or person' : 'Find a team member',
+        value: vaQuery,
+        onChange: function(e: React.ChangeEvent<HTMLInputElement>) { setVaQuery(e.target.value) },
+      }),
+      React.createElement('div', { className: 'shell-va-list' },
+        vaActiveTab === 'customer'
+          ? (vaCompanies.length === 0 ? React.createElement('div', { className: 'shell-va-empty' }, 'No matches') : vaCompanies.map(function(co) {
+              return React.createElement(React.Fragment, { key: co.key },
+                React.createElement('button', { className: 'shell-va-co', onClick: function() { selectCustomerCompany(co.members) }, disabled: vaBusy }, co.name),
+                co.members.map(function(u) {
+                  return React.createElement('button', { key: u.email || u.id, className: 'shell-va-person', onClick: function() { selectCustomerPerson(u) }, disabled: vaBusy },
+                    React.createElement('span', { className: 'shell-va-person-name' }, u.name || (u.email ? u.email.split('@')[0] : '?')),
+                    React.createElement('span', { className: 'shell-va-person-role' }, u.role || u.portal_role || ''))
+                }))
+            }))
+          : (vaTeamList.length === 0 ? React.createElement('div', { className: 'shell-va-empty' }, 'No matches') : vaTeamList.map(function(u) {
+              return React.createElement('button', { key: u.email || u.id, className: 'shell-va-person shell-va-person-team', onClick: function() { selectTeamMember(u) }, disabled: vaBusy },
+                React.createElement('span', { className: 'shell-va-person-name' }, u.name || (u.email ? u.email.split('@')[0] : '?')),
+                React.createElement('span', { className: 'shell-va-person-role' }, u.role || u.portal_role || ''))
+            }))
+      )
+    ) : null
   ) : null
 
-  var customerSelect = showCustomerDropdown ? React.createElement(React.Fragment, null,
-    React.createElement('select', {
-      value: viewAsCustomer ? viewAsCustomer.email : '',
-      onChange: function(e: React.ChangeEvent<HTMLSelectElement>) { handleViewAsCustomer(e.target.value) },
-      style: { padding: '6px 10px', border: '1px solid var(--border)', borderRadius: 8, background: 'var(--bg)', color: 'var(--foreground)', fontSize: 13, cursor: 'pointer', maxWidth: 180 }
-    },
-      React.createElement('option', { value: '' }, 'View as client…'),
-      ...customerDropUsers.filter(function(u) { return u.email !== (session && session.email) }).map(makeUserOpt)
-    ),
-    viewAsCustomer ? React.createElement('button', {
-      onClick: function() { setViewAsCustomer(null) },
-      style: { padding: '5px 8px', border: '1px solid var(--border)', borderRadius: 8, background: 'var(--accent-10)', color: 'var(--accent)', fontSize: 12, fontWeight: 600, cursor: 'pointer' }
-    }, '\u2715') : null
+  // Lens active — the header carries the state (approved mock: no banner).
+  var lensChip = serverLens ? React.createElement('div', { className: 'shell-va-lens' },
+    React.createElement('span', { className: 'shell-va-lens-label' },
+      vaEyeIcon, ' ',
+      serverLens.name || serverLens.email || '',
+      serverLens.lens === 'customer' && serverLens.company_name ? ' \u00B7 ' + serverLens.company_name : ''),
+    React.createElement('button', { className: 'shell-va-lens-exit', onClick: exitServerLens, disabled: vaBusy }, 'Exit')
   ) : null
-
-  // Legacy single viewAsSelect alias used by render tree
-  var viewAsSelect = (teamSelect || customerSelect) ? React.createElement(React.Fragment, null, teamSelect, customerSelect) : null
 
   var standardHeaderRight = hasHeader && session ? React.createElement(React.Fragment, null,
     cmdKEnabled ? React.createElement('button', {
@@ -1739,7 +1784,7 @@ const Layout: React.FC<LayoutProps> = function Layout(props: LayoutProps) {
       <div className={'shell' + (hasHeader ? ' shell-with-header' : '')}>
 
         {hasHeader && (
-          <header className="shell-header">
+          <header className={'shell-header' + (serverLens ? ' shell-header-lens' : '')}>
             <div className="shell-header-inner">
               <div style={{ display: 'flex', alignItems: 'center' }}>
               <a href="/" className="shell-header-logo">
@@ -1772,8 +1817,9 @@ const Layout: React.FC<LayoutProps> = function Layout(props: LayoutProps) {
                 onMouseLeave: function(e: React.MouseEvent<HTMLElement>) { (e.currentTarget as HTMLElement).style.borderColor = ''; (e.currentTarget as HTMLElement).style.color = 'var(--muted)' },
               }, (typeof navigator !== 'undefined' && navigator.platform && navigator.platform.indexOf('Mac') !== -1 ? '\u2318C' : 'Ctrl+C')) : null}
               </div>
-              {(viewAsSelect || headerCta || headerRight || standardHeaderRight) && (
+              {(viewAsSelect || lensChip || headerCta || headerRight || standardHeaderRight) && (
                 <div className="shell-header-right">
+                  {lensChip}
                   {viewAsSelect}
                   {headerCta && React.createElement('button', {
                     onClick: headerCta.onClick,
@@ -1933,24 +1979,7 @@ const Layout: React.FC<LayoutProps> = function Layout(props: LayoutProps) {
         {mobileOpen && <div className="portal-sidebar-overlay open" onClick={function() { setMobileOpen(false) }} />}
 
         <main className="portal-main">
-          {(viewAsTeam || viewAsCustomer) && (
-            <div className="shell-viewas-banner">
-              <span>
-                {viewAsTeam && (
-                  <><strong>Team:</strong>{' '}{viewAsTeam.name || viewAsTeam.email}{viewAsCustomer ? ' · ' : ''}</>
-                )}
-                {viewAsCustomer && (
-                  <><strong>Client:</strong>{' '}{viewAsCustomer.name || viewAsCustomer.company_name || viewAsCustomer.email}</>
-                )}
-                <span className="shell-viewas-hint"> — sidebar shows what they see</span>
-              </span>
-              <span style={{ display: 'flex', gap: 6 }}>
-                {viewAsTeam && <button className="shell-viewas-exit" onClick={function() { setViewAsTeam(null) }}>Exit team</button>}
-                {viewAsCustomer && <button className="shell-viewas-exit" onClick={function() { setViewAsCustomer(null) }}>Exit client</button>}
-              </span>
-            </div>
-          )}
-          <div key={(viewAsTeam ? viewAsTeam.email : '') + '|' + (viewAsCustomer ? viewAsCustomer.id || viewAsCustomer.email : '__self__')}>
+          <div key={serverLens ? (serverLens.lens + ':' + (serverLens.user_id || serverLens.contact_id || serverLens.email || '')) : '__self__'}>
             {(() => {
               // Route guard: check if the current route's nav item has permission
               // PORTAL-PERMISSIONS-1: Use the ORIGINAL navSections prop (unfiltered),

@@ -167,6 +167,7 @@ export interface ViewAsUser {
     id?: string;
     user_id?: string;
     contact_id?: string;
+    role_label?: string;
     permissions?: string | Record<string, unknown>;
 }
 export declare var ViewAsContext: React.Context<ViewAsUser | null>;

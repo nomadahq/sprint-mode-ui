@@ -150,6 +150,29 @@ describe('picker selection', () => {
     })
   })
 
+  it('renders per-portal role_label when present, humanized key as fallback', async () => {
+    vi.stubGlobal('fetch', vi.fn(function(url) {
+      if (String(url).indexOf('/api/view-as-users') === 0) {
+        return Promise.resolve({ ok: true, json: () => Promise.resolve({ ok: true, data: {
+          team: [
+            { email: 'dani@sprintmode.ai', name: 'Dani Z', role: 'support', role_label: 'Janitor', user_id: 'usr_dani', role_type: 'team' },
+            { email: 'paula@sprintmode.ai', name: 'Paula P', role: 'hr', user_id: 'usr_paula', role_type: 'team' },
+            { email: 'nik@sprintmode.ai', name: 'Nik D', role: 'project_manager', user_id: 'usr_nik', role_type: 'team' },
+          ],
+          customers: [],
+        } }) })
+      }
+      return Promise.resolve({ ok: true, json: () => Promise.resolve({ ok: true }) })
+    }))
+    renderLayout(baseSession(), { viewAsApi: '/api/view-as-users' })
+    fireEvent.click(await screen.findByText(/View as/))
+    fireEvent.click(screen.getByText('Team'))
+    expect(await screen.findByText('Janitor')).toBeInTheDocument()
+    expect(screen.getByText('HR')).toBeInTheDocument()
+    expect(screen.getByText('Project Manager')).toBeInTheDocument()
+    expect(screen.queryByText('project_manager')).toBeNull()
+  })
+
   it('picker button is hidden while a lens is active (header carries the state)', () => {
     vi.stubGlobal('fetch', vi.fn(() => Promise.resolve({ ok: true, json: () => Promise.resolve({}) })))
     renderLayout(lensSession())

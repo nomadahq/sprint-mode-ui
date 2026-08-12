@@ -173,9 +173,49 @@ describe('picker selection', () => {
     expect(screen.queryByText('project_manager')).toBeNull()
   })
 
-  it('picker button is hidden while a lens is active (header carries the state)', () => {
+  it('compound lens renders both dimensions in the chip and blocks the picker', () => {
     vi.stubGlobal('fetch', vi.fn(() => Promise.resolve({ ok: true, json: () => Promise.resolve({}) })))
-    renderLayout(lensSession())
+    var s = lensSession()
+    s.viewing_as = Object.assign({}, s.viewing_as, {
+      lens: 'both', name: 'Juliana Villegas', effective_role: 'project_manager',
+      customer_name: 'Claire Fontaine', company_name: 'Client X',
+    })
+    renderLayout(s)
+    expect(screen.getByText(/Juliana Villegas/)).toBeInTheDocument()
+    expect(screen.getByText(/viewing Claire Fontaine/)).toBeInTheDocument()
+    expect(screen.getByText(/Client X/)).toBeInTheDocument()
+    expect(screen.queryByText(/^View as/)).toBeNull()
+  })
+
+  it('single-dimension team lens on a both-mode portal keeps the picker, offering only the Customer tab', async () => {
+    vi.stubGlobal('fetch', vi.fn(function(url) {
+      if (String(url).indexOf('/api/view-as-users') === 0) {
+        return Promise.resolve({ ok: true, json: () => Promise.resolve({ ok: true, data: {
+          team: [{ email: 'j@sm.ai', name: 'Juliana Villegas', role: 'project_manager', user_id: 'usr_j', role_type: 'team' }],
+          customers: [{ email: 'claire@nw.example', name: 'Claire Fontaine', company_id: 'co_n', company_name: 'Northwind Ops', role: 'owner', user_id: 'usr_c', role_type: 'customer' }],
+        } }) })
+      }
+      return Promise.resolve({ ok: true, json: () => Promise.resolve({ ok: true }) })
+    }))
+    var s = lensSession()
+    s.portals = { admin: { access: true, view_as: 'both' } }
+    s.viewing_as = Object.assign({}, s.viewing_as, {
+      lens: 'team', name: 'Juliana Villegas', effective_role: 'project_manager', company_name: '',
+    })
+    renderLayout(s, { viewAsApi: '/api/view-as-users' })
+    fireEvent.click(await screen.findByText(/View as/))
+    // only the customer dimension is offered: no tab bar, customer rows visible
+    expect(document.querySelector('.shell-va-tabs')).toBeNull()
+    expect(await screen.findByText('Northwind Ops')).toBeInTheDocument()
+    expect(screen.getByText('Claire Fontaine')).toBeInTheDocument()
+  })
+
+  it('picker button is hidden under a lens on a single-mode portal (header carries the state)', () => {
+    vi.stubGlobal('fetch', vi.fn(() => Promise.resolve({ ok: true, json: () => Promise.resolve({}) })))
+    var s = lensSession()
+    // customers-only portal: nothing left to stack, so no picker under a lens
+    s.portals = { admin: { access: true, view_as: 'customers' } }
+    renderLayout(s)
     expect(screen.queryByText(/^View as/)).toBeNull()
   })
 })

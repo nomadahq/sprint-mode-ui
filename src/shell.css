@@ -115,6 +115,7 @@
 .shell-va-person-team { padding-left: 8px; }
 .shell-va-person-name { color: var(--accent); font-size: 14px; }
 .shell-va-person-role { color: var(--muted); font-size: 12px; }
+.shell-va-error { margin: 0 0 8px; padding: 8px 10px; border: 1px solid var(--red, #dc2626); border-radius: var(--radius-sm, 8px); background: var(--red-light, #fee2e2); color: var(--red, #dc2626); font-size: 12px; font-weight: 600; }
 .shell-va-empty { padding: 16px; text-align: center; color: var(--muted); font-size: 13px; }
 .shell-va-lens { display: flex; align-items: center; gap: 10px; }
 .shell-va-lens-label { display: flex; align-items: center; gap: 6px; color: var(--accent); font-size: 13px; font-weight: 600; white-space: nowrap; }

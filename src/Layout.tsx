@@ -1386,6 +1386,7 @@ const Layout: React.FC<LayoutProps> = function Layout(props: LayoutProps) {
   var _vaOpen = useState(false); var vaPickerOpen = _vaOpen[0]; var setVaPickerOpen = _vaOpen[1]
   var _vaTab = useState<'customer' | 'team'>('customer'); var vaTab = _vaTab[0]; var setVaTab = _vaTab[1]
   var _vaQ = useState(''); var vaQuery = _vaQ[0]; var setVaQuery = _vaQ[1]
+  var _vaErr = useState(''); var vaError = _vaErr[0]; var setVaError = _vaErr[1]
 
   useEffect(function() {
     if (!showViewAs) return
@@ -1445,12 +1446,18 @@ const Layout: React.FC<LayoutProps> = function Layout(props: LayoutProps) {
       headers: headers,
       body: JSON.stringify(body),
     })
-      .then(function(r) { return r.json().catch(function() { return null }) })
-      .then(function(d: any) {
-        if (d && d.ok) { window.location.reload(); return }
+      .then(function(r) {
+        return r.json().catch(function() { return null }).then(function(d: any) {
+          if (d && d.ok) { window.location.reload(); return }
+          // Surface the failure -- a silent catch here cost two blind QA runs
+          setVaError('View as failed (HTTP ' + r.status + (d && d.error ? ': ' + d.error : '') + ')')
+          setVaBusy(false)
+        })
+      })
+      .catch(function(e: unknown) {
+        setVaError('View as failed (network: ' + String(e).slice(0, 120) + ')')
         setVaBusy(false)
       })
-      .catch(function() { setVaBusy(false) })
   }
 
   function exitServerLens() {
@@ -1739,7 +1746,7 @@ const Layout: React.FC<LayoutProps> = function Layout(props: LayoutProps) {
   },
     React.createElement('button', {
       className: 'shell-va-btn',
-      onClick: function() { setVaPickerOpen(!vaPickerOpen) },
+      onClick: function() { setVaError(''); setVaPickerOpen(!vaPickerOpen) },
       disabled: vaBusy,
     }, 'View as ', vaEyeIcon),
     vaPickerOpen ? React.createElement('div', { className: 'shell-va-pop' },
@@ -1753,6 +1760,7 @@ const Layout: React.FC<LayoutProps> = function Layout(props: LayoutProps) {
         value: vaQuery,
         onChange: function(e: React.ChangeEvent<HTMLInputElement>) { setVaQuery(e.target.value) },
       }),
+      vaError ? React.createElement('div', { className: 'shell-va-error', role: 'alert' }, vaError) : null,
       React.createElement('div', { className: 'shell-va-list' },
         vaActiveTab === 'customer'
           ? (vaCompanies.length === 0 ? React.createElement('div', { className: 'shell-va-empty' }, 'No matches') : vaCompanies.map(function(co) {

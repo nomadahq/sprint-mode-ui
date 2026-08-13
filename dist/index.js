@@ -113491,7 +113491,11 @@ var HNe = function(t) {
 											var h = n.indexOf(".");
 											if (h > 0) {
 												var _ = n.substring(0, h);
-												s.indexOf(_) >= 0 && !O9(Mt, jt, _) && (m = !0), !m && c[_] && (k9(Mt, jt, c[_]) || (m = !0));
+												if (s.indexOf(_) >= 0) {
+													var v = Mt && Mt.sections ? Mt.sections[_] : null;
+													v && v.view === !1 && (m = !0);
+												}
+												!m && c[_] && (k9(Mt, jt, c[_]) || (m = !0));
 											}
 										}
 										return m ? e.createElement("div", { style: {

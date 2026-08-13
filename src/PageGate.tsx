@@ -7,9 +7,10 @@
 //
 // Semantics are canViewSection's (single source of truth in Layout.tsx) plus
 // the same explicit-parent check the Layout route guard applies: a granted
-// child under an explicitly denied parent key is denied. The empty-permissions
-// default therefore rides canViewSection — when the deny-flip lands there
-// (decision RBAC-SMUI-DENY-FLIP), PageGate flips with it; nothing here changes.
+// child under an explicitly denied parent key is denied. Deny-by-default is
+// total (IDENTITY-RECONCILE-1, TASK-1923): empty records AND null/absent
+// permissions both deny — the decision rides canViewSection; nothing here
+// changes.
 //
 // Session resolution order:
 //   1. explicit `session` prop

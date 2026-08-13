@@ -112089,8 +112089,8 @@ function D9(e) {
 	}
 }
 function O9(e, t, n) {
-	if (!n || t === "super_admin" || !e || !e.sections) return !0;
-	if (Object.keys(e.sections).length === 0) return !1;
+	if (!n || t === "super_admin") return !0;
+	if (!e || !e.sections || Object.keys(e.sections).length === 0) return !1;
 	var r = e.sections[n];
 	if (!r) {
 		var i = n.indexOf(".");
@@ -112103,7 +112103,7 @@ function O9(e, t, n) {
 	return r.view !== !1;
 }
 function k9(e, t, n) {
-	return !n || t === "super_admin" || !e || e.products && e.products[n] ? !0 : !(e.sections && e.sections[n] && e.sections[n].view === !1);
+	return !n || t === "super_admin" ? !0 : e ? e.products && e.products[n] ? !0 : !(e.sections && e.sections[n] && e.sections[n].view === !1) : !1;
 }
 function zNe({ label: t, sectionIcon: n, sectionColor: r, items: a, color: o, tint: l, defaultOpen: p, product: h, collapsed: g, onToggle: _, flat: v, railCollapsed: y, onRailEnter: b, onRailLeave: x }) {
 	var S = g !== void 0 && _ !== void 0, C = c(p !== !1), w = C[0], T = C[1], E = m(), D = S ? !g : w, O = a.some(function(e) {

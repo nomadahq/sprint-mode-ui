@@ -898,15 +898,16 @@ export function parsePerms(session: SessionData | ViewAsUser | null): Permission
 export function canViewSection(perms: Permissions | null, role: string | null | undefined, key: string | undefined): boolean {
   if (!key) return true
   if (role === 'super_admin') return true
-  // No permissions object at all → allow (session not loaded yet or legacy)
-  if (!perms || !perms.sections) return true
-  // THE FLIP (PORTAL-RBAC-SHELLS, square 1647, Aaron go 2026-08-07):
-  // an EMPTY permissions record now DENIES. Every live role row on all
-  // eight portals was verified complete against the registry before this
-  // shipped, so an empty record means a misconfigured or revoked role —
-  // not a legacy row. A NULL/absent permissions object still allows
-  // (session not loaded yet / legacy sessions), which keeps the failure
-  // mode "flash of allow" rather than a lockout during session load.
+  // THE SECOND FLIP (IDENTITY-RECONCILE-1, TASK-1923): a NULL/absent
+  // permissions object now DENIES — the A2 "flash of allow" is dead and
+  // deny-by-default is total. This is safe because (a) Layout spinner-blocks
+  // until /auth/me resolves, so the gate is never consulted mid-load, and
+  // (b) post leaf-wins migration 0271 every live role row is complete
+  // leaf-only, so a RESOLVED session always carries permissions. A null here
+  // therefore means no session / failed resolution — deny, never flash.
+  // (The empty-record deny below shipped earlier: PORTAL-RBAC-SHELLS,
+  // square 1647, Aaron go 2026-08-07.)
+  if (!perms || !perms.sections) return false
   if (Object.keys(perms.sections).length === 0) return false
   var entry = perms.sections[key]
   // Key not in permissions → deny (if other keys exist, this one was
@@ -925,7 +926,9 @@ export function canViewSection(perms: Permissions | null, role: string | null | 
 function canViewProduct(perms: Permissions | null, role: string | null | undefined, product: string | undefined): boolean {
   if (!product) return true
   if (role === 'super_admin') return true
-  if (!perms) return true
+  // NULL perms deny — same A2 flash-of-allow class as canViewSection
+  // (IDENTITY-RECONCILE-1, TASK-1923). Absent-key semantics below unchanged.
+  if (!perms) return false
   // Product sections are gated by their section permKey (e.g. signal:{view:true/false}),
   // same as any other section. portal.{product}:{login} is a SEPARATE concern — it
   // controls whether the user can log into the portal itself (signal.sprintmode.ai),

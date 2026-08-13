@@ -1,7 +1,7 @@
 // page-gate.test.jsx — PORTAL-RBAC-SHELLS (square 1647)
 // PageGate semantics: canViewSection pass-through + explicit-parent deny.
-// The empty-permissions cases pin the FLIPPED deny-default behavior; the
-// deny-flip PR (decision RBAC-SMUI-DENY-FLIP) will amend those two tests.
+// Deny-by-default is total since TASK-1923 (IDENTITY-RECONCILE-1): the two
+// null-permissions tests below pin the flipped behavior.
 import React from 'react'
 import { render, screen } from '@testing-library/react'
 import { describe, it, expect } from 'vitest'
@@ -49,8 +49,11 @@ describe('canViewPage', () => {
     expect(canViewPage(null, 'super_admin', 'anything.at_all')).toBe(true)
   })
 
-  it('CURRENT default: null permissions (session not loaded) allows', () => {
-    expect(canViewPage(null, 'member', 'signal.people')).toBe(true)
+  it('SECOND FLIP (TASK-1923): null permissions DENIES — flash-of-allow is dead', () => {
+    // Layout spinner-blocks until /auth/me resolves and post-0271 every live
+    // role row is complete leaf-only, so null at decision time means no
+    // session / failed resolution — deny, never flash.
+    expect(canViewPage(null, 'member', 'signal.people')).toBe(false)
   })
 
   it('FLIPPED default: empty permissions object DENIES (RBAC-SMUI-DENY-FLIP, square 1647)', () => {
@@ -61,8 +64,8 @@ describe('canViewPage', () => {
     expect(canViewPage(perms, 'member', 'signal.people')).toBe(false)
   })
 
-  it('FLIPPED default: null permissions (session not loaded) still allows — flash-of-allow, never lockout', () => {
-    expect(canViewPage(null, 'member', 'signal.people')).toBe(true)
+  it('SECOND FLIP (TASK-1923): null permissions denies even with a role string present', () => {
+    expect(canViewPage(null, 'engineer', 'signal.people')).toBe(false)
   })
 })
 

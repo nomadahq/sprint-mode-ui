@@ -2083,8 +2083,22 @@ const Layout: React.FC<LayoutProps> = function Layout(props: LayoutProps) {
                 var dotIdx = routePermKey.indexOf('.')
                 if (dotIdx > 0) {
                   var parentKey = routePermKey.substring(0, dotIdx)
-                  if (sectionPermKeys.indexOf(parentKey) >= 0 && !canViewSection(effectivePerms, effectiveRole, parentKey)) {
-                    routeDenied = true
+                  // TASK-1919 (IDCORE-APIMCP-1): migration 0275 made portal_roles
+                  // storage LEAF-ONLY — parent section keys are absent from every
+                  // resolved permissions object by design. The old check ran the
+                  // parent through canViewSection, whose deny-by-default treats an
+                  // absent key as denied, which locked every non-super_admin role
+                  // out of all section routes the moment the drop deployed. The
+                  // parent override is now EXPLICIT-DENY ONLY: it fires when the
+                  // parent key is present with view:false (a deliberate section
+                  // revoke), and an absent parent leaves the decision to the leaf.
+                  if (sectionPermKeys.indexOf(parentKey) >= 0) {
+                    var parentSectionEntry = effectivePerms && effectivePerms.sections
+                      ? effectivePerms.sections[parentKey]
+                      : null
+                    if (parentSectionEntry && parentSectionEntry.view === false) {
+                      routeDenied = true
+                    }
                   }
                   // Check product access: if parent is a product section, check portal.{product}
                   if (!routeDenied && sectionProducts[parentKey]) {

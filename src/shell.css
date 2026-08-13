@@ -188,27 +188,27 @@
 }
 .portal-sidebar.rail .ps-heading > span:hover { color: var(--foreground); }
 
-/* Section headers in the rail render like admin's tiny uppercase heading
-   labels above their item icons - the icon and chevron hide, the text
-   shrinks. Hovering the label opens the grouped flyout. */
+/* Rail section headers: one clean centered section icon per group. The label
+   and the expand/collapse chevron hide (font-size 0 + targeted chevron rule -
+   NEVER a blanket svg hide, that killed the section icons: the regression this
+   block restores from). Hovering the icon opens the grouped flyout with the
+   section's items. */
 .portal-sidebar.rail .ps-section-header {
-  display: flex; justify-content: center;
-  font-size: 8px; font-weight: 700; letter-spacing: 0.3px;
-  text-transform: uppercase; color: var(--muted);
-  padding: 14px 4px 4px; background: none; height: auto;
-  white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+  justify-content: center; gap: 0; padding: 9px 8px; font-size: 0;
+  background: none; height: auto;
 }
-.portal-sidebar.rail .ps-section-header:hover { color: var(--foreground); background: none; }
-.portal-sidebar.rail .ps-section-header svg { display: none; }
+.portal-sidebar.rail .ps-section-chevron { display: none; }
+.portal-sidebar.rail .ps-section-header .ps-section-icon { margin: 0; }
+.portal-sidebar.rail .ps-section-header:hover { background: var(--bg-subtle); }
 
 /* Every rail item - flat, grouped, and bottom nav - is an icon-only row.
    Labels come back via the per-item hover flyout. */
 .portal-sidebar.rail .ps-item { justify-content: center; gap: 0; padding: 9px 8px; font-size: 0; }
 
-/* Grouped items stay visible in the rail even when the group is collapsed
-   in the expanded sidebar - the rail shows every page's icon. */
-.portal-sidebar.rail .ps-section .ps-section-items { display: block; }
-.portal-sidebar.rail .ps-section.collapsed .ps-section-items { display: block; }
+/* Rail collapses every grouped section to its single header icon; the items
+   live in the hover flyout. Flat sections (single-page groups like Dashboard)
+   keep their item icons since they have no meaningful group header. */
+.portal-sidebar.rail .ps-section:not(.ps-flat) .ps-section-items { display: none; }
 
 /* Rail flyout: a fixed-position panel rendered at the shell level and positioned
    by JS (inline `top`, clamped to the viewport so lower icons flip up and never

@@ -25,8 +25,8 @@ export interface SmApiClient {
 }
 export declare function signJWT(payload: Record<string, unknown>, secret: string): Promise<string>;
 export declare function verifyJWT(token: string, secret: string): Promise<Record<string, unknown> | null>;
-export declare function getSession(request: Request): string | null;
-export declare function requireAuth(request: Request, env: WorkerEnv): Promise<Record<string, unknown> | null>;
+export declare function getSession(request: Request, product?: string | null): string | null;
+export declare function requireAuth(request: Request, env: WorkerEnv, product?: string | null): Promise<Record<string, unknown> | null>;
 export declare function generateToken(): string;
 export declare function generateId(prefix: string): string;
 export declare function createSmApiClient(env: WorkerEnv, opts?: SmApiClientOptions): SmApiClient;

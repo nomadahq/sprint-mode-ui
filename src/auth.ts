@@ -58,14 +58,32 @@ export async function verifyJWT(token: string, secret: string): Promise<Record<s
   } catch (_e) { return null }
 }
 
-export function getSession(request: Request): string | null {
+export function getSession(request: Request, product?: string | null): string | null {
   var cookie = request.headers.get('Cookie') || ''
+  // FLIP-HOTFIX-1: per-door cookie first. Post LOGIN_DOOR_CUTOVER (FEAT-1915)
+  // a login sets ONLY the target door's sm_session_{product} cookie — reading
+  // sm_client alone redirect-looped every fresh session on portals gated by
+  // this helper. The door slug is the caller's `product` when given, else the
+  // portal subdomain (slug == subdomain for every *.sprintmode.ai door,
+  // matching sm-api's getProductCookieName convention).
+  var slug = product || null
+  if (!slug) {
+    try {
+      var host = new URL(request.url).hostname
+      if (host.endsWith('.sprintmode.ai')) slug = host.split('.')[0]
+    } catch (_e) { /* no derivable host — legacy fallback below */ }
+  }
+  if (slug && /^[a-z0-9-]+$/i.test(slug)) {
+    var doorMatch = cookie.match(new RegExp('(?:^|;\\s*)sm_session_' + slug + '=([^;]+)'))
+    if (doorMatch) return doorMatch[1]
+  }
+  // Legacy shared cookie — surviving pre-flip slim sessions.
   var match = cookie.match(/sm_client=([^;]+)/)
   return match ? match[1] : null
 }
 
-export async function requireAuth(request: Request, env: WorkerEnv): Promise<Record<string, unknown> | null> {
-  var token = getSession(request)
+export async function requireAuth(request: Request, env: WorkerEnv, product?: string | null): Promise<Record<string, unknown> | null> {
+  var token = getSession(request, product)
   if (!token) return null
   return await verifyJWT(token, env.JWT_SECRET)
 }

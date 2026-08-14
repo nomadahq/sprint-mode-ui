@@ -30,13 +30,22 @@ async function t(e, t) {
 		return null;
 	}
 }
-function n(e) {
-	var t = (e.headers.get("Cookie") || "").match(/sm_client=([^;]+)/);
-	return t ? t[1] : null;
+function n(e, t) {
+	var n = e.headers.get("Cookie") || "", r = t || null;
+	if (!r) try {
+		var i = new URL(e.url).hostname;
+		i.endsWith(".sprintmode.ai") && (r = i.split(".")[0]);
+	} catch {}
+	if (r && /^[a-z0-9-]+$/i.test(r)) {
+		var a = n.match(RegExp("(?:^|;\\s*)sm_session_" + r + "=([^;]+)"));
+		if (a) return a[1];
+	}
+	var o = n.match(/sm_client=([^;]+)/);
+	return o ? o[1] : null;
 }
-async function r(e, r) {
-	var i = n(e);
-	return i ? await t(i, r.JWT_SECRET) : null;
+async function r(e, r, i) {
+	var a = n(e, i);
+	return a ? await t(a, r.JWT_SECRET) : null;
 }
 function i() {
 	for (var e = "abcdefghijklmnopqrstuvwxyz0123456789", t = "", n = crypto.getRandomValues(new Uint8Array(48)), r = 0; r < 48; r++) t += e[n[r] % e.length];

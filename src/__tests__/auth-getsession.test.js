@@ -5,8 +5,13 @@
 import { describe, it, expect } from 'vitest'
 import { getSession } from '../auth'
 
+// Minimal Request stand-in (getSession touches only .url and .headers.get) —
+// the eslint env for plain .js tests has no Request global.
 function req(url, cookie) {
-  return new Request(url, { headers: cookie ? { Cookie: cookie } : {} })
+  return {
+    url: url,
+    headers: { get: function (name) { return name === 'Cookie' ? (cookie || null) : null } },
+  }
 }
 
 describe('getSession per-door cookie read', () => {

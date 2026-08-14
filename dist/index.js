@@ -113592,7 +113592,7 @@ var HNe = function(t) {
 	i(function() {
 		IMe();
 	}, []);
-	var V = p || "required", ee = n || "", te = (typeof window < "u" ? new URLSearchParams(window.location.search) : new URLSearchParams()).get("redirect") || "/", ne = te.indexOf("http") === 0 ? te : (typeof window < "u" ? window.location.origin : "") + te, H = a || e || "Sprint Mode", U = s || "var(--accent-10)", W = f && A === "signup" && !m, re = V !== "hidden", G = !!m;
+	var V = p || "required", ee = n || "https://api.sprintmode.ai", te = (typeof window < "u" ? new URLSearchParams(window.location.search) : new URLSearchParams()).get("redirect") || "/", ne = te.indexOf("http") === 0 ? te : (typeof window < "u" ? window.location.origin : "") + te, H = a || e || "Sprint Mode", U = s || "var(--accent-10)", W = f && A === "signup" && !m, re = V !== "hidden", G = !!m;
 	function K(e) {
 		if (e.preventDefault(), !v || !v.includes("@")) {
 			T("Please enter a valid email address.");

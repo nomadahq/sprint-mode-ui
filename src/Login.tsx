@@ -55,7 +55,11 @@ const Login: React.FC<LoginProps> = function Login({ productName, _logoSrc: _ls,
   useEffect(function() { applyResolvedThemeAttr() }, [])
 
   var cfMode = companyField || 'required'
-  var base = authBase || ''
+  // P0 hotfix (LOGIN-HOTFIX): mounts that omit authBase used to POST
+  // /auth/magic relative to the portal's own origin, which 405s on every
+  // CF Pages surface — locking out all fresh logins fleet-wide. Default to
+  // the production API host; explicit authBase (PAI's proxied path) wins.
+  var base = authBase || 'https://api.sprintmode.ai'
   var params = typeof window !== 'undefined' ? new URLSearchParams(window.location.search) : new URLSearchParams()
   var rawRedirect = params.get('redirect') || '/'
   var redirect = rawRedirect.indexOf('http') === 0 ? rawRedirect : (typeof window !== 'undefined' ? window.location.origin : '') + rawRedirect

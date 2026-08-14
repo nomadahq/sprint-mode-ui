@@ -4,6 +4,7 @@ import { getSession, SessionData, ACCESS_DENIED } from './api.js'
 import { IconSearch, IconMoon, IconSun, IconDeviceDesktop } from './Icons.jsx'
 import { NotificationBellNav } from './NotificationBellNav.tsx'
 import { AccountSwitcher } from './AccountSwitcher.tsx'
+import { ActingRoleChip } from './ActingRoleChip.tsx'
 import { NoAccessScreen } from './NoAccessScreen.tsx'
 import { BugPanel, BugPanelHeaderButton } from './BugPanel.jsx'
 import { usePortalConfig } from './usePortalConfig.jsx'
@@ -555,6 +556,7 @@ function HeaderUserMenu(props: {
   logoutHref: string
   userMenuExtra?: React.ReactNode
   portalSubdomain?: string
+  authBase?: string
 }) {
   var session = props.session; var profilePath = props.profilePath; var logoutHref = props.logoutHref
   var userMenuExtra = props.userMenuExtra
@@ -569,7 +571,12 @@ function HeaderUserMenu(props: {
 
   var initials = session ? (session.name || session.email || '?').split(' ').map(function(w) { return w[0] || '' }).join('').slice(0, 2).toUpperCase() : '?'
   var displayName = session ? (session.name ? session.name.split(' ')[0] : (session.email ? session.email.split('@')[0] : '')) : ''
-  var roleLabel = session && (session as any).role ? (session as any).role.replace(/_/g, ' ') : (session && session.portal_role ? session.portal_role.replace(/_/g, ' ') : '')
+  // UX-1941C: menus render the role DISPLAY NAME (/auth/me role_display_name),
+  // humanizing the key only as a fallback -- never a raw snake_case key.
+  var _rawRole = session ? (((session as any).role as string) || session.portal_role || '') : ''
+  var roleLabel = session && (session as any).role_display_name
+    ? ((session as any).role_display_name as string)
+    : (_rawRole ? _rawRole.split(/[_\s]+/).filter(Boolean).map(function(w: string, i: number) { return i === 0 ? w.charAt(0).toUpperCase() + w.slice(1) : w }).join(' ') : '')
   var photo = session && (session as any).photo as string | undefined
 
   var avatarEl = photo
@@ -583,11 +590,17 @@ function HeaderUserMenu(props: {
       style: { display: 'flex', alignItems: 'center', gap: 8, padding: '4px 8px 4px 4px', borderRadius: 8, border: '1px solid var(--border)', background: 'var(--bg-card)', cursor: 'pointer', transition: 'border-color .2s', flexShrink: 0 }
     },
       avatarEl,
-      React.createElement('span', { style: { fontSize: 13, color: 'var(--foreground)', fontWeight: 500, maxWidth: 100, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' } }, displayName)
+      // UX-1941C (collapsed line): photo + name + active role display name ONLY
+      // -- no portal suffix, no key-count. Title lives in the EXPANDED header.
+      React.createElement('span', { style: { display: 'flex', flexDirection: 'column', alignItems: 'flex-start', lineHeight: 1.15, maxWidth: 140, overflow: 'hidden' } },
+        React.createElement('span', { style: { fontSize: 13, color: 'var(--foreground)', fontWeight: 500, maxWidth: 140, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' } }, displayName),
+        roleLabel ? React.createElement('span', { style: { fontSize: 10, color: 'var(--muted)', maxWidth: 140, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' } }, roleLabel) : null
+      )
     ),
     open ? React.createElement('div', { style: { position: 'absolute', right: 0, top: 42, width: 220, background: 'var(--bg-card)', border: '1px solid var(--border)', borderRadius: 10, boxShadow: '0 8px 24px rgba(0,0,0,0.12)', padding: 6, zIndex: 100 } },
       React.createElement('div', { style: { padding: '8px 10px', fontSize: 12, color: 'var(--muted)', borderBottom: '1px solid var(--border)', marginBottom: 4 } },
         React.createElement('div', { style: { fontWeight: 600, color: 'var(--foreground)', fontSize: 13 } }, session && session.name),
+        session && (session as any).title ? React.createElement('div', { style: { fontSize: 11, color: 'var(--muted)' } }, (session as any).title as string) : null,
         session && session.email ? React.createElement('div', null, session.email) : null,
         roleLabel ? React.createElement('div', { style: { marginTop: 2 } }, roleLabel) : (session && (session as any).company_name ? React.createElement('div', { style: { marginTop: 2 } }, (session as any).company_name) : null),
         profilePath ? React.createElement('a', { href: profilePath, style: { display: 'block', marginTop: 6, padding: '5px 0', fontSize: 13, color: 'var(--accent)', textDecoration: 'none', fontWeight: 500 } }, 'View Profile') : null
@@ -600,7 +613,7 @@ function HeaderUserMenu(props: {
         'Notification Settings'
       ),
       userMenuExtra || null,
-      React.createElement(AccountSwitcher, { product: props.portalSubdomain || undefined }),
+      React.createElement(AccountSwitcher, { product: props.portalSubdomain || undefined, session: session, authBase: props.authBase }),
       React.createElement('a', { href: logoutHref, style: { display: 'block', padding: '8px 10px', borderRadius: 6, fontSize: 13, color: 'var(--foreground)', textDecoration: 'none' } }, 'Sign out')
     ) : null
   )
@@ -1796,6 +1809,9 @@ const Layout: React.FC<LayoutProps> = function Layout(props: LayoutProps) {
   ) : null
 
   var standardHeaderRight = hasHeader && session ? React.createElement(React.Fragment, null,
+    // UX-1941A: acting-role chip -- renders only during a self role-swap;
+    // ADDITIVE to the control row (View as, Search, theme, inbox, waffle, avatar).
+    React.createElement(ActingRoleChip, { session: session, apiBase: vaAuthBase, portalSubdomain: portalSubdomain }),
     cmdKEnabled ? React.createElement('button', {
       onClick: function() { setCmdkOpen(true) },
       style: { display: 'flex', alignItems: 'center', gap: 8, padding: '6px 14px', border: '1px solid var(--border)', borderRadius: 8, background: 'var(--bg)', color: 'var(--muted)', fontSize: 13, cursor: 'pointer', transition: 'border-color .2s' }
@@ -1822,7 +1838,7 @@ const Layout: React.FC<LayoutProps> = function Layout(props: LayoutProps) {
     ),
     notificationBellEnabled ? React.createElement(NotificationBellNav, { apiBase: notificationApiBase, href: notificationHref, onNavigate: function(href: string) { navigate(href) } }) : null,
     bugPanelEnabled ? React.createElement(BugPanelHeaderButton, { onClick: function() { setBugPanelOpen(function(v) { return !v }) } }) : null,
-    React.createElement(HeaderUserMenu, { session: session, profilePath: profilePath, logoutHref: logoutHref, userMenuExtra: userMenuExtra, portalSubdomain: portalSubdomain })
+    React.createElement(HeaderUserMenu, { session: session, profilePath: profilePath, logoutHref: logoutHref, userMenuExtra: userMenuExtra, portalSubdomain: portalSubdomain, authBase: vaAuthBase })
   ) : null
 
   return (

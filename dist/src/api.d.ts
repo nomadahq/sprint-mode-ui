@@ -11,6 +11,25 @@ export interface SessionData {
     products?: string[];
     permissions?: string | Record<string, unknown>;
     is_sm_team?: boolean;
+    my_roles?: {
+        role: string;
+        display_name: string;
+        role_type?: string | null;
+        is_default: boolean;
+        is_active: boolean;
+    }[];
+    acting_role?: {
+        portal: string;
+        role: string;
+    };
+    role_display_name?: string;
+    title?: string | null;
+    user_id?: string;
+    emails?: {
+        email: string;
+        is_primary: boolean;
+        email_type?: string;
+    }[];
     viewing_as?: {
         contact_id?: string;
         email?: string;

@@ -36,11 +36,6 @@ function fmtDate(d: string | null | undefined): string | null {
   return new Date(d).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })
 }
 
-function fmtMoney(n: number | null | undefined): string {
-  if (n == null) return '--'
-  return '$' + Number(n).toLocaleString()
-}
-
 // Color + fallback-label source, keyed by role. The authoritative display
 // label now comes from the server (profile.role_label, resolved from
 // role_configs). This map only supplies colors and a fallback label for
@@ -299,6 +294,13 @@ function SelfProfileCard({ apiBase, backHref }: { apiBase?: string; backHref?: s
       .catch(function() {})
   }, [base])
 
+  function refreshProfile() {
+    fetch(base + '/api/profile', { credentials: 'include' })
+      .then(function(r) { return r.ok ? r.json() : null })
+      .then(function(d: { ok: boolean; profile?: ProfileData } | null) { if (d && d.ok && d.profile) setProfile(d.profile) })
+      .catch(function() {})
+  }
+
   async function patchProfile(fields: Partial<ProfileData>) {
     try {
       var r = await fetch(base + '/api/profile', {
@@ -378,6 +380,8 @@ function SelfProfileCard({ apiBase, backHref }: { apiBase?: string; backHref?: s
         </div>
       </div>
 
+      <RolesCard base={base} />
+
       <div style={CARD_STYLE}>
         <div style={SECTION_TITLE}>Personal info</div>
         <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 18 }}>
@@ -394,76 +398,10 @@ function SelfProfileCard({ apiBase, backHref }: { apiBase?: string; backHref?: s
         </div>
       </div>
 
-      {p.emails && p.emails.length > 1 && (
-        <div style={CARD_STYLE}>
-          <div style={SECTION_TITLE}>Email addresses</div>
-          <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
-            {p.emails.map(function(em, i) {
-              return (
-                <div key={i} style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-                  <span style={{ fontSize: 13, color: 'var(--foreground, #111)' }}>{em.email}</span>
-                  {em.is_primary === 1 && (
-                    <span style={{ fontSize: 10, fontWeight: 700, padding: '1px 7px', borderRadius: 99, background: 'hsla(215,80%,55%,.1)', color: 'var(--accent, #2362ea)' }}>Primary</span>
-                  )}
-                  <span style={{ fontSize: 11, color: 'var(--muted, #9ca3af)' }}>{em.email_type || ''}</span>
-                </div>
-              )
-            })}
-          </div>
-        </div>
-      )}
+      <SignInEmailsCard base={base} emails={p.emails || []} fallbackEmail={p.email} onChanged={function() { refreshProfile() }} />
 
-      {(p.slack_profile_url || (p.gws_groups && p.gws_groups.length > 0)) && (
-        <div style={CARD_STYLE}>
-          <div style={SECTION_TITLE}>Integrations</div>
-          {p.slack_profile_url && (
-            <div style={{ marginBottom: 12 }}>
-              <span style={LABEL}>Slack</span>
-              <a href={p.slack_profile_url} target="_blank" rel="noopener noreferrer"
-                style={{ fontSize: 13, color: 'var(--accent, #2362ea)', textDecoration: 'none' }}>
-                View Slack profile {'\u2197'}
-              </a>
-            </div>
-          )}
-          {p.gws_groups && p.gws_groups.length > 0 && (
-            <div>
-              <span style={LABEL}>Google Workspace groups</span>
-              <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6, marginTop: 4 }}>
-                {p.gws_groups.map(function(g, i) {
-                  var label = typeof g === 'string' ? g : (g.email || g.name || '')
-                  return (
-                    <span key={i} style={{ fontSize: 11, padding: '2px 9px', borderRadius: 99, background: 'var(--bg-subtle, #f3f4f6)', color: 'var(--foreground, #111)', border: '1px solid var(--border, #e5e7eb)' }}>
-                      {label}
-                    </span>
-                  )
-                })}
-              </div>
-            </div>
-          )}
-        </div>
-      )}
-
-      {p.payroll && p.payroll.length > 0 && (
-        <div style={CARD_STYLE}>
-          <div style={SECTION_TITLE}>Pay history</div>
-          <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
-            {p.payroll.map(function(row, i) {
-              return (
-                <div key={i} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '6px 0', borderBottom: i < (p.payroll?.length || 0) - 1 ? '1px solid var(--border, #e5e7eb)' : 'none' }}>
-                  <div>
-                    <div style={{ fontSize: 13, fontWeight: 500 }}>{row.job_title || row.label || '--'}</div>
-                    <div style={{ fontSize: 11, color: 'var(--muted, #6b7280)' }}>{fmtDate(row.date)}</div>
-                  </div>
-                  <div style={{ textAlign: 'right' }}>
-                    <div style={{ fontSize: 13, fontWeight: 600, fontFamily: 'monospace' }}>{fmtMoney(row.amount)} {row.currency || 'USD'}</div>
-                    <div style={{ fontSize: 11, color: row.status === 'paid' ? 'var(--green, #16a34a)' : 'var(--muted, #9ca3af)', fontWeight: 600, textTransform: 'uppercase' }}>{row.status}</div>
-                  </div>
-                </div>
-              )
-            })}
-          </div>
-        </div>
-      )}
+      {/* UX-1943: Pay history and Integrations/GWS deleted -- pay data lives
+          in Gusto; workspace-group plumbing was noise on an identity page. */}
 
       <div style={CARD_STYLE}>
         <div style={SECTION_TITLE}>Notifications</div>
@@ -488,10 +426,12 @@ function SelfProfileCard({ apiBase, backHref }: { apiBase?: string; backHref?: s
 
       <div style={CARD_STYLE}>
         <div style={SECTION_TITLE}>Security</div>
-        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+        {/* UX-1943: SSO copy removed -- SSO for the SM team is killed
+            (IDENTITY-DOCTRINE / R-D); magic link is the sign-in method. */}
+        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', paddingBottom: 12, borderBottom: '1px solid var(--border, #e5e7eb)' }}>
           <div>
             <div style={{ fontSize: 13, fontWeight: 500 }}>Sign-in method</div>
-            <div style={{ fontSize: 12, color: 'var(--muted, #6b7280)' }}>Magic link, Google SSO, or Microsoft SSO to {p.email}</div>
+            <div style={{ fontSize: 12, color: 'var(--muted, #6b7280)' }}>Magic link to {p.email}</div>
           </div>
           {p.portal_last_login && (
             <span style={{ fontSize: 12, color: 'var(--muted, #9ca3af)' }}>
@@ -499,6 +439,7 @@ function SelfProfileCard({ apiBase, backHref }: { apiBase?: string; backHref?: s
             </span>
           )}
         </div>
+        <PasskeysBlock base={base} />
       </div>
 
       {p.id && p.contact_type === 'team' && (
@@ -519,6 +460,281 @@ function SelfProfileCard({ apiBase, backHref }: { apiBase?: string; backHref?: s
         onMouseLeave={function(e) { (e.target as HTMLAnchorElement).style.color = 'var(--muted, #9ca3af)' }}>
         Sign out
       </a>
+    </div>
+  )
+}
+
+
+// ─── UX-1943: Sign-in emails (managed) ──────────────────────────────────────
+// The person's user_emails rows -- every address opens THIS account. Link
+// (verified magic link to the NEW address), Set primary, Remove (never the
+// primary, never the last). Distinct from linked accounts (separate sign-ins).
+
+function SignInEmailsCard({ base, emails, fallbackEmail, onChanged }: {
+  base: string
+  emails: { email: string; is_primary?: number; email_type?: string }[]
+  fallbackEmail?: string
+  onChanged: () => void
+}) {
+  var [busy, setBusy] = useState<string | null>(null)
+  var [msg, setMsg] = useState<{ kind: 'ok' | 'err'; text: string } | null>(null)
+  var [linkOpen, setLinkOpen] = useState(false)
+  var [linkVal, setLinkVal] = useState('')
+
+  var rows = emails.length > 0 ? emails : (fallbackEmail ? [{ email: fallbackEmail, is_primary: 1 }] : [])
+
+  function post(path: string, body: Record<string, unknown>, okMsg: string, busyKey: string) {
+    if (busy) return
+    setBusy(busyKey)
+    setMsg(null)
+    fetch(base + path, {
+      method: 'POST', credentials: 'include',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(body),
+    })
+      .then(function(r) { return r.json() })
+      .then(function(d: { ok: boolean; error?: string }) {
+        setBusy(null)
+        if (d && d.ok) { setMsg({ kind: 'ok', text: okMsg }); onChanged() }
+        else setMsg({ kind: 'err', text: (d && d.error) || 'That did not work.' })
+      })
+      .catch(function() { setBusy(null); setMsg({ kind: 'err', text: 'Network error \u2014 try again.' }) })
+  }
+
+  function sendLink() {
+    var email = linkVal.trim().toLowerCase()
+    if (!email || email.indexOf('@') === -1) return
+    post('/api/identity/link-email-request',
+      { email: email, redirect: typeof window !== 'undefined' ? window.location.href : undefined },
+      'Check ' + email + ' for a confirmation link.', 'link')
+    setLinkVal('')
+    setLinkOpen(false)
+  }
+
+  return (
+    <div style={CARD_STYLE}>
+      <div style={SECTION_TITLE}>Sign-in emails</div>
+      <div style={{ fontSize: 12, color: 'var(--muted, #6b7280)', marginTop: -10, marginBottom: 12 }}>
+        Every address here opens this account.
+      </div>
+      <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+        {rows.map(function(em, i) {
+          var isPrimary = em.is_primary === 1
+          return (
+            <div key={i} style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+              <span style={{ fontSize: 13, color: 'var(--foreground, #111)', flex: 1, minWidth: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{em.email}</span>
+              {isPrimary
+                ? <span style={{ fontSize: 10, fontWeight: 700, padding: '1px 7px', borderRadius: 99, background: 'hsla(215,80%,55%,.1)', color: 'var(--accent, #2362ea)', flexShrink: 0 }}>Primary</span>
+                : (
+                  <span style={{ display: 'flex', gap: 6, flexShrink: 0 }}>
+                    <button onClick={function() { post('/api/identity/set-primary-email', { email: em.email }, em.email + ' is now your primary address.', 'primary:' + em.email) }}
+                      disabled={busy !== null}
+                      style={{ fontSize: 11, fontWeight: 600, color: 'var(--accent, #2362ea)', background: 'transparent', border: '1px solid var(--border, #e5e7eb)', borderRadius: 6, padding: '3px 9px', cursor: 'pointer' }}>
+                      {busy === 'primary:' + em.email ? '...' : 'Set primary'}
+                    </button>
+                    <button onClick={function() { post('/api/identity/remove-email', { email: em.email }, em.email + ' removed.', 'remove:' + em.email) }}
+                      disabled={busy !== null}
+                      style={{ fontSize: 11, fontWeight: 600, color: 'var(--muted, #6b7280)', background: 'transparent', border: '1px solid var(--border, #e5e7eb)', borderRadius: 6, padding: '3px 9px', cursor: 'pointer' }}>
+                      {busy === 'remove:' + em.email ? '...' : 'Remove'}
+                    </button>
+                  </span>
+                )}
+            </div>
+          )
+        })}
+      </div>
+      {msg && (
+        <div style={{ marginTop: 10, fontSize: 12, color: msg.kind === 'err' ? '#dc2626' : 'var(--green, #16a34a)', lineHeight: 1.4 }}>{msg.text}</div>
+      )}
+      {linkOpen ? (
+        <div style={{ display: 'flex', gap: 6, marginTop: 12 }}>
+          <input autoFocus type="email" value={linkVal} placeholder="name@example.com"
+            onChange={function(e) { setLinkVal(e.target.value) }}
+            onKeyDown={function(e) { if (e.key === 'Enter') sendLink(); if (e.key === 'Escape') setLinkOpen(false) }}
+            style={{ flex: 1, minWidth: 0, fontSize: 13, padding: '5px 9px', border: '1px solid var(--border, #e5e7eb)', borderRadius: 6, outline: 'none' }} />
+          <button onClick={sendLink} disabled={!linkVal.trim()}
+            style={{ fontSize: 12, fontWeight: 600, padding: '5px 12px', borderRadius: 6, background: 'var(--accent, #2362ea)', color: '#fff', border: 'none', cursor: 'pointer', opacity: linkVal.trim() ? 1 : 0.5 }}>
+            Send link
+          </button>
+        </div>
+      ) : (
+        <button onClick={function() { setLinkOpen(true); setMsg(null) }}
+          style={{ marginTop: 12, fontSize: 12, fontWeight: 600, color: 'var(--accent, #2362ea)', background: 'transparent', border: 'none', cursor: 'pointer', padding: 0 }}>
+          + Link an email
+        </button>
+      )}
+    </div>
+  )
+}
+
+// ─── UX-1943: Passkeys (feature-detected) ───────────────────────────────────
+// The passkey backend is L2's lane. This block feature-detects
+// GET /api/identity/passkeys: renders register/remove when the API answers,
+// a muted "Not yet enabled" otherwise -- the section ships dark and lights
+// up the day L2 lands, no sm-ui release needed.
+
+function PasskeysBlock({ base }: { base: string }) {
+  var [state, setState] = useState<'checking' | 'unavailable' | 'ready'>('checking')
+  var [keys, setKeys] = useState<{ id: string; name?: string; created_at?: string }[]>([])
+  var [busy, setBusy] = useState(false)
+  var [err, setErr] = useState<string | null>(null)
+
+  useEffect(function() {
+    fetch(base + '/api/identity/passkeys', { credentials: 'include' })
+      .then(function(r) {
+        if (!r.ok) { setState('unavailable'); return null }
+        return r.json()
+      })
+      .then(function(d: { ok: boolean; data?: { passkeys?: { id: string; name?: string; created_at?: string }[] } } | null) {
+        if (!d) return
+        if (d.ok) { setState('ready'); setKeys((d.data && d.data.passkeys) || []) }
+        else setState('unavailable')
+      })
+      .catch(function() { setState('unavailable') })
+  }, [base])
+
+  function registerPasskey() {
+    if (busy) return
+    setBusy(true)
+    setErr(null)
+    // Standard WebAuthn dance: options from the API, navigator.credentials,
+    // attestation back. Shapes are L2's contract; errors degrade to a message.
+    fetch(base + '/api/identity/passkeys/register-options', { method: 'POST', credentials: 'include' })
+      .then(function(r) { return r.json() })
+      .then(function(d: { ok: boolean; data?: { publicKey?: Record<string, unknown> } }) {
+        if (!d.ok || !d.data || !d.data.publicKey) throw new Error('unavailable')
+        var pk = d.data.publicKey as unknown as PublicKeyCredentialCreationOptions & { challenge: unknown; user: { id: unknown } }
+        var b64ToBuf = function(v: unknown) {
+          var str = String(v).replace(/-/g, '+').replace(/_/g, '/')
+          var bin = atob(str)
+          var buf = new Uint8Array(bin.length)
+          for (var i = 0; i < bin.length; i++) buf[i] = bin.charCodeAt(i)
+          return buf.buffer
+        }
+        pk.challenge = b64ToBuf(pk.challenge) as BufferSource
+        if (pk.user && pk.user.id) pk.user.id = b64ToBuf(pk.user.id) as BufferSource
+        return navigator.credentials.create({ publicKey: pk as PublicKeyCredentialCreationOptions })
+      })
+      .then(function(cred) {
+        if (!cred) throw new Error('cancelled')
+        var c = cred as PublicKeyCredential
+        var bufToB64 = function(b: ArrayBuffer) {
+          var bytes = new Uint8Array(b)
+          var bin = ''
+          for (var i = 0; i < bytes.length; i++) bin += String.fromCharCode(bytes[i])
+          return btoa(bin).replace(/\+/g, '-').replace(/\//g, '_').replace(/=/g, '')
+        }
+        var resp = c.response as AuthenticatorAttestationResponse
+        return fetch(base + '/api/identity/passkeys/register', {
+          method: 'POST', credentials: 'include',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            id: c.id,
+            raw_id: bufToB64(c.rawId),
+            type: c.type,
+            attestation_object: bufToB64(resp.attestationObject),
+            client_data_json: bufToB64(resp.clientDataJSON),
+          }),
+        })
+      })
+      .then(function(r) { return r.json() })
+      .then(function(d: { ok: boolean; data?: { passkeys?: { id: string; name?: string; created_at?: string }[] } }) {
+        setBusy(false)
+        if (d.ok) setKeys((d.data && d.data.passkeys) || keys)
+        else setErr('Could not register the passkey.')
+      })
+      .catch(function(e: unknown) {
+        setBusy(false)
+        var m = String(e)
+        if (m.indexOf('cancelled') === -1 && m.indexOf('NotAllowed') === -1) setErr('Could not register the passkey.')
+      })
+  }
+
+  function removePasskey(id: string) {
+    if (busy) return
+    setBusy(true)
+    fetch(base + '/api/identity/passkeys/' + encodeURIComponent(id), { method: 'DELETE', credentials: 'include' })
+      .then(function(r) { return r.json() })
+      .then(function(d: { ok: boolean }) {
+        setBusy(false)
+        if (d.ok) setKeys(keys.filter(function(k) { return k.id !== id }))
+      })
+      .catch(function() { setBusy(false) })
+  }
+
+  return (
+    <div style={{ paddingTop: 12 }}>
+      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+        <div>
+          <div style={{ fontSize: 13, fontWeight: 500 }}>Passkeys</div>
+          <div style={{ fontSize: 12, color: 'var(--muted, #6b7280)' }}>
+            {state === 'ready' ? 'Sign in with your device instead of a link.' : 'Not yet enabled'}
+          </div>
+        </div>
+        {state === 'ready' && (
+          <button onClick={registerPasskey} disabled={busy}
+            style={{ fontSize: 12, fontWeight: 600, padding: '4px 12px', borderRadius: 6, border: '1px solid var(--border, #e5e7eb)', background: 'transparent', color: 'var(--accent, #2362ea)', cursor: 'pointer' }}>
+            {busy ? '...' : 'Register passkey'}
+          </button>
+        )}
+      </div>
+      {state === 'ready' && keys.length > 0 && (
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 6, marginTop: 10 }}>
+          {keys.map(function(k) {
+            return (
+              <div key={k.id} style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+                <span style={{ fontSize: 12, color: 'var(--foreground, #111)', flex: 1 }}>{k.name || 'Passkey'}</span>
+                {k.created_at && <span style={{ fontSize: 11, color: 'var(--muted, #9ca3af)' }}>{fmtDate(k.created_at)}</span>}
+                <button onClick={function() { removePasskey(k.id) }} disabled={busy}
+                  style={{ fontSize: 11, color: 'var(--muted, #6b7280)', background: 'transparent', border: '1px solid var(--border, #e5e7eb)', borderRadius: 6, padding: '2px 8px', cursor: 'pointer' }}>
+                  Remove
+                </button>
+              </div>
+            )
+          })}
+        </div>
+      )}
+      {err && <div style={{ marginTop: 8, fontSize: 12, color: '#dc2626' }}>{err}</div>}
+    </div>
+  )
+}
+
+// ─── UX-1943: Roles (read-only) ─────────────────────────────────────────────
+// The person's own roles on this portal from /auth/me my_roles -- display
+// names with the default marker. Read-only: grants live in Portal Manager
+// (FEAT-1798 rule 1); swapping lives in the user menu.
+
+function RolesCard({ base }: { base: string }) {
+  var [roles, setRoles] = useState<{ role: string; display_name: string; role_type?: string | null; is_default: boolean; is_active: boolean }[]>([])
+
+  useEffect(function() {
+    fetch(base + '/auth/me', { credentials: 'include' })
+      .then(function(r) { return r.ok ? r.json() : null })
+      .then(function(d: { ok: boolean; my_roles?: { role: string; display_name: string; role_type?: string | null; is_default: boolean; is_active: boolean }[] } | null) {
+        if (d && d.ok && d.my_roles) setRoles(d.my_roles)
+      })
+      .catch(function() {})
+  }, [base])
+
+  if (roles.length === 0) return null
+
+  return (
+    <div style={CARD_STYLE}>
+      <div style={SECTION_TITLE}>Roles</div>
+      <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+        {roles.map(function(r) {
+          return (
+            <div key={r.role} style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+              <span style={{ fontSize: 13, color: 'var(--foreground, #111)', fontWeight: r.is_active ? 600 : 400 }}>{r.display_name}</span>
+              {r.is_default && <span style={{ fontSize: 10, fontWeight: 700, padding: '1px 7px', borderRadius: 99, background: 'var(--bg-subtle, #f3f4f6)', color: 'var(--muted, #6b7280)', border: '1px solid var(--border, #e5e7eb)' }}>Default</span>}
+              {r.is_active && <span style={{ fontSize: 10, fontWeight: 700, padding: '1px 7px', borderRadius: 99, background: 'hsla(215,80%,55%,.1)', color: 'var(--accent, #2362ea)' }}>Active</span>}
+            </div>
+          )
+        })}
+      </div>
+      <div style={{ marginTop: 10, fontSize: 11, color: 'var(--muted, #9ca3af)' }}>
+        Roles are granted in Portal Manager. Swap your active role from the user menu.
+      </div>
     </div>
   )
 }

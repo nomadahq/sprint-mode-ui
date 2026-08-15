@@ -1407,7 +1407,11 @@ const Layout: React.FC<LayoutProps> = function Layout(props: LayoutProps) {
   // selecting or exiting a lens reloads the page so every consumer re-reads
   // the lensed session.
   var serverLens = (session && (session as any).viewing_as) || null
-  var viewAsTeam: ViewAsUser | null = serverLens && (serverLens.lens === 'team' || serverLens.lens === 'both') ? {
+  // VAU-HARDEN-1: 'user' is the VAU lens value (VAC rename); 'customer' is
+  // the pre-rename synonym still live on 30-day cookies. Normalize once so
+  // every dimension check below reads one value.
+  var serverLensDim: string | null = serverLens ? (serverLens.lens === 'user' ? 'customer' : serverLens.lens) : null
+  var viewAsTeam: ViewAsUser | null = serverLens && (serverLensDim === 'team' || serverLensDim === 'both') ? {
     email: serverLens.email || '',
     name: serverLens.name || '',
     company_id: serverLens.company_id || undefined,
@@ -1417,9 +1421,9 @@ const Layout: React.FC<LayoutProps> = function Layout(props: LayoutProps) {
     role_type: 'team',
     id: serverLens.user_id || undefined,
   } : null
-  var viewAsCustomer: ViewAsUser | null = serverLens && (serverLens.lens === 'customer' || serverLens.lens === 'both') ? {
+  var viewAsCustomer: ViewAsUser | null = serverLens && (serverLensDim === 'customer' || serverLensDim === 'both') ? {
     email: serverLens.email || '',
-    name: (serverLens.lens === 'both' ? serverLens.customer_name : serverLens.name) || '',
+    name: (serverLensDim === 'both' ? serverLens.customer_name : serverLens.name) || '',
     company_id: serverLens.company_id || undefined,
     company_name: serverLens.company_name || '',
     portal_role: serverLens.effective_role || 'member',
@@ -1736,7 +1740,11 @@ const Layout: React.FC<LayoutProps> = function Layout(props: LayoutProps) {
 
   // Determine view_as filter mode from session portal config ('team'|'customers'|'both'|string|false)
   var viewAsMode = canViewAsFromSession && typeof canViewAsFromSession === 'string' ? canViewAsFromSession : null
-  var showTeamTab = showViewAs && (viewAsMode === 'team' || viewAsMode === 'both') && teamDropUsers.length > 0
+  // VAU-HARDEN-1 (Aaron ruling): when the portal CONFIGURES both modes, both
+  // tabs render — an empty picker list shows 'No matches' inside its tab
+  // instead of silently dropping the tab. The list-length gate survives only
+  // for legacy portals with no configured mode.
+  var showTeamTab = showViewAs && (viewAsMode === 'team' || viewAsMode === 'both')
   var showCustomerTab = showViewAs && (viewAsMode === 'customers' || viewAsMode === 'both' || (!viewAsMode && customerDropUsers.length > 0))
 
   // Group customer entries by company for the picker (approved mock: company
@@ -1764,7 +1772,7 @@ const Layout: React.FC<LayoutProps> = function Layout(props: LayoutProps) {
   // Compound stacking (PORTAL-RBAC-VIEWAS-3): under a single-dimension lens
   // on a both-mode portal, the picker stays available offering ONLY the
   // missing dimension -- the server merges the second POST onto the lens.
-  var vaLensDim = serverLens ? serverLens.lens : null
+  var vaLensDim = serverLensDim
   var vaCanAddDim = !!(serverLens && vaLensDim !== 'both' && viewAsMode === 'both')
   var vaActiveTab: 'customer' | 'team' = vaCanAddDim
     ? (vaLensDim === 'team' ? 'customer' : 'team')
@@ -1801,7 +1809,10 @@ const Layout: React.FC<LayoutProps> = function Layout(props: LayoutProps) {
     }, 'View as ', vaEyeIcon),
     vaPickerOpen ? React.createElement('div', { className: 'shell-va-pop' },
       (showCustomerTab && showTeamTab && !vaCanAddDim) ? React.createElement('div', { className: 'shell-va-tabs' },
-        React.createElement('button', { className: 'shell-va-tab' + (vaActiveTab === 'customer' ? ' active' : ''), onClick: function() { setVaTab('customer') } }, 'Customer'),
+        // VAU-HARDEN-1 taxonomy: 'Users' everywhere admin-side (VAC -> VAU).
+        // Users-first with Users as default (Aaron ruling 2026-08-15) — only
+        // the label changed from 'Customer'; behavior and order are intact.
+        React.createElement('button', { className: 'shell-va-tab' + (vaActiveTab === 'customer' ? ' active' : ''), onClick: function() { setVaTab('customer') } }, 'Users'),
         React.createElement('button', { className: 'shell-va-tab' + (vaActiveTab === 'team' ? ' active' : ''), onClick: function() { setVaTab('team') } }, 'Team')
       ) : null,
       React.createElement('input', {
@@ -1836,9 +1847,9 @@ const Layout: React.FC<LayoutProps> = function Layout(props: LayoutProps) {
     React.createElement('span', { className: 'shell-va-lens-label' },
       vaEyeIcon, ' ',
       serverLens.name || serverLens.email || '',
-      serverLens.lens === 'both'
+      serverLensDim === 'both'
         ? ' \u00B7 viewing ' + (serverLens.customer_name || '') + (serverLens.company_name ? ' \u00B7 ' + serverLens.company_name : '')
-        : (serverLens.lens === 'customer' && serverLens.company_name ? ' \u00B7 ' + serverLens.company_name : '')),
+        : (serverLensDim === 'customer' && serverLens.company_name ? ' \u00B7 ' + serverLens.company_name : '')),
     React.createElement('button', { className: 'shell-va-lens-exit', onClick: exitServerLens, disabled: vaBusy }, 'Exit')
   ) : null
 

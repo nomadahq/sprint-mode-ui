@@ -112178,7 +112178,7 @@ function RNe(t) {
 	} }, m), !p && n && n.title ? e.createElement("div", { style: {
 		fontSize: 11,
 		color: "var(--muted)"
-	} }, n.title) : null, h ? e.createElement("div", null, h) : null, y ? e.createElement("div", { style: { marginTop: 2 } }, y) : n && n.company_name ? e.createElement("div", { style: { marginTop: 2 } }, n.company_name) : null, !p && r ? e.createElement("a", {
+	} }, n.title) : null, h ? e.createElement("div", null, h) : null, !p && r ? e.createElement("a", {
 		href: r,
 		style: {
 			display: "block",
@@ -114800,32 +114800,33 @@ function ZNe({ role: e, label: t }) {
 		children: r
 	});
 }
-function QNe({ photoUrl: e, initials: t, size: n, editable: r, onSave: i, apiBase: a }) {
-	var o = n || 56, [l, f] = c(null), [p, m] = c(""), h = s(null);
-	async function g() {
-		!p.trim() || !i || (f("saving"), await i(p.trim()), f(null), m(""));
+function QNe({ photoUrl: e, initials: t, size: n, editable: r, onSave: i, apiBase: a, productHeaders: o }) {
+	var l = n || 56, [f, p] = c(null), [m, h] = c(""), g = s(null);
+	async function _() {
+		!m.trim() || !i || (p("saving"), await i(m.trim()), p(null), h(""));
 	}
-	async function _(e) {
+	async function v(e) {
 		var t = e.target.files && e.target.files[0];
 		if (!(!t || !a)) {
-			f("saving");
+			p("saving");
 			try {
 				var n = new FormData();
 				n.append("photo", t);
 				var r = await (await fetch(a + "/api/profile/photo", {
 					method: "POST",
 					credentials: "include",
+					headers: o || {},
 					body: n
 				})).json();
 				r.ok && r.data && r.data.photo_url && i && await i(r.data.photo_url);
 			} catch {}
-			f(null);
+			p(null);
 		}
 	}
-	var v = /* @__PURE__ */ u("div", {
+	var y = /* @__PURE__ */ u("div", {
 		style: {
-			width: o,
-			height: o,
+			width: l,
+			height: l,
 			borderRadius: "50%",
 			flexShrink: 0,
 			overflow: "hidden",
@@ -114834,15 +114835,15 @@ function QNe({ photoUrl: e, initials: t, size: n, editable: r, onSave: i, apiBas
 			display: "flex",
 			alignItems: "center",
 			justifyContent: "center",
-			fontSize: o * .36,
+			fontSize: l * .36,
 			fontWeight: 800
 		},
 		children: e ? /* @__PURE__ */ u("img", {
 			src: e,
 			alt: "",
 			style: {
-				width: o,
-				height: o,
+				width: l,
+				height: l,
 				objectFit: "cover",
 				display: "block"
 			},
@@ -114854,15 +114855,15 @@ function QNe({ photoUrl: e, initials: t, size: n, editable: r, onSave: i, apiBas
 	return r ? /* @__PURE__ */ d("div", {
 		style: {
 			position: "relative",
-			width: o,
-			height: o,
+			width: l,
+			height: l,
 			flexShrink: 0
 		},
 		children: [
-			v,
-			l === null && /* @__PURE__ */ u("button", {
+			y,
+			f === null && /* @__PURE__ */ u("button", {
 				onClick: function() {
-					f("picker");
+					p("picker");
 				},
 				title: "Change photo",
 				style: {
@@ -114884,7 +114885,7 @@ function QNe({ photoUrl: e, initials: t, size: n, editable: r, onSave: i, apiBas
 				},
 				children: "✎"
 			}),
-			l === "saving" && /* @__PURE__ */ u("div", {
+			f === "saving" && /* @__PURE__ */ u("div", {
 				style: {
 					position: "absolute",
 					inset: 0,
@@ -114898,10 +114899,10 @@ function QNe({ photoUrl: e, initials: t, size: n, editable: r, onSave: i, apiBas
 				},
 				children: "..."
 			}),
-			l === "picker" && /* @__PURE__ */ d("div", {
+			f === "picker" && /* @__PURE__ */ d("div", {
 				style: {
 					position: "absolute",
-					top: o + 8,
+					top: l + 8,
 					left: 0,
 					zIndex: 20,
 					background: "var(--bg-card, #fff)",
@@ -114922,7 +114923,7 @@ function QNe({ photoUrl: e, initials: t, size: n, editable: r, onSave: i, apiBas
 					}),
 					/* @__PURE__ */ d("button", {
 						onClick: function() {
-							h.current && h.current.click();
+							g.current && g.current.click();
 						},
 						style: {
 							width: "100%",
@@ -114938,10 +114939,10 @@ function QNe({ photoUrl: e, initials: t, size: n, editable: r, onSave: i, apiBas
 						children: ["📁", " Upload from device"]
 					}),
 					/* @__PURE__ */ u("input", {
-						ref: h,
+						ref: g,
 						type: "file",
 						accept: "image/*",
-						onChange: _,
+						onChange: v,
 						style: { display: "none" }
 					}),
 					/* @__PURE__ */ u("div", {
@@ -114960,12 +114961,12 @@ function QNe({ photoUrl: e, initials: t, size: n, editable: r, onSave: i, apiBas
 						children: [/* @__PURE__ */ u("input", {
 							autoFocus: !0,
 							type: "url",
-							value: p,
+							value: m,
 							onChange: function(e) {
-								m(e.target.value);
+								h(e.target.value);
 							},
 							onKeyDown: function(e) {
-								e.key === "Enter" && g(), e.key === "Escape" && f(null);
+								e.key === "Enter" && _(), e.key === "Escape" && p(null);
 							},
 							placeholder: "https://...",
 							style: {
@@ -114977,8 +114978,8 @@ function QNe({ photoUrl: e, initials: t, size: n, editable: r, onSave: i, apiBas
 								outline: "none"
 							}
 						}), /* @__PURE__ */ u("button", {
-							onClick: g,
-							disabled: !p.trim(),
+							onClick: _,
+							disabled: !m.trim(),
 							style: {
 								fontSize: 12,
 								padding: "5px 12px",
@@ -114987,14 +114988,14 @@ function QNe({ photoUrl: e, initials: t, size: n, editable: r, onSave: i, apiBas
 								color: "#fff",
 								border: "none",
 								cursor: "pointer",
-								opacity: p.trim() ? 1 : .5
+								opacity: m.trim() ? 1 : .5
 							},
 							children: "Set"
 						})]
 					}),
 					/* @__PURE__ */ u("button", {
 						onClick: function() {
-							f(null);
+							p(null);
 						},
 						style: {
 							marginTop: 8,
@@ -115010,7 +115011,7 @@ function QNe({ photoUrl: e, initials: t, size: n, editable: r, onSave: i, apiBas
 				]
 			})
 		]
-	}) : v;
+	}) : y;
 }
 function I9({ label: e, value: t, onSave: n, type: r, placeholder: a, disabled: o }) {
 	var [s, l] = c(!1), [f, p] = c(t || ""), [m, h] = c(!1);
@@ -115178,50 +115179,59 @@ var L9 = {
 	color: "var(--foreground, #111)",
 	lineHeight: 1.4
 };
-function nPe({ apiBase: e, backHref: t }) {
-	var n = e || YNe, [r, a] = c(null), [o, s] = c(!0), [f, p] = c(null), [m, h] = c(!0), [g, _] = c(!0), [v, y] = c(!1);
+function nPe({ apiBase: e, backHref: t, portalSubdomain: n }) {
+	var r = e || YNe, a = n ? { "X-SM-Product": n } : {}, [o, s] = c(null), [f, p] = c(!0), [m, h] = c(null), [g, _] = c(!0), [v, y] = c(!0), [b, x] = c(!1);
 	i(function() {
-		fetch(n + "/api/profile", { credentials: "include" }).then(function(e) {
+		fetch(r + "/api/profile", {
+			credentials: "include",
+			headers: a
+		}).then(function(e) {
 			return e.ok ? e.json() : null;
 		}).then(function(e) {
-			e && e.ok && e.profile && a(e.profile);
+			e && e.ok && e.profile && s(e.profile);
 		}).catch(function() {}).finally(function() {
-			s(!1);
-		}), fetch(n + "/api/notifications/prefs", { credentials: "include" }).then(function(e) {
+			p(!1);
+		}), fetch(r + "/api/notifications/prefs", {
+			credentials: "include",
+			headers: a
+		}).then(function(e) {
 			return e.ok ? e.json() : null;
 		}).then(function(e) {
-			e && e.ok && e.data && (h(e.data.email_enabled !== !1), _(e.data.app_enabled !== !1), y(!!e.data.slack_enabled));
+			e && e.ok && e.data && (_(e.data.email_enabled !== !1), y(e.data.app_enabled !== !1), x(!!e.data.slack_enabled));
 		}).catch(function() {});
-	}, [n]);
-	function b() {
-		fetch(n + "/api/profile", { credentials: "include" }).then(function(e) {
+	}, [r]);
+	function S() {
+		fetch(r + "/api/profile", {
+			credentials: "include",
+			headers: a
+		}).then(function(e) {
 			return e.ok ? e.json() : null;
 		}).then(function(e) {
-			e && e.ok && e.profile && a(e.profile);
+			e && e.ok && e.profile && s(e.profile);
 		}).catch(function() {});
 	}
-	async function x(e) {
+	async function C(e) {
 		try {
-			var t = await (await fetch(n + "/api/profile", {
+			var t = await (await fetch(r + "/api/profile", {
 				method: "PATCH",
 				credentials: "include",
-				headers: { "Content-Type": "application/json" },
+				headers: Object.assign({ "Content-Type": "application/json" }, a),
 				body: JSON.stringify(e)
 			})).json();
-			t.ok && t.profile && (a(t.profile), p("Saved"), setTimeout(function() {
-				p(null);
+			t.ok && t.profile && (s(t.profile), h("Saved"), setTimeout(function() {
+				h(null);
 			}, 2e3));
 		} catch {}
 	}
-	async function S(e) {
-		fetch(n + "/api/notifications/prefs", {
+	async function w(e) {
+		fetch(r + "/api/notifications/prefs", {
 			method: "PATCH",
 			credentials: "include",
-			headers: { "Content-Type": "application/json" },
+			headers: Object.assign({ "Content-Type": "application/json" }, a),
 			body: JSON.stringify(e)
 		}).catch(function() {});
 	}
-	if (o) return /* @__PURE__ */ d("div", {
+	if (f) return /* @__PURE__ */ d("div", {
 		style: {
 			display: "flex",
 			justifyContent: "center",
@@ -115237,7 +115247,7 @@ function nPe({ apiBase: e, backHref: t }) {
 			animation: "profilecard-spin 0.8s linear infinite"
 		} }), /* @__PURE__ */ u("style", { children: "@keyframes profilecard-spin { to { transform: rotate(360deg) } }" })]
 	});
-	if (!r) return /* @__PURE__ */ u("div", {
+	if (!o) return /* @__PURE__ */ u("div", {
 		style: {
 			padding: 40,
 			textAlign: "center",
@@ -115246,9 +115256,9 @@ function nPe({ apiBase: e, backHref: t }) {
 		},
 		children: "Could not load profile."
 	});
-	var C = r, w = (C.full_name || C.email || "?").split(" ").map(function(e) {
+	var T = o, E = (T.full_name || T.email || "?").split(" ").map(function(e) {
 		return e[0] || "";
-	}).join("").slice(0, 2).toUpperCase(), T = C.portal_role || C.role || "member";
+	}).join("").slice(0, 2).toUpperCase(), D = T.portal_role || T.role || "member";
 	return /* @__PURE__ */ d("div", {
 		style: { maxWidth: 680 },
 		children: [
@@ -115294,13 +115304,14 @@ function nPe({ apiBase: e, backHref: t }) {
 						gap: 16
 					},
 					children: [/* @__PURE__ */ u(QNe, {
-						photoUrl: C.photo_url,
-						initials: w,
+						photoUrl: T.photo_url,
+						initials: E,
 						size: 56,
 						editable: !0,
-						apiBase: n,
+						apiBase: r,
+						productHeaders: a,
 						onSave: function(e) {
-							return x({ photo_url: e });
+							return C({ photo_url: e });
 						}
 					}), /* @__PURE__ */ d("div", {
 						style: {
@@ -115322,13 +115333,13 @@ function nPe({ apiBase: e, backHref: t }) {
 										fontWeight: 800,
 										color: "var(--foreground, #111)"
 									},
-									children: C.full_name || "--"
+									children: T.full_name || "--"
 								}),
 								/* @__PURE__ */ u(ZNe, {
-									role: T,
-									label: C.role_label
+									role: D,
+									label: T.role_label
 								}),
-								f && /* @__PURE__ */ d("span", {
+								m && /* @__PURE__ */ d("span", {
 									style: {
 										fontSize: 12,
 										color: "var(--green, #16a34a)",
@@ -115337,7 +115348,7 @@ function nPe({ apiBase: e, backHref: t }) {
 									children: [
 										"✓",
 										" ",
-										f
+										m
 									]
 								})
 							]
@@ -115346,15 +115357,18 @@ function nPe({ apiBase: e, backHref: t }) {
 								fontSize: 13,
 								color: "var(--muted, #6b7280)"
 							},
-							children: [C.email, C.company_name && /* @__PURE__ */ d(l, { children: [/* @__PURE__ */ u("span", {
+							children: [T.email, T.company_name && /* @__PURE__ */ d(l, { children: [/* @__PURE__ */ u("span", {
 								style: { margin: "0 5px" },
 								children: "·"
-							}), C.company_name] })]
+							}), T.company_name] })]
 						})]
 					})]
 				})
 			}),
-			/* @__PURE__ */ u(aPe, { base: n }),
+			/* @__PURE__ */ u(aPe, {
+				base: r,
+				productHeaders: a
+			}),
 			/* @__PURE__ */ d("div", {
 				style: L9,
 				children: [/* @__PURE__ */ u("div", {
@@ -115369,50 +115383,51 @@ function nPe({ apiBase: e, backHref: t }) {
 					children: [
 						/* @__PURE__ */ u(I9, {
 							label: "Full name",
-							value: C.full_name,
+							value: T.full_name,
 							onSave: function(e) {
-								return x({ full_name: e });
+								return C({ full_name: e });
 							}
 						}),
 						/* @__PURE__ */ u(I9, {
 							label: "Title",
-							value: C.title,
+							value: T.title,
 							onSave: function(e) {
-								return x({ title: e });
+								return C({ title: e });
 							},
 							placeholder: "e.g. VP Engineering"
 						}),
 						/* @__PURE__ */ u(I9, {
 							label: "Email",
-							value: C.email,
+							value: T.email,
 							disabled: !0
 						}),
 						/* @__PURE__ */ u(I9, {
 							label: "Phone",
-							value: C.phone,
+							value: T.phone,
 							onSave: function(e) {
-								return x({ phone: e });
+								return C({ phone: e });
 							},
 							type: "tel",
 							placeholder: "+1 (555) 000-0000"
 						}),
-						C.hire_date && /* @__PURE__ */ d("div", { children: [/* @__PURE__ */ u("span", {
+						T.hire_date && /* @__PURE__ */ d("div", { children: [/* @__PURE__ */ u("span", {
 							style: ePe,
 							children: "Hire date"
 						}), /* @__PURE__ */ u("div", {
 							style: tPe,
-							children: F9(C.hire_date)
+							children: F9(T.hire_date)
 						})] })
 					]
 				})]
 			}),
 			/* @__PURE__ */ u(rPe, {
-				base: n,
-				emails: C.emails || [],
-				fallbackEmail: C.email,
+				base: r,
+				emails: T.emails || [],
+				fallbackEmail: T.email,
 				onChanged: function() {
-					b();
-				}
+					S();
+				},
+				productHeaders: a
 			}),
 			/* @__PURE__ */ d("div", {
 				style: L9,
@@ -115429,28 +115444,28 @@ function nPe({ apiBase: e, backHref: t }) {
 						{
 							label: "In-app notifications",
 							sub: "Show in the bell icon",
-							val: g,
+							val: v,
 							onChange: function() {
-								var e = !g;
-								_(e), S({ app_enabled: e });
+								var e = !v;
+								y(e), w({ app_enabled: e });
 							}
 						},
 						{
 							label: "Email notifications",
 							sub: "Receive by email",
-							val: m,
+							val: g,
 							onChange: function() {
-								var e = !m;
-								h(e), S({ email_enabled: e });
+								var e = !g;
+								_(e), w({ email_enabled: e });
 							}
 						},
 						{
 							label: "Slack notifications",
 							sub: "Receive via Slack DM",
-							val: v,
+							val: b,
 							onChange: function() {
-								var e = !v;
-								y(e), S({ slack_enabled: e });
+								var e = !b;
+								x(e), w({ slack_enabled: e });
 							}
 						}
 					].map(function(e, t) {
@@ -115509,19 +115524,19 @@ function nPe({ apiBase: e, backHref: t }) {
 								fontSize: 12,
 								color: "var(--muted, #6b7280)"
 							},
-							children: ["Magic link to ", C.email]
-						})] }), C.portal_last_login && /* @__PURE__ */ d("span", {
+							children: ["Magic link to ", T.email]
+						})] }), T.portal_last_login && /* @__PURE__ */ d("span", {
 							style: {
 								fontSize: 12,
 								color: "var(--muted, #9ca3af)"
 							},
-							children: ["Last login: ", F9(C.portal_last_login)]
+							children: ["Last login: ", F9(T.portal_last_login)]
 						})]
 					}),
-					/* @__PURE__ */ u(iPe, { base: n })
+					/* @__PURE__ */ u(iPe, { base: r })
 				]
 			}),
-			C.id && C.contact_type === "team" && /* @__PURE__ */ d("div", {
+			T.id && T.contact_type === "team" && /* @__PURE__ */ d("div", {
 				style: {
 					...L9,
 					display: "flex",
@@ -115542,7 +115557,7 @@ function nPe({ apiBase: e, backHref: t }) {
 					},
 					children: "View your full contact card"
 				})] }), /* @__PURE__ */ d("a", {
-					href: "/crm/contact/" + C.id,
+					href: "/crm/contact/" + T.id,
 					style: {
 						fontSize: 13,
 						fontWeight: 600,
@@ -115570,40 +115585,40 @@ function nPe({ apiBase: e, backHref: t }) {
 		]
 	});
 }
-function rPe({ base: e, emails: t, fallbackEmail: n, onChanged: r }) {
-	var [i, a] = c(null), [o, s] = c(null), [l, f] = c(!1), [p, m] = c(""), h = t.length > 0 ? t : n ? [{
+function rPe({ base: e, emails: t, fallbackEmail: n, onChanged: r, productHeaders: i }) {
+	var [a, o] = c(null), [s, l] = c(null), [f, p] = c(!1), [m, h] = c(""), g = t.length > 0 ? t : n ? [{
 		email: n,
 		is_primary: 1
 	}] : [];
-	function g(t, n, o, c) {
-		i || (a(c), s(null), fetch(e + t, {
+	function _(t, n, s, c) {
+		a || (o(c), l(null), fetch(e + t, {
 			method: "POST",
 			credentials: "include",
-			headers: { "Content-Type": "application/json" },
+			headers: Object.assign({ "Content-Type": "application/json" }, i || {}),
 			body: JSON.stringify(n)
 		}).then(function(e) {
 			return e.json();
 		}).then(function(e) {
-			a(null), e && e.ok ? (s({
+			o(null), e && e.ok ? (l({
 				kind: "ok",
-				text: o
-			}), r()) : s({
+				text: s
+			}), r()) : l({
 				kind: "err",
 				text: e && e.error || "That did not work."
 			});
 		}).catch(function() {
-			a(null), s({
+			o(null), l({
 				kind: "err",
 				text: "Network error — try again."
 			});
 		}));
 	}
-	function _() {
-		var e = p.trim().toLowerCase();
-		!e || e.indexOf("@") === -1 || (g("/api/identity/link-email-request", {
+	function v() {
+		var e = m.trim().toLowerCase();
+		!e || e.indexOf("@") === -1 || (_("/api/identity/link-email-request", {
 			email: e,
 			redirect: typeof window < "u" ? window.location.href : void 0
-		}, "Check " + e + " for a confirmation link.", "link"), m(""), f(!1));
+		}, "Check " + e + " for a confirmation link.", "link"), h(""), p(!1));
 	}
 	return /* @__PURE__ */ d("div", {
 		style: L9,
@@ -115627,7 +115642,7 @@ function rPe({ base: e, emails: t, fallbackEmail: n, onChanged: r }) {
 					flexDirection: "column",
 					gap: 8
 				},
-				children: h.map(function(e, t) {
+				children: g.map(function(e, t) {
 					var n = e.is_primary === 1;
 					return /* @__PURE__ */ d("div", {
 						style: {
@@ -115665,9 +115680,9 @@ function rPe({ base: e, emails: t, fallbackEmail: n, onChanged: r }) {
 							},
 							children: [/* @__PURE__ */ u("button", {
 								onClick: function() {
-									g("/api/identity/set-primary-email", { email: e.email }, e.email + " is now your primary address.", "primary:" + e.email);
+									_("/api/identity/set-primary-email", { email: e.email }, e.email + " is now your primary address.", "primary:" + e.email);
 								},
-								disabled: i !== null,
+								disabled: a !== null,
 								style: {
 									fontSize: 11,
 									fontWeight: 600,
@@ -115678,12 +115693,12 @@ function rPe({ base: e, emails: t, fallbackEmail: n, onChanged: r }) {
 									padding: "3px 9px",
 									cursor: "pointer"
 								},
-								children: i === "primary:" + e.email ? "..." : "Set primary"
+								children: a === "primary:" + e.email ? "..." : "Set primary"
 							}), /* @__PURE__ */ u("button", {
 								onClick: function() {
-									g("/api/identity/remove-email", { email: e.email }, e.email + " removed.", "remove:" + e.email);
+									_("/api/identity/remove-email", { email: e.email }, e.email + " removed.", "remove:" + e.email);
 								},
-								disabled: i !== null,
+								disabled: a !== null,
 								style: {
 									fontSize: 11,
 									fontWeight: 600,
@@ -115694,22 +115709,22 @@ function rPe({ base: e, emails: t, fallbackEmail: n, onChanged: r }) {
 									padding: "3px 9px",
 									cursor: "pointer"
 								},
-								children: i === "remove:" + e.email ? "..." : "Remove"
+								children: a === "remove:" + e.email ? "..." : "Remove"
 							})]
 						})]
 					}, t);
 				})
 			}),
-			o && /* @__PURE__ */ u("div", {
+			s && /* @__PURE__ */ u("div", {
 				style: {
 					marginTop: 10,
 					fontSize: 12,
-					color: o.kind === "err" ? "#dc2626" : "var(--green, #16a34a)",
+					color: s.kind === "err" ? "#dc2626" : "var(--green, #16a34a)",
 					lineHeight: 1.4
 				},
-				children: o.text
+				children: s.text
 			}),
-			l ? /* @__PURE__ */ d("div", {
+			f ? /* @__PURE__ */ d("div", {
 				style: {
 					display: "flex",
 					gap: 6,
@@ -115718,13 +115733,13 @@ function rPe({ base: e, emails: t, fallbackEmail: n, onChanged: r }) {
 				children: [/* @__PURE__ */ u("input", {
 					autoFocus: !0,
 					type: "email",
-					value: p,
+					value: m,
 					placeholder: "name@example.com",
 					onChange: function(e) {
-						m(e.target.value);
+						h(e.target.value);
 					},
 					onKeyDown: function(e) {
-						e.key === "Enter" && _(), e.key === "Escape" && f(!1);
+						e.key === "Enter" && v(), e.key === "Escape" && p(!1);
 					},
 					style: {
 						flex: 1,
@@ -115736,8 +115751,8 @@ function rPe({ base: e, emails: t, fallbackEmail: n, onChanged: r }) {
 						outline: "none"
 					}
 				}), /* @__PURE__ */ u("button", {
-					onClick: _,
-					disabled: !p.trim(),
+					onClick: v,
+					disabled: !m.trim(),
 					style: {
 						fontSize: 12,
 						fontWeight: 600,
@@ -115747,13 +115762,13 @@ function rPe({ base: e, emails: t, fallbackEmail: n, onChanged: r }) {
 						color: "#fff",
 						border: "none",
 						cursor: "pointer",
-						opacity: p.trim() ? 1 : .5
+						opacity: m.trim() ? 1 : .5
 					},
 					children: "Send link"
 				})]
 			}) : /* @__PURE__ */ u("button", {
 				onClick: function() {
-					f(!0), s(null);
+					p(!0), l(null);
 				},
 				style: {
 					marginTop: 12,
@@ -115934,15 +115949,18 @@ function iPe({ base: e }) {
 		]
 	});
 }
-function aPe({ base: e }) {
-	var [t, n] = c([]);
+function aPe({ base: e, productHeaders: t }) {
+	var [n, r] = c([]);
 	return i(function() {
-		fetch(e + "/auth/me", { credentials: "include" }).then(function(e) {
+		fetch(e + "/auth/me", {
+			credentials: "include",
+			headers: t || {}
+		}).then(function(e) {
 			return e.ok ? e.json() : null;
 		}).then(function(e) {
-			e && e.ok && e.my_roles && n(e.my_roles);
+			e && e.ok && e.my_roles && r(e.my_roles);
 		}).catch(function() {});
-	}, [e]), t.length === 0 ? null : /* @__PURE__ */ d("div", {
+	}, [e]), n.length === 0 ? null : /* @__PURE__ */ d("div", {
 		style: L9,
 		children: [
 			/* @__PURE__ */ u("div", {
@@ -115955,7 +115973,7 @@ function aPe({ base: e }) {
 					flexDirection: "column",
 					gap: 8
 				},
-				children: t.map(function(e) {
+				children: n.map(function(e) {
 					return /* @__PURE__ */ d("div", {
 						style: {
 							display: "flex",
@@ -116012,7 +116030,8 @@ function aPe({ base: e }) {
 function oPe(e) {
 	return /* @__PURE__ */ u(nPe, {
 		apiBase: e.apiBase,
-		backHref: e.backHref
+		backHref: e.backHref,
+		portalSubdomain: e.portalSubdomain
 	});
 }
 //#endregion

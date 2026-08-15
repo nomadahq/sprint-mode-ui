@@ -6,6 +6,14 @@ export interface ProfileCardProps {
     apiBase?: string;
     /** Optional back link href shown above the page title */
     backHref?: string;
+    /**
+     * Portal subdomain (e.g. 'admin', 'signal', 'investors').
+     * UI-POLISH-1: sent as X-SM-Product on every fetch so sm-api reads the
+     * correct per-door session cookie post-LOGIN_DOOR_CUTOVER. Without this,
+     * /api/profile returns 404 for slim-session users who have no legacy
+     * sm_client cookie (regression introduced by FLIP-HOTFIX-1 / FEAT-1915).
+     */
+    portalSubdomain?: string;
 }
 export interface ProfileData {
     id?: string;

@@ -7,6 +7,14 @@ export interface ProfileCardProps {
   apiBase?: string
   /** Optional back link href shown above the page title */
   backHref?: string
+  /**
+   * Portal subdomain (e.g. 'admin', 'signal', 'investors').
+   * UI-POLISH-1: sent as X-SM-Product on every fetch so sm-api reads the
+   * correct per-door session cookie post-LOGIN_DOOR_CUTOVER. Without this,
+   * /api/profile returns 404 for slim-session users who have no legacy
+   * sm_client cookie (regression introduced by FLIP-HOTFIX-1 / FEAT-1915).
+   */
+  portalSubdomain?: string
 }
 
 export interface ProfileData {
@@ -68,13 +76,14 @@ function RoleBadge({ role, label }: { role: string; label?: string }) {
   )
 }
 
-function Avatar({ photoUrl, initials, size, editable, onSave, apiBase }: {
+function Avatar({ photoUrl, initials, size, editable, onSave, apiBase, productHeaders }: {
   photoUrl?: string | null
   initials: string
   size?: number
   editable?: boolean
   onSave?: (url: string) => Promise<void>
   apiBase?: string
+  productHeaders?: Record<string, string>
 }) {
   var sz = size || 56
   var [mode, setMode] = useState<null | 'picker' | 'saving'>(null)
@@ -99,6 +108,7 @@ function Avatar({ photoUrl, initials, size, editable, onSave, apiBase }: {
       var res = await fetch(apiBase + '/api/profile/photo', {
         method: 'POST',
         credentials: 'include',
+        headers: productHeaders || {},
         body: form,
       })
       var data: { ok: boolean; data?: { photo_url?: string } } = await res.json()
@@ -267,8 +277,12 @@ var SECTION_TITLE: React.CSSProperties = { fontSize: 13, fontWeight: 700, color:
 var LABEL: React.CSSProperties = { fontSize: 11, fontWeight: 600, color: 'var(--muted, #6b7280)', textTransform: 'uppercase', letterSpacing: '.04em', marginBottom: 3, display: 'block' }
 var VAL: React.CSSProperties = { fontSize: 13, color: 'var(--foreground, #111)', lineHeight: 1.4 }
 
-function SelfProfileCard({ apiBase, backHref }: { apiBase?: string; backHref?: string }) {
+function SelfProfileCard({ apiBase, backHref, portalSubdomain }: { apiBase?: string; backHref?: string; portalSubdomain?: string }) {
   var base = apiBase || DEFAULT_API
+  // UI-POLISH-1: X-SM-Product lets sm-api read the correct per-door session
+  // cookie (sm_session_<product>) after LOGIN_DOOR_CUTOVER. Omitting it causes
+  // sm-api to fall back to sm_client, which slim-session users no longer have.
+  var productHeaders: Record<string, string> = portalSubdomain ? { 'X-SM-Product': portalSubdomain } : {}
   var [profile, setProfile] = useState<ProfileData | null>(null)
   var [loading, setLoading] = useState(true)
   var [saveMsg, setSaveMsg] = useState<string | null>(null)
@@ -277,12 +291,12 @@ function SelfProfileCard({ apiBase, backHref }: { apiBase?: string; backHref?: s
   var [slackNotifs, setSlackNotifs] = useState(false)
 
   useEffect(function() {
-    fetch(base + '/api/profile', { credentials: 'include' })
+    fetch(base + '/api/profile', { credentials: 'include', headers: productHeaders })
       .then(function(r) { return r.ok ? r.json() : null })
       .then(function(d: { ok: boolean; profile?: ProfileData } | null) { if (d && d.ok && d.profile) setProfile(d.profile) })
       .catch(function() {})
       .finally(function() { setLoading(false) })
-    fetch(base + '/api/notifications/prefs', { credentials: 'include' })
+    fetch(base + '/api/notifications/prefs', { credentials: 'include', headers: productHeaders })
       .then(function(r) { return r.ok ? r.json() : null })
       .then(function(d: { ok: boolean; data?: { email_enabled?: boolean; app_enabled?: boolean; slack_enabled?: boolean } } | null) {
         if (d && d.ok && d.data) {
@@ -295,7 +309,7 @@ function SelfProfileCard({ apiBase, backHref }: { apiBase?: string; backHref?: s
   }, [base])
 
   function refreshProfile() {
-    fetch(base + '/api/profile', { credentials: 'include' })
+    fetch(base + '/api/profile', { credentials: 'include', headers: productHeaders })
       .then(function(r) { return r.ok ? r.json() : null })
       .then(function(d: { ok: boolean; profile?: ProfileData } | null) { if (d && d.ok && d.profile) setProfile(d.profile) })
       .catch(function() {})
@@ -305,7 +319,7 @@ function SelfProfileCard({ apiBase, backHref }: { apiBase?: string; backHref?: s
     try {
       var r = await fetch(base + '/api/profile', {
         method: 'PATCH', credentials: 'include',
-        headers: { 'Content-Type': 'application/json' },
+        headers: Object.assign({ 'Content-Type': 'application/json' }, productHeaders),
         body: JSON.stringify(fields),
       })
       var d: { ok: boolean; profile?: ProfileData } = await r.json()
@@ -320,7 +334,7 @@ function SelfProfileCard({ apiBase, backHref }: { apiBase?: string; backHref?: s
   async function patchNotifPrefs(patch: Record<string, boolean>) {
     fetch(base + '/api/notifications/prefs', {
       method: 'PATCH', credentials: 'include',
-      headers: { 'Content-Type': 'application/json' },
+      headers: Object.assign({ 'Content-Type': 'application/json' }, productHeaders),
       body: JSON.stringify(patch),
     }).catch(function() {})
   }
@@ -362,6 +376,7 @@ function SelfProfileCard({ apiBase, backHref }: { apiBase?: string; backHref?: s
             size={56}
             editable
             apiBase={base}
+            productHeaders={productHeaders}
             onSave={function(v) { return patchProfile({ photo_url: v }) }}
           />
           <div style={{ flex: 1, minWidth: 0 }}>
@@ -380,7 +395,7 @@ function SelfProfileCard({ apiBase, backHref }: { apiBase?: string; backHref?: s
         </div>
       </div>
 
-      <RolesCard base={base} />
+      <RolesCard base={base} productHeaders={productHeaders} />
 
       <div style={CARD_STYLE}>
         <div style={SECTION_TITLE}>Personal info</div>
@@ -398,7 +413,7 @@ function SelfProfileCard({ apiBase, backHref }: { apiBase?: string; backHref?: s
         </div>
       </div>
 
-      <SignInEmailsCard base={base} emails={p.emails || []} fallbackEmail={p.email} onChanged={function() { refreshProfile() }} />
+      <SignInEmailsCard base={base} emails={p.emails || []} fallbackEmail={p.email} onChanged={function() { refreshProfile() }} productHeaders={productHeaders} />
 
       {/* UX-1943: Pay history and Integrations/GWS deleted -- pay data lives
           in Gusto; workspace-group plumbing was noise on an identity page. */}
@@ -470,11 +485,12 @@ function SelfProfileCard({ apiBase, backHref }: { apiBase?: string; backHref?: s
 // (verified magic link to the NEW address), Set primary, Remove (never the
 // primary, never the last). Distinct from linked accounts (separate sign-ins).
 
-function SignInEmailsCard({ base, emails, fallbackEmail, onChanged }: {
+function SignInEmailsCard({ base, emails, fallbackEmail, onChanged, productHeaders }: {
   base: string
   emails: { email: string; is_primary?: number; email_type?: string }[]
   fallbackEmail?: string
   onChanged: () => void
+  productHeaders?: Record<string, string>
 }) {
   var [busy, setBusy] = useState<string | null>(null)
   var [msg, setMsg] = useState<{ kind: 'ok' | 'err'; text: string } | null>(null)
@@ -489,7 +505,7 @@ function SignInEmailsCard({ base, emails, fallbackEmail, onChanged }: {
     setMsg(null)
     fetch(base + path, {
       method: 'POST', credentials: 'include',
-      headers: { 'Content-Type': 'application/json' },
+      headers: Object.assign({ 'Content-Type': 'application/json' }, productHeaders || {}),
       body: JSON.stringify(body),
     })
       .then(function(r) { return r.json() })
@@ -704,11 +720,11 @@ function PasskeysBlock({ base }: { base: string }) {
 // names with the default marker. Read-only: grants live in Portal Manager
 // (FEAT-1798 rule 1); swapping lives in the user menu.
 
-function RolesCard({ base }: { base: string }) {
+function RolesCard({ base, productHeaders }: { base: string; productHeaders?: Record<string, string> }) {
   var [roles, setRoles] = useState<{ role: string; display_name: string; role_type?: string | null; is_default: boolean; is_active: boolean }[]>([])
 
   useEffect(function() {
-    fetch(base + '/auth/me', { credentials: 'include' })
+    fetch(base + '/auth/me', { credentials: 'include', headers: productHeaders || {} })
       .then(function(r) { return r.ok ? r.json() : null })
       .then(function(d: { ok: boolean; my_roles?: { role: string; display_name: string; role_type?: string | null; is_default: boolean; is_active: boolean }[] } | null) {
         if (d && d.ok && d.my_roles) setRoles(d.my_roles)
@@ -740,5 +756,5 @@ function RolesCard({ base }: { base: string }) {
 }
 
 export function ProfileCard(props: ProfileCardProps) {
-  return <SelfProfileCard apiBase={props.apiBase} backHref={props.backHref} />
+  return <SelfProfileCard apiBase={props.apiBase} backHref={props.backHref} portalSubdomain={props.portalSubdomain} />
 }

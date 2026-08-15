@@ -632,7 +632,8 @@ function HeaderUserMenu(props: {
         // target's title — showing the operator's would re-blend identities).
         !lens && session && (session as any).title ? React.createElement('div', { style: { fontSize: 11, color: 'var(--muted)' } }, (session as any).title as string) : null,
         identityEmail ? React.createElement('div', null, identityEmail) : null,
-        roleLabel ? React.createElement('div', { style: { marginTop: 2 } }, roleLabel) : (session && (session as any).company_name ? React.createElement('div', { style: { marginTop: 2 } }, (session as any).company_name) : null),
+        // UI-POLISH-1: role-name line removed from identity block — title (line above) is the
+        // stable identity line; role varies per portal and is shown in the Roles section below.
         !lens && profilePath ? React.createElement('a', { href: profilePath, style: { display: 'block', marginTop: 6, padding: '5px 0', fontSize: 13, color: 'var(--accent)', textDecoration: 'none', fontWeight: 500 } }, 'View Profile') : null
       ),
       React.createElement('a', { href: '/user/notifications', style: { display: 'flex', alignItems: 'center', gap: 7, padding: '8px 10px', borderRadius: 6, fontSize: 13, color: 'var(--foreground)', textDecoration: 'none' } },

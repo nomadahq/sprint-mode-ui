@@ -108,7 +108,8 @@ function sectionLabel(text: string, sub?: string) {
   }, text, sub ? React.createElement('span', { style: { fontWeight: 400, textTransform: 'none' as const, letterSpacing: 0 } }, ' \u00b7 ' + sub) : null)
 }
 
-/** portal_manager edit gate for the Manage shortcut (approval amendment):
+/** portal_manager edit gate for the Manage shortcut (approval amendment) AND
+ *  the role Swap control (BUG-2033 item 3 — same permission basis for both):
  *  the leaf key on the resolved permissions map, super_admin bypass. The
  *  materialized section key (BUG-1988) is accepted as a fallback. */
 function canManagePortalManager(session: SessionData | null | undefined): boolean {
@@ -148,6 +149,10 @@ export function AccountSwitcher(props: AccountSwitcherProps) {
   var _linkVal = useState(''); var linkVal = _linkVal[0]; var setLinkVal = _linkVal[1]
   var _linkState = useState<null | 'sending' | 'sent' | 'error'>(null); var linkState = _linkState[0]; var setLinkState = _linkState[1]
   var _linkMsg = useState(''); var linkMsg = _linkMsg[0]; var setLinkMsg = _linkMsg[1]
+  // Sign-in email display rule (BUG-2033 addendum): Primary + addresses used
+  // to sign in within the last 90 days render by default; the rest collapse
+  // behind "Show all (N)". The data stays — only the default render changes.
+  var _showAllEmails = useState(false); var showAllEmails = _showAllEmails[0]; var setShowAllEmails = _showAllEmails[1]
 
   var authHeaders = useCallback(function(extra?: Record<string, string>): Record<string, string> {
     var h: Record<string, string> = extra ? { ...extra } : {}
@@ -253,6 +258,14 @@ export function AccountSwitcher(props: AccountSwitcherProps) {
 
   if (!loaded && !me) return null
 
+  // BUG-2033: the operator's roles, sign-in emails, and Other Accounts never
+  // render inside a lensed shell. Guard on BOTH the shell session and the
+  // fresh /auth/me (which echoes viewing_as while a lens is active) so a
+  // lensed menu can never leak operator credentials even if the host forgot
+  // to gate the mount.
+  var lensed = !!(props.session && (props.session as any).viewing_as) || !!(me && (me as any).viewing_as)
+  if (lensed) return null
+
   // Claim-return confirmation: the email-claim verify redirect appends
   // ?linked=<email>. Shown once, then cleared from the URL.
   var linkedParam: string | null = null
@@ -355,11 +368,11 @@ export function AccountSwitcher(props: AccountSwitcherProps) {
         ),
         r.is_active
           ? React.createElement('span', { style: { fontSize: 10, fontWeight: 700, textTransform: 'uppercase' as const, letterSpacing: '0.4px', color: 'var(--accent)', background: 'var(--accent-10)', padding: '2px 8px', borderRadius: 9, flexShrink: 0 } }, 'Active')
-          : React.createElement('button', {
+          : (manageGate ? React.createElement('button', {
               onClick: function() { swapTo(r.role) },
               disabled: swapBusy !== null,
               style: { fontSize: 11, fontWeight: 600, color: 'var(--accent)', background: 'transparent', border: '1px solid var(--border)', borderRadius: 6, padding: '3px 10px', cursor: swapBusy ? 'wait' : 'pointer', flexShrink: 0 },
-            }, swapBusy === r.role ? '\u2026' : 'Swap')
+            }, swapBusy === r.role ? '\u2026' : 'Swap') : null)
       )
     }),
     manageGate ? React.createElement('a', {
@@ -368,8 +381,25 @@ export function AccountSwitcher(props: AccountSwitcherProps) {
     }, 'Manage in Portal Manager \u2197') : null
   ) : null
 
-  // ── Section 2: SIGN-IN EMAILS (UX-1940 §2) ──────────────────────────────
+  // ── Section 2: SIGN-IN EMAILS (UX-1940 §2 + BUG-2033 display rule) ──────
   var emails = (me && me.emails) || []
+  // Recent = signed in within the last 90 days (last_sign_in_at from
+  // /auth/me, derived server-side from the magic-token trail). A missing or
+  // unparsable stamp counts as NOT recent — it collapses.
+  var NINETY_DAYS_MS = 90 * 24 * 60 * 60 * 1000
+  var recentCutoff = Date.now() - NINETY_DAYS_MS
+  function emailIsRecent(em: { last_sign_in_at?: string | null }): boolean {
+    if (!em.last_sign_in_at) return false
+    // SQLite datetime() is 'YYYY-MM-DD HH:MM:SS' in UTC — normalize to ISO.
+    var raw = em.last_sign_in_at.indexOf('T') === -1
+      ? em.last_sign_in_at.replace(' ', 'T') + 'Z'
+      : em.last_sign_in_at
+    var t = Date.parse(raw)
+    return isFinite(t) && t >= recentCutoff
+  }
+  var defaultEmails = emails.filter(function(em) { return em.is_primary || emailIsRecent(em) })
+  var collapsedCount = emails.length - defaultEmails.length
+  var visibleEmails = showAllEmails || collapsedCount <= 0 ? emails : defaultEmails
   var emailsSection = React.createElement(React.Fragment, null,
     React.createElement('div', { style: { height: 1, background: 'var(--border)', margin: '4px 0' } }),
     sectionLabel('Sign-in emails', 'all open this account'),
@@ -382,7 +412,7 @@ export function AccountSwitcher(props: AccountSwitcherProps) {
           }
         }, linkedParam + ' is now linked to this account.')
       : null,
-    emails.map(function(em) {
+    visibleEmails.map(function(em) {
       // Plain text rows: no avatars, no chevrons, nothing clickable (the
       // ruled affordance split vs Other accounts).
       return React.createElement('div', {
@@ -393,6 +423,14 @@ export function AccountSwitcher(props: AccountSwitcherProps) {
         em.is_primary ? React.createElement('span', { style: { fontSize: 9, fontWeight: 700, padding: '1px 6px', borderRadius: 9, background: 'var(--accent-10)', color: 'var(--accent)', flexShrink: 0 } }, 'Primary') : null
       )
     }),
+    collapsedCount > 0 ? React.createElement('button', {
+      onClick: function() { setShowAllEmails(!showAllEmails) },
+      style: {
+        display: 'block', padding: '4px 10px 2px', fontSize: 11, fontWeight: 500,
+        color: 'var(--accent)', background: 'transparent', border: 'none',
+        cursor: 'pointer', textAlign: 'left' as const, width: '100%',
+      },
+    }, showAllEmails ? 'Show fewer' : 'Show all (' + emails.length + ')') : null,
     linkOpen
       ? React.createElement('div', { style: { padding: '4px 10px 6px' } },
           React.createElement('div', { style: { display: 'flex', gap: 5 } },

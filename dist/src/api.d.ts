@@ -29,6 +29,7 @@ export interface SessionData {
         email: string;
         is_primary: boolean;
         email_type?: string;
+        last_sign_in_at?: string | null;
     }[];
     viewing_as?: {
         contact_id?: string;

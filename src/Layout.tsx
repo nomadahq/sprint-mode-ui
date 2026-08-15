@@ -569,19 +569,42 @@ function HeaderUserMenu(props: {
     return function() { document.removeEventListener('mousedown', close) }
   }, [])
 
-  var initials = session ? (session.name || session.email || '?').split(' ').map(function(w) { return w[0] || '' }).join('').slice(0, 2).toUpperCase() : '?'
-  var displayName = session ? (session.name ? session.name.split(' ')[0] : (session.email ? session.email.split('@')[0] : '')) : ''
+  // BUG-2033 (view-as lens ruling): under an active server lens the menu
+  // renders the TARGET's identity with an unmistakable lens indicator —
+  // never the operator's name/email/photo/title blended with the target's
+  // role. The role fields on session are already lensed by /auth/me; the
+  // identity fields are not, so they are swapped here.
+  var lens = session && (session as any).viewing_as ? (session as any).viewing_as as { name?: string; email?: string } : null
+  var identityName = lens ? (lens.name || '') : (session ? (session.name || '') : '')
+  // Team/'both' lenses carry the OPERATOR's email in viewing_as.email — an
+  // operator address must never render inside a lens, so only show the lens
+  // email when it is genuinely the target's (differs from the session email).
+  var identityEmail = lens
+    ? (lens.email && session && lens.email !== session.email ? lens.email : '')
+    : (session && session.email) || ''
+  var initials = session ? (identityName || identityEmail || '?').split(' ').map(function(w) { return w[0] || '' }).join('').slice(0, 2).toUpperCase() : '?'
+  var displayName = session ? (identityName ? identityName.split(' ')[0] : (identityEmail ? identityEmail.split('@')[0] : '')) : ''
   // UX-1941C: menus render the role DISPLAY NAME (/auth/me role_display_name),
   // humanizing the key only as a fallback -- never a raw snake_case key.
   var _rawRole = session ? (((session as any).role as string) || session.portal_role || '') : ''
   var roleLabel = session && (session as any).role_display_name
     ? ((session as any).role_display_name as string)
     : (_rawRole ? _rawRole.split(/[_\s]+/).filter(Boolean).map(function(w: string, i: number) { return i === 0 ? w.charAt(0).toUpperCase() + w.slice(1) : w }).join(' ') : '')
-  var photo = session && (session as any).photo as string | undefined
+  // The operator's photo never renders inside a lens — target initials only.
+  var photo = !lens && session ? ((session as any).photo as string | undefined) : undefined
 
   var avatarEl = photo
     ? React.createElement('img', { src: photo, alt: '', style: { width: 26, height: 26, borderRadius: 6, objectFit: 'cover', display: 'block', flexShrink: 0 } })
     : React.createElement('div', { style: { width: 26, height: 26, borderRadius: 6, background: 'var(--accent-10)', color: 'var(--accent)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 11, fontWeight: 600, flexShrink: 0 } }, initials)
+
+  var lensEyeIcon = lens ? React.createElement('svg', {
+    width: 13, height: 13, viewBox: '0 0 24 24', fill: 'none', stroke: 'currentColor',
+    strokeWidth: 2, strokeLinecap: 'round', strokeLinejoin: 'round',
+    style: { flexShrink: 0, color: 'var(--accent)' }, 'aria-label': 'View As active',
+  },
+    React.createElement('path', { d: 'M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z' }),
+    React.createElement('circle', { cx: 12, cy: 12, r: 3 })
+  ) : null
 
   return React.createElement('div', { ref: ref, style: { position: 'relative' } },
     React.createElement('button', {
@@ -592,18 +615,25 @@ function HeaderUserMenu(props: {
       avatarEl,
       // UX-1941C (collapsed line): photo + name + active role display name ONLY
       // -- no portal suffix, no key-count. Title lives in the EXPANDED header.
+      // BUG-2033: under a lens the name is the TARGET's, with an eye indicator.
       React.createElement('span', { style: { display: 'flex', flexDirection: 'column', alignItems: 'flex-start', lineHeight: 1.15, maxWidth: 140, overflow: 'hidden' } },
-        React.createElement('span', { style: { fontSize: 13, color: 'var(--foreground)', fontWeight: 500, maxWidth: 140, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' } }, displayName),
-        roleLabel ? React.createElement('span', { style: { fontSize: 10, color: 'var(--muted)', maxWidth: 140, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' } }, roleLabel) : null
+        React.createElement('span', { style: { display: 'flex', alignItems: 'center', gap: 4, fontSize: 13, color: 'var(--foreground)', fontWeight: 500, maxWidth: 140, overflow: 'hidden' } },
+          lensEyeIcon,
+          React.createElement('span', { style: { overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' } }, displayName)
+        ),
+        roleLabel ? React.createElement('span', { style: { fontSize: 10, color: lens ? 'var(--accent)' : 'var(--muted)', maxWidth: 140, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' } }, roleLabel) : null
       )
     ),
     open ? React.createElement('div', { style: { position: 'absolute', right: 0, top: 42, width: 220, background: 'var(--bg-card)', border: '1px solid var(--border)', borderRadius: 10, boxShadow: '0 8px 24px rgba(0,0,0,0.12)', padding: 6, zIndex: 100 } },
       React.createElement('div', { style: { padding: '8px 10px', fontSize: 12, color: 'var(--muted)', borderBottom: '1px solid var(--border)', marginBottom: 4 } },
-        React.createElement('div', { style: { fontWeight: 600, color: 'var(--foreground)', fontSize: 13 } }, session && session.name),
-        session && (session as any).title ? React.createElement('div', { style: { fontSize: 11, color: 'var(--muted)' } }, (session as any).title as string) : null,
-        session && session.email ? React.createElement('div', null, session.email) : null,
+        lens ? React.createElement('div', { style: { display: 'inline-flex', alignItems: 'center', gap: 5, marginBottom: 4, padding: '2px 8px', borderRadius: 9, background: 'var(--accent-10)', color: 'var(--accent)', fontSize: 9, fontWeight: 700, textTransform: 'uppercase' as const, letterSpacing: '0.5px' } }, lensEyeIcon, 'Viewing as') : null,
+        React.createElement('div', { style: { fontWeight: 600, color: 'var(--foreground)', fontSize: 13 } }, identityName),
+        // The operator's title never renders inside a lens (we do not have the
+        // target's title — showing the operator's would re-blend identities).
+        !lens && session && (session as any).title ? React.createElement('div', { style: { fontSize: 11, color: 'var(--muted)' } }, (session as any).title as string) : null,
+        identityEmail ? React.createElement('div', null, identityEmail) : null,
         roleLabel ? React.createElement('div', { style: { marginTop: 2 } }, roleLabel) : (session && (session as any).company_name ? React.createElement('div', { style: { marginTop: 2 } }, (session as any).company_name) : null),
-        profilePath ? React.createElement('a', { href: profilePath, style: { display: 'block', marginTop: 6, padding: '5px 0', fontSize: 13, color: 'var(--accent)', textDecoration: 'none', fontWeight: 500 } }, 'View Profile') : null
+        !lens && profilePath ? React.createElement('a', { href: profilePath, style: { display: 'block', marginTop: 6, padding: '5px 0', fontSize: 13, color: 'var(--accent)', textDecoration: 'none', fontWeight: 500 } }, 'View Profile') : null
       ),
       React.createElement('a', { href: '/user/notifications', style: { display: 'flex', alignItems: 'center', gap: 7, padding: '8px 10px', borderRadius: 6, fontSize: 13, color: 'var(--foreground)', textDecoration: 'none' } },
         React.createElement('svg', { width: 14, height: 14, viewBox: '0 0 24 24', fill: 'none', stroke: 'currentColor', strokeWidth: 2, strokeLinecap: 'round', strokeLinejoin: 'round', style: { flexShrink: 0, color: 'var(--muted)' } },
@@ -613,7 +643,10 @@ function HeaderUserMenu(props: {
         'Notification Settings'
       ),
       userMenuExtra || null,
-      React.createElement(AccountSwitcher, { product: props.portalSubdomain || undefined, session: session, authBase: props.authBase }),
+      // BUG-2033: the operator's roles, sign-in emails, and Other Accounts
+      // never render inside a lensed shell. The AccountSwitcher also guards
+      // itself on the fresh /auth/me, but the menu never mounts it lensed.
+      lens ? null : React.createElement(AccountSwitcher, { product: props.portalSubdomain || undefined, session: session, authBase: props.authBase }),
       React.createElement('a', { href: logoutHref, style: { display: 'block', padding: '8px 10px', borderRadius: 6, fontSize: 13, color: 'var(--foreground)', textDecoration: 'none' } }, 'Sign out')
     ) : null
   )

@@ -23,7 +23,7 @@ export interface SessionData {
   role_display_name?: string
   title?: string | null
   user_id?: string
-  emails?: { email: string; is_primary: boolean; email_type?: string }[]
+  emails?: { email: string; is_primary: boolean; email_type?: string; last_sign_in_at?: string | null }[]
   viewing_as?: {
     contact_id?: string
     email?: string

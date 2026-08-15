@@ -113032,7 +113032,7 @@ var WNe = function(t) {
 			K(e), ne(!1);
 		});
 	}, []);
-	var Xe = t.portalSubdomain, Ze = Xe && G && G.portals && G.portals[Xe] ? G.portals[Xe].view_as : null, Qe = G && (G.role === "super_admin" || G.portal_role === "super_admin" || G.role === "admin" || G.portal_role === "admin" || G.is_sm_team), $e = Ze === null ? S && (z ? !!G : Qe) : S !== !1 && Ze, Y = G && G.viewing_as || null, et = Y && (Y.lens === "team" || Y.lens === "both") ? {
+	var Xe = t.portalSubdomain, Ze = Xe && G && G.portals && G.portals[Xe] ? G.portals[Xe].view_as : null, Qe = G && (G.role === "super_admin" || G.portal_role === "super_admin" || G.role === "admin" || G.portal_role === "admin" || G.is_sm_team), $e = Ze === null ? S && (z ? !!G : Qe) : S !== !1 && Ze, Y = G && G.viewing_as || null, et = Y ? Y.lens === "user" ? "customer" : Y.lens : null, tt = Y && (et === "team" || et === "both") ? {
 		email: Y.email || "",
 		name: Y.name || "",
 		company_id: Y.company_id || void 0,
@@ -113041,24 +113041,24 @@ var WNe = function(t) {
 		role: Y.effective_role || "member",
 		role_type: "team",
 		id: Y.user_id || void 0
-	} : null, tt = Y && (Y.lens === "customer" || Y.lens === "both") ? {
+	} : null, nt = Y && (et === "customer" || et === "both") ? {
 		email: Y.email || "",
-		name: (Y.lens === "both" ? Y.customer_name : Y.name) || "",
+		name: (et === "both" ? Y.customer_name : Y.name) || "",
 		company_id: Y.company_id || void 0,
 		company_name: Y.company_name || "",
 		portal_role: Y.effective_role || "member",
 		role: Y.effective_role || "member",
 		role_type: "customer",
 		id: Y.contact_id || Y.user_id || void 0
-	} : null, nt = c([]), rt = nt[0], it = nt[1], at = c([]), ot = at[0], st = at[1], ct = rt.concat(ot), lt = c(!1), ut = lt[0], dt = lt[1], ft = c(!1), pt = ft[0], mt = ft[1], ht = c("customer"), gt = ht[0], _t = ht[1], vt = c(""), yt = vt[0], bt = vt[1], xt = c(""), St = xt[0], Ct = xt[1];
+	} : null, rt = c([]), it = rt[0], at = rt[1], ot = c([]), st = ot[0], ct = ot[1], lt = it.concat(st), ut = c(!1), dt = ut[0], ft = ut[1], pt = c(!1), mt = pt[0], ht = pt[1], gt = c("customer"), _t = gt[0], vt = gt[1], yt = c(""), bt = yt[0], xt = yt[1], St = c(""), Ct = St[0], wt = St[1];
 	i(function() {
 		$e && fetch(C, { credentials: "include" }).then(function(e) {
 			return e.ok ? e.json() : {};
 		}).then(function(e) {
 			var t = e && e.ok && e.data ? e.data : e;
-			if (t && Array.isArray(t.team) && Array.isArray(t.customers)) it(t.team.map(function(e) {
+			if (t && Array.isArray(t.team) && Array.isArray(t.customers)) at(t.team.map(function(e) {
 				return Object.assign({}, e, { role_type: "team" });
-			})), st(t.customers.map(function(e) {
+			})), ct(t.customers.map(function(e) {
 				return Object.assign({}, e, { role_type: "customer" });
 			}));
 			else {
@@ -113067,22 +113067,22 @@ var WNe = function(t) {
 				}), i = n.some(function(e) {
 					return e.role_type === "customer";
 				});
-				r && i ? (it(n.filter(function(e) {
+				r && i ? (at(n.filter(function(e) {
 					return e.role_type === "team";
-				})), st(n.filter(function(e) {
+				})), ct(n.filter(function(e) {
 					return e.role_type !== "team";
-				}))) : r ? (it(n), st([])) : (it([]), st(n));
+				}))) : r ? (at(n), ct([])) : (at([]), ct(n));
 			}
 		}).catch(function() {});
 	}, [$e, C]), i(function() {
-		t.onViewAsTeamChange && t.onViewAsTeamChange(et), t.onViewAsChange && t.onViewAsChange(tt);
+		t.onViewAsTeamChange && t.onViewAsTeamChange(tt), t.onViewAsChange && t.onViewAsChange(nt);
 	}, [G]);
-	var wt = t.viewAsAuthBase || "https://api.sprintmode.ai";
-	function Tt(e) {
-		if (!ut) {
-			dt(!0);
+	var Tt = t.viewAsAuthBase || "https://api.sprintmode.ai";
+	function Et(e) {
+		if (!dt) {
+			ft(!0);
 			var t = { "Content-Type": "application/json" };
-			Xe && (t["X-SM-Product"] = Xe), fetch(wt + "/auth/view-as", {
+			Xe && (t["X-SM-Product"] = Xe), fetch(Tt + "/auth/view-as", {
 				method: "POST",
 				credentials: "include",
 				headers: t,
@@ -113095,76 +113095,76 @@ var WNe = function(t) {
 						window.location.reload();
 						return;
 					}
-					Ct("View as failed (HTTP " + e.status + (t && t.error ? ": " + t.error : "") + ")"), dt(!1);
+					wt("View as failed (HTTP " + e.status + (t && t.error ? ": " + t.error : "") + ")"), ft(!1);
 				});
 			}).catch(function(e) {
-				Ct("View as failed (network: " + String(e).slice(0, 120) + ")"), dt(!1);
+				wt("View as failed (network: " + String(e).slice(0, 120) + ")"), ft(!1);
 			});
 		}
 	}
-	function Et() {
-		if (!ut) {
-			dt(!0);
+	function Dt() {
+		if (!dt) {
+			ft(!0);
 			var e = {};
-			Xe && (e["X-SM-Product"] = Xe), fetch(wt + "/auth/exit-view-as", {
+			Xe && (e["X-SM-Product"] = Xe), fetch(Tt + "/auth/exit-view-as", {
 				method: "POST",
 				credentials: "include",
 				headers: e
 			}).then(function() {
 				window.location.reload();
 			}).catch(function() {
-				dt(!1);
+				ft(!1);
 			});
 		}
 	}
-	function Dt(e) {
-		e.user_id || e.id ? Tt({ team_member_user_id: e.user_id || e.id }) : (e.role || e.portal_role) && Tt({ team_role: e.role || e.portal_role });
-	}
 	function Ot(e) {
-		var t = e.email ? { email: e.email } : { contact_id: e.contact_id || e.id };
-		e.user_id && (t.member_user_id = e.user_id), Tt(t);
+		e.user_id || e.id ? Et({ team_member_user_id: e.user_id || e.id }) : (e.role || e.portal_role) && Et({ team_role: e.role || e.portal_role });
 	}
 	function kt(e) {
-		var t = e[0];
-		t && Tt(t.email ? { email: t.email } : { contact_id: t.contact_id || t.id });
+		var t = e.email ? { email: e.email } : { contact_id: e.contact_id || e.id };
+		e.user_id && (t.member_user_id = e.user_id), Et(t);
 	}
-	var At = G?.role || null, jt = O9(G);
+	function At(e) {
+		var t = e[0];
+		t && Et(t.email ? { email: t.email } : { contact_id: t.contact_id || t.id });
+	}
+	var jt = G?.role || null, Mt = O9(G);
 	i(function() {
 		function e(e) {
-			var t = e.detail || {}, n = ct.find(function(e) {
+			var t = e.detail || {}, n = lt.find(function(e) {
 				return e.id === t.companyId || e.company_id === t.companyId || e.name === t.companyName || e.company_name === t.companyName;
 			});
-			n && n.email && Tt({ email: n.email });
+			n && n.email && Et({ email: n.email });
 		}
 		return window.addEventListener("portal-view-as", e), function() {
 			window.removeEventListener("portal-view-as", e);
 		};
-	}, [ct]), i(function() {
+	}, [lt]), i(function() {
 		_e(!1);
 	}, [Ke.pathname]), i(function() {
 		function e() {
-			be(!1), mt(!1);
+			be(!1), ht(!1);
 		}
 		return document.addEventListener("click", e), function() {
 			document.removeEventListener("click", e);
 		};
 	}, []);
-	var Mt = c(function() {
+	var Nt = c(function() {
 		if (!r) return {};
 		try {
 			var e = localStorage.getItem("sm-nav-collapsed");
 			if (e) return JSON.parse(e);
 		} catch {}
 		return {};
-	}), Nt = Mt[0], Pt = Mt[1];
-	function Ft(e) {
+	}), Pt = Nt[0], Ft = Nt[1];
+	function It(e) {
 		var t = e.nav && e.nav.items || [], n = typeof window < "u" ? window.location.pathname : "";
 		return t.some(function(e) {
 			return !e.to || e.external ? !1 : e.exact ? n === e.to : n.indexOf(e.to) === 0;
 		});
 	}
-	function It(e) {
-		Pt(function(t) {
+	function Lt(e) {
+		Ft(function(t) {
 			var n = Object.assign({}, t);
 			n[e] = !t[e];
 			try {
@@ -113187,24 +113187,24 @@ var WNe = function(t) {
 		portalName: t.title || t.portalSubdomain || "",
 		email: oe
 	});
-	var Lt = [], X = tt && t.viewAsClientNav ? t.viewAsClientNav : r;
-	if (X) X.forEach(function(e) {
+	var X = [], Rt = nt && t.viewAsClientNav ? t.viewAsClientNav : r;
+	if (Rt) Rt.forEach(function(e) {
 		if (e.type === "heading") {
-			Lt.push({
+			X.push({
 				key: e.key || e.label,
 				heading: e.label
 			});
 			return;
 		}
 		if (e.heading) {
-			Lt.push(e);
+			X.push(e);
 			return;
 		}
-		if (!(e.product && !A9(jt, At, e.product))) {
+		if (!(e.product && !A9(Mt, jt, e.product))) {
 			var t = (e.items || []).filter(function(e) {
-				return k9(jt, At, e.permKey);
+				return k9(Mt, jt, e.permKey);
 			});
-			t.length !== 0 && Lt.push({
+			t.length !== 0 && X.push({
 				key: e.key || e.label,
 				nav: {
 					label: e.label,
@@ -113219,32 +113219,32 @@ var WNe = function(t) {
 		}
 	});
 	else {
-		var Rt = Object.assign({}, HNe, n || {}), zt = G?.products || [];
-		zt.length > 0 && Rt["sprint-mode"] && Lt.push({
+		var zt = Object.assign({}, HNe, n || {}), Bt = G?.products || [];
+		Bt.length > 0 && zt["sprint-mode"] && X.push({
 			key: "sprint-mode",
-			nav: Rt["sprint-mode"]
-		}), zt.forEach(function(e) {
-			e !== "sprint-mode" && Rt[e] && Lt.push({
+			nav: zt["sprint-mode"]
+		}), Bt.forEach(function(e) {
+			e !== "sprint-mode" && zt[e] && X.push({
 				key: e,
-				nav: Rt[e]
+				nav: zt[e]
 			});
 		});
 	}
-	Lt.forEach(function(e) {
+	X.forEach(function(e) {
 		e.nav && (e.nav.items = e.nav.items.map(function(e) {
 			return e.icon && !e.Icon && (e = Object.assign({}, e, { Icon: UNe(e.icon) })), e;
 		}));
 	});
-	var Bt = G ? (G.name || G.email || "?").split(" ").map(function(e) {
+	var Vt = G ? (G.name || G.email || "?").split(" ").map(function(e) {
 		return e[0] || "";
-	}).join("").slice(0, 2).toUpperCase() : "?", Vt = G && G.photo, Ht = B.config && B.config.logo_horizontal_url, Ut = B.config && B.config.logo_dark_url, Wt = _ || Ht || "/logo-sprint-mode-horizontal.png", Gt = v || B.config && B.config.name || "Sprint Mode", Kt = Wt;
-	g7() && (Ut ? Kt = Ut : Wt.indexOf(".png") !== -1 && (Kt = Wt.replace(".png", "-dark.png")));
-	var qt = !!(y || b), Jt = [];
-	O || (Lt.forEach(function(e) {
+	}).join("").slice(0, 2).toUpperCase() : "?", Ht = G && G.photo, Ut = B.config && B.config.logo_horizontal_url, Wt = B.config && B.config.logo_dark_url, Gt = _ || Ut || "/logo-sprint-mode-horizontal.png", Kt = v || B.config && B.config.name || "Sprint Mode", qt = Gt;
+	g7() && (Wt ? qt = Wt : Gt.indexOf(".png") !== -1 && (qt = Gt.replace(".png", "-dark.png")));
+	var Jt = !!(y || b), Yt = [];
+	O || (X.forEach(function(e) {
 		if (e.nav) {
 			var t = e.nav.label;
 			e.nav.items.forEach(function(e) {
-				e.to && !e.disabled && !e.external && Jt.push({
+				e.to && !e.disabled && !e.external && Yt.push({
 					label: e.label,
 					to: e.to,
 					section: t,
@@ -113255,14 +113255,14 @@ var WNe = function(t) {
 			});
 		}
 	}), a && a.forEach(function(e) {
-		e.to && Jt.push({
+		e.to && Yt.push({
 			label: e.label,
 			to: e.to,
 			Icon: e.Icon || void 0
 		});
 	}));
-	var Yt = O || Jt, Xt = G?.bugs_access || 0, Zt = !k && (Xt >= 1 || !!me);
-	function Qt(e) {
+	var Xt = O || Yt, Zt = G?.bugs_access || 0, Qt = !k && (Zt >= 1 || !!me);
+	function $t(e) {
 		return fetch(P + "/api/bugs?q=" + encodeURIComponent(e) + "&limit=8", { credentials: "include" }).then(function(e) {
 			return e.ok ? e.json() : null;
 		}).then(function(e) {
@@ -113280,25 +113280,25 @@ var WNe = function(t) {
 			};
 		});
 	}
-	var $t = k || (Zt ? Qt : void 0), en = T || "/api/auth/logout?redirect=" + encodeURIComponent((typeof window < "u" ? window.location.origin : "") + "/auth/login"), tn = Ze && typeof Ze == "string" ? Ze : null, nn = $e && (tn === "team" || tn === "both") && rt.length > 0, rn = $e && (tn === "customers" || tn === "both" || !tn && ot.length > 0), an = yt.trim().toLowerCase();
-	function on(e) {
-		return an ? (e.name || "").toLowerCase().indexOf(an) !== -1 || (e.email || "").toLowerCase().indexOf(an) !== -1 || (e.company_name || "").toLowerCase().indexOf(an) !== -1 : !0;
+	var en = k || (Qt ? $t : void 0), tn = T || "/api/auth/logout?redirect=" + encodeURIComponent((typeof window < "u" ? window.location.origin : "") + "/auth/login"), nn = Ze && typeof Ze == "string" ? Ze : null, rn = $e && (nn === "team" || nn === "both"), an = $e && (nn === "customers" || nn === "both" || !nn && st.length > 0), on = bt.trim().toLowerCase();
+	function sn(e) {
+		return on ? (e.name || "").toLowerCase().indexOf(on) !== -1 || (e.email || "").toLowerCase().indexOf(on) !== -1 || (e.company_name || "").toLowerCase().indexOf(on) !== -1 : !0;
 	}
-	var sn = [];
+	var cn = [];
 	(function() {
 		var e = {};
-		ot.filter(on).forEach(function(t) {
+		st.filter(sn).forEach(function(t) {
 			var n = t.company_id || t.company_name || "_none";
 			e[n] || (e[n] = {
 				key: n,
 				name: t.company_name || "No company",
 				members: []
-			}, sn.push(e[n])), e[n].members.push(t);
+			}, cn.push(e[n])), e[n].members.push(t);
 		});
 	})();
-	var cn = rt.filter(function(e) {
+	var ln = it.filter(function(e) {
 		return e.email !== (G && G.email);
-	}).filter(on), ln = Y ? Y.lens : null, un = !!(Y && ln !== "both" && tn === "both"), dn = un ? ln === "team" ? "customer" : "team" : rn && nn ? gt : nn ? "team" : "customer", fn = {
+	}).filter(sn), un = et, dn = !!(Y && un !== "both" && nn === "both"), fn = dn ? un === "team" ? "customer" : "team" : an && rn ? _t : rn ? "team" : "customer", pn = {
 		hr: !0,
 		cpa: !0,
 		qa: !0,
@@ -113307,14 +113307,14 @@ var WNe = function(t) {
 		sso: !0,
 		api: !0
 	};
-	function pn(e) {
+	function mn(e) {
 		if (e.role_label) return e.role_label;
 		var t = e.role || e.portal_role || "";
 		return t ? t.split("_").map(function(e) {
-			return fn[e] ? e.toUpperCase() : e.charAt(0).toUpperCase() + e.slice(1);
+			return pn[e] ? e.toUpperCase() : e.charAt(0).toUpperCase() + e.slice(1);
 		}).join(" ") : "";
 	}
-	var mn = e.createElement("svg", {
+	var hn = e.createElement("svg", {
 		viewBox: "0 0 24 24",
 		width: 14,
 		height: 14,
@@ -113327,7 +113327,7 @@ var WNe = function(t) {
 		cx: 12,
 		cy: 12,
 		r: 3
-	})), hn = (nn || rn) && (!Y || un) ? e.createElement("div", {
+	})), gn = (rn || an) && (!Y || dn) ? e.createElement("div", {
 		className: "shell-va",
 		onClick: function(e) {
 			e.stopPropagation();
@@ -113335,62 +113335,62 @@ var WNe = function(t) {
 	}, e.createElement("button", {
 		className: "shell-va-btn",
 		onClick: function() {
-			Ct(""), mt(!pt);
+			wt(""), ht(!mt);
 		},
-		disabled: ut
-	}, "View as ", mn), pt ? e.createElement("div", { className: "shell-va-pop" }, rn && nn && !un ? e.createElement("div", { className: "shell-va-tabs" }, e.createElement("button", {
-		className: "shell-va-tab" + (dn === "customer" ? " active" : ""),
+		disabled: dt
+	}, "View as ", hn), mt ? e.createElement("div", { className: "shell-va-pop" }, an && rn && !dn ? e.createElement("div", { className: "shell-va-tabs" }, e.createElement("button", {
+		className: "shell-va-tab" + (fn === "customer" ? " active" : ""),
 		onClick: function() {
-			_t("customer");
+			vt("customer");
 		}
-	}, "Customer"), e.createElement("button", {
-		className: "shell-va-tab" + (dn === "team" ? " active" : ""),
+	}, "Users"), e.createElement("button", {
+		className: "shell-va-tab" + (fn === "team" ? " active" : ""),
 		onClick: function() {
-			_t("team");
+			vt("team");
 		}
 	}, "Team")) : null, e.createElement("input", {
 		className: "shell-va-search",
-		placeholder: dn === "customer" ? "Find a company or person" : "Find a team member",
-		value: yt,
+		placeholder: fn === "customer" ? "Find a company or person" : "Find a team member",
+		value: bt,
 		onChange: function(e) {
-			bt(e.target.value);
+			xt(e.target.value);
 		}
-	}), St ? e.createElement("div", {
+	}), Ct ? e.createElement("div", {
 		className: "shell-va-error",
 		role: "alert"
-	}, St) : null, e.createElement("div", { className: "shell-va-list" }, dn === "customer" ? sn.length === 0 ? e.createElement("div", { className: "shell-va-empty" }, "No matches") : sn.map(function(t) {
+	}, Ct) : null, e.createElement("div", { className: "shell-va-list" }, fn === "customer" ? cn.length === 0 ? e.createElement("div", { className: "shell-va-empty" }, "No matches") : cn.map(function(t) {
 		return e.createElement(e.Fragment, { key: t.key }, e.createElement("button", {
 			className: "shell-va-co",
 			onClick: function() {
-				kt(t.members);
+				At(t.members);
 			},
-			disabled: ut
+			disabled: dt
 		}, t.name), t.members.map(function(t) {
 			return e.createElement("button", {
 				key: t.email || t.id,
 				className: "shell-va-person",
 				onClick: function() {
-					Ot(t);
+					kt(t);
 				},
-				disabled: ut
-			}, e.createElement("span", { className: "shell-va-person-name" }, t.name || (t.email ? t.email.split("@")[0] : "?")), e.createElement("span", { className: "shell-va-person-role" }, pn(t)));
+				disabled: dt
+			}, e.createElement("span", { className: "shell-va-person-name" }, t.name || (t.email ? t.email.split("@")[0] : "?")), e.createElement("span", { className: "shell-va-person-role" }, mn(t)));
 		}));
-	}) : cn.length === 0 ? e.createElement("div", { className: "shell-va-empty" }, "No matches") : cn.map(function(t) {
+	}) : ln.length === 0 ? e.createElement("div", { className: "shell-va-empty" }, "No matches") : ln.map(function(t) {
 		return e.createElement("button", {
 			key: t.email || t.id,
 			className: "shell-va-person shell-va-person-team",
 			onClick: function() {
-				Dt(t);
+				Ot(t);
 			},
-			disabled: ut
-		}, e.createElement("span", { className: "shell-va-person-name" }, t.name || (t.email ? t.email.split("@")[0] : "?")), e.createElement("span", { className: "shell-va-person-role" }, pn(t)));
-	}))) : null) : null, gn = Y ? e.createElement("div", { className: "shell-va-lens" }, e.createElement("span", { className: "shell-va-lens-label" }, mn, " ", Y.name || Y.email || "", Y.lens === "both" ? " · viewing " + (Y.customer_name || "") + (Y.company_name ? " · " + Y.company_name : "") : Y.lens === "customer" && Y.company_name ? " · " + Y.company_name : ""), e.createElement("button", {
+			disabled: dt
+		}, e.createElement("span", { className: "shell-va-person-name" }, t.name || (t.email ? t.email.split("@")[0] : "?")), e.createElement("span", { className: "shell-va-person-role" }, mn(t)));
+	}))) : null) : null, _n = Y ? e.createElement("div", { className: "shell-va-lens" }, e.createElement("span", { className: "shell-va-lens-label" }, hn, " ", Y.name || Y.email || "", et === "both" ? " · viewing " + (Y.customer_name || "") + (Y.company_name ? " · " + Y.company_name : "") : et === "customer" && Y.company_name ? " · " + Y.company_name : ""), e.createElement("button", {
 		className: "shell-va-lens-exit",
-		onClick: Et,
-		disabled: ut
-	}, "Exit")) : null, _n = qt && G ? e.createElement(e.Fragment, null, e.createElement(KMe, {
+		onClick: Dt,
+		disabled: dt
+	}, "Exit")) : null, vn = Jt && G ? e.createElement(e.Fragment, null, e.createElement(KMe, {
 		session: G,
-		apiBase: wt,
+		apiBase: Tt,
 		portalSubdomain: Xe
 	}), V ? e.createElement("button", {
 		onClick: function() {
@@ -113455,21 +113455,21 @@ var WNe = function(t) {
 	} }) : null, e.createElement(RNe, {
 		session: G,
 		profilePath: E,
-		logoutHref: en,
+		logoutHref: tn,
 		userMenuExtra: N,
 		portalSubdomain: Xe,
-		authBase: wt
+		authBase: Tt
 	})) : null;
 	return /* @__PURE__ */ u(p9.Provider, {
 		value: G,
 		children: /* @__PURE__ */ u(g9.Provider, {
-			value: et,
+			value: tt,
 			children: /* @__PURE__ */ u(h9.Provider, {
-				value: tt,
+				value: nt,
 				children: /* @__PURE__ */ d("div", {
-					className: "shell" + (qt ? " shell-with-header" : ""),
+					className: "shell" + (Jt ? " shell-with-header" : ""),
 					children: [
-						qt && /* @__PURE__ */ u("header", {
+						Jt && /* @__PURE__ */ u("header", {
 							className: "shell-header" + (Y ? " shell-header-lens" : ""),
 							children: /* @__PURE__ */ d("div", {
 								className: "shell-header-inner",
@@ -113521,8 +113521,8 @@ var WNe = function(t) {
 											}),
 											M ? e.createElement("span", { className: "shell-header-byline" }, M) : null
 										] }) : /* @__PURE__ */ u("img", {
-											src: Kt,
-											alt: Gt,
+											src: qt,
+											alt: Kt,
 											style: {
 												height: 24,
 												width: "auto"
@@ -113553,11 +113553,11 @@ var WNe = function(t) {
 											e.currentTarget.style.borderColor = "", e.currentTarget.style.color = "var(--muted)";
 										}
 									}, typeof navigator < "u" && navigator.platform && navigator.platform.indexOf("Mac") !== -1 ? "⌘C" : "Ctrl+C") : null]
-								}), (hn || gn || I || b || _n) && /* @__PURE__ */ d("div", {
+								}), (gn || _n || I || b || vn) && /* @__PURE__ */ d("div", {
 									className: "shell-header-right",
 									children: [
+										_n,
 										gn,
-										hn,
 										I && e.createElement("button", {
 											onClick: I.onClick,
 											style: {
@@ -113581,7 +113581,7 @@ var WNe = function(t) {
 											}
 										}, I.label),
 										b,
-										_n
+										vn
 									]
 								})]
 							})
@@ -113593,7 +113593,7 @@ var WNe = function(t) {
 									className: "portal-sidebar" + (ge ? " open" : "") + (Se ? " rail" : ""),
 									id: "portalSidebar",
 									children: [
-										!qt && /* @__PURE__ */ d("div", {
+										!Jt && /* @__PURE__ */ d("div", {
 											className: "portal-sidebar-logo",
 											style: {
 												display: "flex",
@@ -113601,8 +113601,8 @@ var WNe = function(t) {
 												gap: 6
 											},
 											children: [/* @__PURE__ */ u("img", {
-												src: Kt,
-												alt: Gt,
+												src: qt,
+												alt: Kt,
 												style: {
 													height: 24,
 													width: "auto"
@@ -113634,7 +113634,7 @@ var WNe = function(t) {
 										}),
 										/* @__PURE__ */ u("nav", {
 											className: "portal-sidebar-nav",
-											children: Lt.map(function(e) {
+											children: X.map(function(e) {
 												if (e.heading) return /* @__PURE__ */ u("div", {
 													className: "ps-heading",
 													style: {
@@ -113657,10 +113657,10 @@ var WNe = function(t) {
 													color: t.color,
 													tint: t.tint,
 													product: e.key,
-													flat: Lt.length === 1 || e.flat || e.nav.flat,
-													collapsed: r ? Nt[e.key] === void 0 ? !!e.defaultCollapsed && !Ft(e) : !!Nt[e.key] : void 0,
+													flat: X.length === 1 || e.flat || e.nav.flat,
+													collapsed: r ? Pt[e.key] === void 0 ? !!e.defaultCollapsed && !It(e) : !!Pt[e.key] : void 0,
 													onToggle: r ? function() {
-														It(e.key);
+														Lt(e.key);
 													} : void 0,
 													railCollapsed: Se,
 													onRailEnter: ke,
@@ -113671,7 +113671,7 @@ var WNe = function(t) {
 										a && a.length > 0 && /* @__PURE__ */ u("div", {
 											className: "portal-sidebar-bottom-nav",
 											children: a.filter(function(e) {
-												return k9(jt, At, e.permKey);
+												return k9(Mt, jt, e.permKey);
 											}).map(function(e) {
 												return /* @__PURE__ */ d(f, {
 													to: e.to,
@@ -113691,15 +113691,15 @@ var WNe = function(t) {
 											})
 										}),
 										x,
-										!qt && /* @__PURE__ */ d("div", {
+										!Jt && /* @__PURE__ */ d("div", {
 											className: "portal-sidebar-user",
 											children: [/* @__PURE__ */ u("button", {
 												className: "portal-avatar",
 												onClick: function(e) {
 													e.stopPropagation(), be(!ye);
 												},
-												children: Vt ? e.createElement("img", {
-													src: Vt,
+												children: Ht ? e.createElement("img", {
+													src: Ht,
 													alt: "",
 													style: {
 														width: "100%",
@@ -113708,7 +113708,7 @@ var WNe = function(t) {
 														objectFit: "cover",
 														display: "block"
 													}
-												}) : Bt
+												}) : Vt
 											}), /* @__PURE__ */ d("div", { children: [/* @__PURE__ */ u("div", {
 												className: "portal-sidebar-user-name",
 												children: G ? G.name || G.email : ""
@@ -113717,7 +113717,7 @@ var WNe = function(t) {
 												children: G && G.company_name || ""
 											})] })]
 										}),
-										!qt && ye && /* @__PURE__ */ d("div", {
+										!Jt && ye && /* @__PURE__ */ d("div", {
 											className: "portal-dropdown",
 											style: {
 												position: "fixed",
@@ -113742,7 +113742,7 @@ var WNe = function(t) {
 													children: "Profile"
 												}),
 												/* @__PURE__ */ u("a", {
-													href: en,
+													href: tn,
 													children: "Sign out"
 												})
 											]
@@ -113847,9 +113847,9 @@ var WNe = function(t) {
 												borderRadius: 1
 											} })
 										]
-									}), !qt && /* @__PURE__ */ u("img", {
-										src: Kt,
-										alt: Gt,
+									}), !Jt && /* @__PURE__ */ u("img", {
+										src: qt,
+										alt: Kt,
 										style: {
 											height: 24,
 											width: "auto"
@@ -113878,15 +113878,15 @@ var WNe = function(t) {
 											!f.to || !f.permKey || (l === f.to || l.startsWith(f.to + "/")) && f.to.length > u.length && (u = f.to, n = f.permKey);
 										}
 										var m = !1;
-										if (n && !k9(jt, At, n) && (m = !0), !m && n) {
+										if (n && !k9(Mt, jt, n) && (m = !0), !m && n) {
 											var h = n.indexOf(".");
 											if (h > 0) {
 												var _ = n.substring(0, h);
 												if (s.indexOf(_) >= 0) {
-													var v = jt && jt.sections ? jt.sections[_] : null;
+													var v = Mt && Mt.sections ? Mt.sections[_] : null;
 													v && v.view === !1 && (m = !0);
 												}
-												!m && c[_] && (A9(jt, At, c[_]) || (m = !0));
+												!m && c[_] && (A9(Mt, jt, c[_]) || (m = !0));
 											}
 										}
 										return m ? e.createElement("div", { style: {
@@ -113942,12 +113942,12 @@ var WNe = function(t) {
 							onClose: function() {
 								Pe(!1);
 							},
-							items: Yt,
+							items: Xt,
 							onNavigate: function(e) {
 								Ge(e);
 							},
 							placeholder: D,
-							onSearch: $t,
+							onSearch: en,
 							recentKey: A
 						}),
 						fe && /* @__PURE__ */ u(l9, {

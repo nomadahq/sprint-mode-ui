@@ -210,6 +210,40 @@ describe('picker selection', () => {
     expect(screen.getByText('Claire Fontaine')).toBeInTheDocument()
   })
 
+  it("VAU-HARDEN-1: a 'user' lens value (VAC rename) renders identically to legacy 'customer'", () => {
+    vi.stubGlobal('fetch', vi.fn(() => Promise.resolve({ ok: true, json: () => Promise.resolve({}) })))
+    var s = lensSession()
+    s.viewing_as = Object.assign({}, s.viewing_as, { lens: 'user' })
+    renderLayout(s)
+    expect(screen.getByText(/Claire Fontaine/)).toBeInTheDocument()
+    expect(screen.getByText(/Northwind Ops/)).toBeInTheDocument()
+    expect(screen.getByText('Exit')).toBeInTheDocument()
+  })
+
+  it("VAU-HARDEN-1: both-mode portal renders BOTH tabs (Users / Team) even when the team list is empty", async () => {
+    vi.stubGlobal('fetch', vi.fn(function(url) {
+      if (String(url).indexOf('/api/view-as-users') === 0) {
+        return Promise.resolve({ ok: true, json: () => Promise.resolve({ ok: true, data: {
+          team: [],
+          customers: [{ email: 'claire@nw.example', name: 'Claire Fontaine', company_id: 'co_n', company_name: 'Northwind Ops', role: 'owner', user_id: 'usr_c', role_type: 'customer' }],
+        } }) })
+      }
+      return Promise.resolve({ ok: true, json: () => Promise.resolve({ ok: true }) })
+    }))
+    var s = baseSession()
+    s.portals = { admin: { access: true, view_as: 'both' } }
+    renderLayout(s, { viewAsApi: '/api/view-as-users' })
+    fireEvent.click(await screen.findByText(/View as/))
+    // Settings say both -> both tabs render; empty team list shows inside its tab.
+    expect(document.querySelector('.shell-va-tabs')).not.toBeNull()
+    expect(screen.getByText('Users')).toBeInTheDocument()
+    expect(screen.getByText('Team')).toBeInTheDocument()
+    // Users-first default (Aaron ruling 2026-08-15): customer rows visible on open.
+    expect(await screen.findByText('Claire Fontaine')).toBeInTheDocument()
+    fireEvent.click(screen.getByText('Team'))
+    expect(await screen.findByText('No matches')).toBeInTheDocument()
+  })
+
   it('picker button is hidden under a lens on a single-mode portal (header carries the state)', () => {
     vi.stubGlobal('fetch', vi.fn(() => Promise.resolve({ ok: true, json: () => Promise.resolve({}) })))
     var s = lensSession()

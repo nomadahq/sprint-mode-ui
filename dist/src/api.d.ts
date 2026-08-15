@@ -33,12 +33,17 @@ export interface SessionData {
     }[];
     viewing_as?: {
         contact_id?: string;
+        user_id?: string;
         email?: string;
         name?: string;
         company_id?: string;
         company_name?: string;
         portal_role?: string;
         products?: string[];
+        lens?: 'user' | 'customer' | 'team' | 'both';
+        portal?: string;
+        effective_role?: string;
+        customer_name?: string;
     };
     portals?: Record<string, {
         access: boolean;

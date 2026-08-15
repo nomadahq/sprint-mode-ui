@@ -26,12 +26,19 @@ export interface SessionData {
   emails?: { email: string; is_primary: boolean; email_type?: string; last_sign_in_at?: string | null }[]
   viewing_as?: {
     contact_id?: string
+    user_id?: string
     email?: string
     name?: string
     company_id?: string
     company_name?: string
     portal_role?: string
     products?: string[]
+    // VAU-HARDEN-1: 'user' is the VAU lens value; 'customer' is the
+    // pre-rename synonym still live on 30-day cookies.
+    lens?: 'user' | 'customer' | 'team' | 'both'
+    portal?: string
+    effective_role?: string
+    customer_name?: string
   }
   portals?: Record<string, {
     access: boolean

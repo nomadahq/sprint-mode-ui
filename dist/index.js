@@ -112390,15 +112390,27 @@ function zNe({ open: t, onClose: n }) {
 			transition: "background 0.1s, outline-color 0.1s",
 			boxSizing: "border-box"
 		} }, t.logo_mark_url ? e.createElement("img", {
-			src: t.logo_mark_url.replace("logo_mark.png", "logo_mark_inverted.png"),
+			src: t.logo_mark_url,
 			alt: t.name || t.portal,
 			style: {
 				width: "100%",
 				height: "100%",
 				objectFit: "contain",
-				display: "block"
+				display: "block",
+				filter: "brightness(0) invert(1)"
+			},
+			onError: function(e) {
+				var t = e.currentTarget;
+				t.style.display = "none";
+				var n = t.nextElementSibling;
+				n && (n.style.display = "flex");
 			}
-		}) : e.createElement("span", { style: {
+		}) : null, e.createElement("span", { style: {
+			display: t.logo_mark_url ? "none" : "flex",
+			width: "100%",
+			height: "100%",
+			alignItems: "center",
+			justifyContent: "center",
 			fontFamily: "Geist, system-ui, -apple-system, sans-serif",
 			fontSize: "clamp(14px, 2vw, 22px)",
 			fontWeight: 700,

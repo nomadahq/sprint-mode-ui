@@ -850,19 +850,43 @@ function PortalPicker({ open, onClose }: { open: boolean; onClose: () => void })
                 boxSizing: 'border-box' as const,
               }
             },
+              // UI-POLISH-2: icon rendering fix.
+              // Root cause: all logo_mark_inverted.png files in R2 are dark-on-transparent
+              // (identical colour space to logo_mark.png, not white versions). They are
+              // invisible against the dark dock background (rgba(30,30,36,0.90)).
+              // Fix: use logo_mark.png + CSS filter:brightness(0)invert(1) which reliably
+              // renders any logo white without depending on separate R2 assets.
+              // onError fallback: if the image fails to load for any reason, show initials
+              // instead of a broken-image glyph.
               p.logo_mark_url
                 ? React.createElement('img', {
-                    src: p.logo_mark_url.replace('logo_mark.png', 'logo_mark_inverted.png'),
+                    src: p.logo_mark_url,
                     alt: p.name || p.portal,
-                    style: { width: '100%', height: '100%', objectFit: 'contain' as const, display: 'block' },
-                  })
-                : React.createElement('span', {
                     style: {
-                      fontFamily: 'Geist, system-ui, -apple-system, sans-serif',
-                      fontSize: 'clamp(14px, 2vw, 22px)', fontWeight: 700,
-                      color: '#fff', letterSpacing: '-0.5px',
-                    }
-                  }, (p.name || p.portal).slice(0, 2).toUpperCase())
+                      width: '100%', height: '100%',
+                      objectFit: 'contain' as const,
+                      display: 'block',
+                      filter: 'brightness(0) invert(1)',
+                    },
+                    onError: function(e: React.SyntheticEvent<HTMLImageElement>) {
+                      var img = e.currentTarget
+                      img.style.display = 'none'
+                      var sib = img.nextElementSibling as HTMLElement | null
+                      if (sib) sib.style.display = 'flex'
+                    },
+                  })
+                : null,
+              // Initials: shown when logo_mark_url is absent; also revealed by onError
+              React.createElement('span', {
+                style: {
+                  display: p.logo_mark_url ? 'none' : 'flex',
+                  width: '100%', height: '100%',
+                  alignItems: 'center', justifyContent: 'center',
+                  fontFamily: 'Geist, system-ui, -apple-system, sans-serif',
+                  fontSize: 'clamp(14px, 2vw, 22px)', fontWeight: 700,
+                  color: '#fff', letterSpacing: '-0.5px',
+                }
+              }, (p.name || p.portal).slice(0, 2).toUpperCase())
             ),
             // Label inside the pill
             React.createElement('div', {

@@ -13,7 +13,6 @@ import { defineConfig } from 'vite'
 import { resolve } from 'path'
 
 var entries: Record<string, { file: string; name: string }> = {
-  'bug-panel': { file: 'src/bug-panel-standalone.ts', name: 'SMBugPanel' },
   'user-menu': { file: 'src/user-menu-standalone.ts', name: 'SMUserMenu' },
   'inbox-page': { file: 'src/inbox-page-standalone.ts', name: 'SMInboxPage' },
 }

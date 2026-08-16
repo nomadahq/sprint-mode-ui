@@ -62,7 +62,6 @@ export { UpdateAttachments } from './UpdateAttachments.tsx'
 export { PortalUpdates } from './PortalUpdates.tsx'
 export { PortalUpdatesV2 } from './PortalUpdatesV2.tsx'
 
-export { BugPanel, BugPanelHeaderButton } from './BugPanel.tsx'
 
 export { AvatarUpload } from './AvatarUpload.tsx'
 

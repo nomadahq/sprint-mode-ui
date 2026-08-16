@@ -12,7 +12,7 @@ export default defineConfig({
     react(),
     dts({
       include: ['src/**/*.ts', 'src/**/*.tsx', 'src/**/*.js', 'src/**/*.jsx'],
-      exclude: ['src/__tests__', 'src/bug-panel-standalone.ts', 'src/user-menu-standalone.ts', 'src/inbox-page-standalone.ts'],
+      exclude: ['src/__tests__', 'src/user-menu-standalone.ts', 'src/inbox-page-standalone.ts'],
       outDir: 'dist',
       tsconfigPath: './tsconfig.json',
       pathsToAliases: false,

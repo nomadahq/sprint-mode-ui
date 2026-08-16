@@ -6,7 +6,6 @@ import { NotificationBellNav } from './NotificationBellNav.tsx'
 import { AccountSwitcher } from './AccountSwitcher.tsx'
 import { ActingRoleChip } from './ActingRoleChip.tsx'
 import { NoAccessScreen } from './NoAccessScreen.tsx'
-import { BugPanel, BugPanelHeaderButton } from './BugPanel.jsx'
 import { usePortalConfig } from './usePortalConfig.jsx'
 
 // ─── Global augmentation for window.__SM_SESSION ───────────────────────────
@@ -966,6 +965,23 @@ export function parsePerms(session: SessionData | ViewAsUser | null): Permission
   } catch (_e) { return null }
 }
 
+
+// TASK-2062: the legacy in-shell Waffle panel is retired. The shell now
+// opens the ONE panel implementation - the Waffle app's standalone
+// /panel page - gated by the same role grant + portal feature toggle.
+function openWafflePanel(focusBugId?: string | null) {
+  var url = 'https://waffle.sprintmode.ai/panel' + (focusBugId ? '?bug=' + encodeURIComponent(focusBugId) : '')
+  window.open(url, 'waffle-panel', 'width=440,height=880,noopener')
+}
+function WafflePanelButton(props: { onClick: () => void }) {
+  return React.createElement('button', {
+    onClick: props.onClick,
+    title: 'Waffle panel (Cmd+.)',
+    style: { width: 30, height: 30, borderRadius: 8, border: '1px solid var(--border)', background: 'var(--bg-card)', color: 'var(--muted)', cursor: 'pointer', display: 'inline-flex', alignItems: 'center', justifyContent: 'center' },
+  }, React.createElement('svg', { width: 15, height: 15, viewBox: '0 0 24 24', fill: 'none', stroke: 'currentColor', strokeWidth: 2, strokeLinecap: 'round', 'aria-hidden': true },
+    React.createElement('path', { d: 'M4 9h16M4 15h16M9 4v16M15 4v16' })))
+}
+
 export function canViewSection(perms: Permissions | null, role: string | null | undefined, key: string | undefined): boolean {
   if (!key) return true
   if (role === 'super_admin') return true
@@ -1275,8 +1291,6 @@ const Layout: React.FC<LayoutProps> = function Layout(props: LayoutProps) {
     ? props.cmdK !== false
     : (portalCfg.config ? (portalCfg.config as any).cmdk !== 0 : true)
   var bugPanelFlag = props.bugPanel !== undefined ? props.bugPanel : (portalCfg.config && (portalCfg.config as any).bug_panel)
-  var bugPanelProduct = props.portalSubdomain || 'sm'
-  var bugPanelLabel = props.bugPanelLabel
 
   var _s = useState<SessionData | null>(sessionProp || null); var session = _s[0]; var setSession = _s[1]
   var _l = useState(!sessionProp); var loading = _l[0]; var setLoading = _l[1]
@@ -1324,7 +1338,6 @@ const Layout: React.FC<LayoutProps> = function Layout(props: LayoutProps) {
   function keepRailFlyout() { if (flyTimer.current) { clearTimeout(flyTimer.current); flyTimer.current = null } }
   function closeRailFlyoutSoon() { flyTimer.current = setTimeout(function() { setRailFlyout(null) }, 200) }
   var _cmdkOpen = useState(false); var cmdkOpen = _cmdkOpen[0]; var setCmdkOpen = _cmdkOpen[1]
-  var _bugPanelOpen = useState(false); var bugPanelOpen = _bugPanelOpen[0]; var setBugPanelOpen = _bugPanelOpen[1]
   var _portalPicker = useState(false); var portalPickerOpen = _portalPicker[0]; var setPortalPickerOpen = _portalPicker[1]
 
   // Count accessible portals for the Cmd+C badge (show only when 2+)
@@ -1341,7 +1354,7 @@ const Layout: React.FC<LayoutProps> = function Layout(props: LayoutProps) {
   useEffect(function() {
     var handler = function(e: KeyboardEvent) {
       if ((e.metaKey || e.ctrlKey) && e.key === 'k') { e.preventDefault(); setCmdkOpen(true) }
-      if ((e.metaKey || e.ctrlKey) && e.key === 'b') { e.preventDefault(); if (bugPanelEnabled) setBugPanelOpen(function(v) { return !v }) }
+      if ((e.metaKey || e.ctrlKey) && e.key === '.') { e.preventDefault(); if (bugPanelEnabled) openWafflePanel() }
       if ((e.metaKey || e.ctrlKey) && e.key === 'i') {
         var tag = (document.activeElement?.tagName || '').toLowerCase()
         if (tag !== 'input' && tag !== 'textarea' && !(document.activeElement as HTMLElement)?.isContentEditable) {
@@ -1363,16 +1376,13 @@ const Layout: React.FC<LayoutProps> = function Layout(props: LayoutProps) {
   }, [bugPanelEnabled, portalPickerOpen, portalCount])
 
   // Deep link: ?bug=bug_xxx opens the bug panel and focuses that bug
-  var _focusBug = useState<string | null>(null); var focusBugId = _focusBug[0]; var setFocusBugId = _focusBug[1]
-  // WAFFLE-3.5 round 4: waffle:open-item is handled inside BugPanel as the
-  // SOLO card modal (Aaron: the card inline, never the whole board) — the
-  // Layout-level open-the-panel listener from the first pass is gone.
+  // TASK-2062: ?bug= deep links open the Waffle app panel popout focused
+  // on that item; the in-shell solo-card modal retired with the panel.
   useEffect(function() {
     var params = new URLSearchParams(window.location.search)
     var bugId = params.get('bug')
     if (bugId && bugPanelEnabled) {
-      setFocusBugId(bugId)
-      setBugPanelOpen(true)
+      openWafflePanel(bugId)
     }
   }, [bugPanelEnabled, location.search])
 
@@ -1906,7 +1916,7 @@ const Layout: React.FC<LayoutProps> = function Layout(props: LayoutProps) {
       )
     ),
     notificationBellEnabled ? React.createElement(NotificationBellNav, { apiBase: notificationApiBase, href: notificationHref, onNavigate: function(href: string) { navigate(href) } }) : null,
-    bugPanelEnabled ? React.createElement(BugPanelHeaderButton, { onClick: function() { setBugPanelOpen(function(v) { return !v }) } }) : null,
+    bugPanelEnabled ? React.createElement(WafflePanelButton, { onClick: function() { openWafflePanel() } }) : null,
     React.createElement(HeaderUserMenu, { session: session, profilePath: profilePath, logoutHref: logoutHref, userMenuExtra: userMenuExtra, portalSubdomain: portalSubdomain, authBase: vaAuthBase })
   ) : null
 
@@ -2235,19 +2245,7 @@ const Layout: React.FC<LayoutProps> = function Layout(props: LayoutProps) {
           />
         )}
 
-        {bugPanelEnabled && (
-          <BugPanel
-            visible={bugPanelOpen}
-            onClose={function() { setBugPanelOpen(false); setFocusBugId(null) }}
-            isAdmin={!!bugPanelAdmin}
-            apiBase={notificationApiBase}
-            product={bugPanelProduct}
-            label={bugPanelLabel}
-            mcpKeysHref={props.bugPanelMcpKeysHref}
-            focusBugId={focusBugId}
-            session={session ? { contact_id: (session as any).contact_id, display_name: session.name, email: session.email } : null}
-          />
-        )}
+        {/* TASK-2062: legacy BugPanel retired - the header button and Cmd+. open the Waffle app's /panel popout */}
 
         <PortalPicker open={portalPickerOpen} onClose={function() { setPortalPickerOpen(false) }} />
       </div>

@@ -2000,7 +2000,11 @@ const Layout: React.FC<LayoutProps> = function Layout(props: LayoutProps) {
                   }}>{section.heading}</div>
                 )
               }
-              var pc = PRODUCT_COLORS[section.key] || PRODUCT_COLORS['sprint-mode']
+              // Unknown section keys inherit the PORTAL accent, not
+              // sprint-mode blue - otherwise every portal with custom
+              // section keys shows blue actives up top and its own brand
+              // below (Aaron, waffle nav, 2026-08-15).
+              var pc = PRODUCT_COLORS[section.key] || { color: 'var(--accent)', tint: 'var(--accent-10)' }
               return (
                 <SidebarSection
                   key={section.key}

@@ -106145,6 +106145,36 @@ function l9(e) {
 	window.open(t, "waffle-panel", "width=440,height=880,noopener");
 }
 function LMe(t) {
+	var n = e.createElement("svg", {
+		width: 15,
+		height: 15,
+		viewBox: "0 0 24 24",
+		fill: "none",
+		stroke: "currentColor",
+		strokeWidth: 2,
+		strokeLinecap: "round",
+		"aria-hidden": !0
+	}, e.createElement("path", { d: "M4 9h16M4 15h16M9 4v16M15 4v16" })), r = e.createElement("img", {
+		src: "https://api.sprintmode.ai/portals/waffle/logo_mark.png",
+		width: 16,
+		height: 16,
+		alt: "Waffle",
+		style: {
+			display: "block",
+			borderRadius: 4
+		},
+		onError: function(e) {
+			var t = e.currentTarget;
+			if (!t.dataset.fbk) {
+				t.dataset.fbk = "1", t.style.display = "none";
+				var n = t.nextElementSibling;
+				n && (n.style.display = "inline-flex");
+			}
+		}
+	}), i = e.createElement("span", { style: {
+		display: "none",
+		color: "var(--muted)"
+	} }, n);
 	return e.createElement("button", {
 		onClick: t.onClick,
 		title: "Waffle panel (Cmd+.)",
@@ -106160,16 +106190,7 @@ function LMe(t) {
 			alignItems: "center",
 			justifyContent: "center"
 		}
-	}, e.createElement("svg", {
-		width: 15,
-		height: 15,
-		viewBox: "0 0 24 24",
-		fill: "none",
-		stroke: "currentColor",
-		strokeWidth: 2,
-		strokeLinecap: "round",
-		"aria-hidden": !0
-	}, e.createElement("path", { d: "M4 9h16M4 15h16M9 4v16M15 4v16" })));
+	}, r, i);
 }
 function u9(e, t, n) {
 	if (!n || t === "super_admin") return !0;

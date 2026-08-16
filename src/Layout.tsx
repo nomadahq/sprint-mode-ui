@@ -974,12 +974,30 @@ function openWafflePanel(focusBugId?: string | null) {
   window.open(url, 'waffle-panel', 'width=440,height=880,noopener')
 }
 function WafflePanelButton(props: { onClick: () => void }) {
+  // Aaron branding rule: the button opens Waffle, so it carries the Waffle
+  // mark from the R2 portal-branding endpoint (the Portal Manager source of
+  // truth). The tabler grid-4x4 is the FALLBACK only, on image load failure.
+  var fallback = React.createElement('svg', { width: 15, height: 15, viewBox: '0 0 24 24', fill: 'none', stroke: 'currentColor', strokeWidth: 2, strokeLinecap: 'round', 'aria-hidden': true },
+    React.createElement('path', { d: 'M4 9h16M4 15h16M9 4v16M15 4v16' }))
+  var img = React.createElement('img', {
+    src: 'https://api.sprintmode.ai/portals/waffle/logo_mark.png',
+    width: 16, height: 16, alt: 'Waffle',
+    style: { display: 'block', borderRadius: 4 },
+    onError: function (e: React.SyntheticEvent<HTMLImageElement>) {
+      var el = e.currentTarget as HTMLImageElement & { dataset: { fbk?: string } }
+      if (el.dataset.fbk) return
+      el.dataset.fbk = '1'
+      el.style.display = 'none'
+      var sib = el.nextElementSibling as HTMLElement | null
+      if (sib) sib.style.display = 'inline-flex'
+    },
+  })
+  var fallbackWrap = React.createElement('span', { style: { display: 'none', color: 'var(--muted)' } }, fallback)
   return React.createElement('button', {
     onClick: props.onClick,
     title: 'Waffle panel (Cmd+.)',
     style: { width: 30, height: 30, borderRadius: 8, border: '1px solid var(--border)', background: 'var(--bg-card)', color: 'var(--muted)', cursor: 'pointer', display: 'inline-flex', alignItems: 'center', justifyContent: 'center' },
-  }, React.createElement('svg', { width: 15, height: 15, viewBox: '0 0 24 24', fill: 'none', stroke: 'currentColor', strokeWidth: 2, strokeLinecap: 'round', 'aria-hidden': true },
-    React.createElement('path', { d: 'M4 9h16M4 15h16M9 4v16M15 4v16' })))
+  }, img, fallbackWrap)
 }
 
 export function canViewSection(perms: Permissions | null, role: string | null | undefined, key: string | undefined): boolean {

@@ -52,10 +52,16 @@ jobs:
         with:
           node-version: "20"
           cache: "npm"
+      - name: print node version
+        run: node --version
+      - name: assert node 20
+        run: node -e "process.exit(process.version.startsWith('v20')?0:42)"
       - name: Configure git for HTTPS (public deps)
         run: git config --global url."https://github.com/".insteadOf "git+ssh://git@github.com/"
-      - run: npm ci
-      - run: npm run build
+      - name: npm ci (no cache trust)
+        run: npm ci
+      - name: build
+        run: npm run build
 
   test:
     name: test

@@ -104215,20 +104215,32 @@ function H7(t) {
 			e && e.ok && w(e);
 		}).catch(function() {});
 	}, [o, U]), ee = n(function() {
+		function e(e) {
+			return e.map(function(e) {
+				var t = {}, n = (e.portals || []).filter(function(e) {
+					return t[e.subdomain] ? !1 : (t[e.subdomain] = !0, !0);
+				});
+				return {
+					...e,
+					portals: n
+				};
+			});
+		}
 		fetch(r + "/api/auth/linked-accounts", {
 			credentials: "include",
 			headers: U()
 		}).then(function(e) {
 			return e.json();
-		}).then(function(e) {
-			if (h(!0), e.ok && e.data) {
-				f(e.data.accounts);
-				var t = e.data.accounts.find(function(e) {
+		}).then(function(t) {
+			if (h(!0), t.ok && t.data) {
+				var n = e(t.data.accounts);
+				f(n);
+				var r = n.find(function(e) {
 					return e.is_current;
 				});
-				t && (x(t.user_id), V7[c] = {
-					accounts: e.data.accounts,
-					meUserId: t.user_id,
+				r && (x(r.user_id), V7[c] = {
+					accounts: n,
+					meUserId: r.user_id,
 					ts: Date.now()
 				});
 			}

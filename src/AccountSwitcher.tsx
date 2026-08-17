@@ -168,16 +168,32 @@ export function AccountSwitcher(props: AccountSwitcherProps) {
   }, [authBase, authHeaders])
 
   var fetchAccounts = useCallback(function() {
+    // Dedupe each account's portal list by subdomain: linked-accounts
+    // returns one entry per portal_members row, so a portal reachable by
+    // two paths (customer Owner row + team role) renders twice without
+    // this (Aaron, gmail-account drill-in, 2026-08-16).
+    function dedupePortals(accs: LinkedAccount[]): LinkedAccount[] {
+      return accs.map(function(a) {
+        var seen: Record<string, boolean> = {}
+        var portals = (a.portals || []).filter(function(p) {
+          if (seen[p.subdomain]) return false
+          seen[p.subdomain] = true
+          return true
+        })
+        return { ...a, portals: portals }
+      })
+    }
     fetch(apiBase + '/api/auth/linked-accounts', { credentials: 'include', headers: authHeaders() })
       .then(function(r) { return r.json() })
       .then(function(data: { ok: boolean; data?: { accounts: LinkedAccount[] } }) {
         setLoaded(true)
         if (data.ok && data.data) {
-          setAccounts(data.data.accounts)
-          var cur = data.data.accounts.find(function(a) { return a.is_current })
+          var deduped = dedupePortals(data.data.accounts)
+          setAccounts(deduped)
+          var cur = deduped.find(function(a) { return a.is_current })
           if (cur) {
             setMeUserId(cur.user_id)
-            _linkedCache[cacheKey] = { accounts: data.data.accounts, meUserId: cur.user_id, ts: Date.now() }
+            _linkedCache[cacheKey] = { accounts: deduped, meUserId: cur.user_id, ts: Date.now() }
           }
         }
       })

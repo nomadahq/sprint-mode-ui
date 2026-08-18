@@ -16,10 +16,6 @@ import { MemoryRouter } from 'react-router-dom'
 import Layout from '../Layout.tsx'
 import { AccountSwitcher } from '../AccountSwitcher.tsx'
 
-var DAY = 24 * 60 * 60 * 1000
-function sqliteStamp(msAgo) {
-  return new Date(Date.now() - msAgo).toISOString().slice(0, 19).replace('T', ' ')
-}
 
 function operatorFields() {
   return {
@@ -167,9 +163,13 @@ describe('lensed user menu identity (BUG-2033 items 1 + 2)', function() {
     openMenu(r.container)
     expect(screen.getAllByText(/Aaron/).length).toBeGreaterThan(0)
     expect(screen.queryByText('Viewing as')).toBeNull()
+    // I-29 menu cleanup: Sign-in emails moved to the profile page; the menu
+    // must not render the section even unlensed.
     await waitFor(function() {
-      expect(screen.getByText('Sign-in emails')).toBeInTheDocument()
+      expect(screen.getByText('aaron@sprintmode.ai')).toBeInTheDocument()
     })
+    expect(screen.queryByText('Sign-in emails')).toBeNull()
+    expect(screen.queryByText('Link an email')).toBeNull()
   })
 
   it('AccountSwitcher hard-guards: renders null when the fresh /auth/me carries viewing_as, even if the shell session does not', async function() {
@@ -223,63 +223,6 @@ describe('role Swap permission gate (BUG-2033 item 3)', function() {
   })
 })
 
-describe('sign-in emails 90-day display rule (BUG-2033 addendum)', function() {
-  function emailSession(emails) {
-    return Object.assign(operatorFields(), { emails: emails })
-  }
-
-  it('Primary + recent render by default; stale collapse behind Show all (N)', async function() {
-    var s = emailSession([
-      { email: 'aaron@sprintmode.ai', is_primary: true, last_sign_in_at: sqliteStamp(2 * DAY) },
-      { email: 'aaron@codepwr.com', is_primary: false, last_sign_in_at: sqliteStamp(10 * DAY) },
-      { email: 'aaron@privacyai.com', is_primary: false, last_sign_in_at: sqliteStamp(200 * DAY) },
-      { email: 'aaron@safeshepherd.com', is_primary: false, last_sign_in_at: null },
-      { email: 'aaron@sprintmode.co', is_primary: false },
-    ])
-    stubFetchWithMe(s)
-    render(React.createElement(AccountSwitcher, { product: 'admin', session: s }))
-    await waitFor(function() { expect(screen.getByText('aaron@sprintmode.ai')).toBeInTheDocument() })
-    expect(screen.getByText('aaron@codepwr.com')).toBeInTheDocument()
-    expect(screen.queryByText('aaron@privacyai.com')).toBeNull()
-    expect(screen.queryByText('aaron@safeshepherd.com')).toBeNull()
-    expect(screen.queryByText('aaron@sprintmode.co')).toBeNull()
-    expect(screen.getByText('Show all (5)')).toBeInTheDocument()
-  })
-
-  it('Show all expands every address; Show fewer collapses back', async function() {
-    var s = emailSession([
-      { email: 'aaron@sprintmode.ai', is_primary: true, last_sign_in_at: sqliteStamp(2 * DAY) },
-      { email: 'aaron@sprintmode.co', is_primary: false, last_sign_in_at: sqliteStamp(400 * DAY) },
-    ])
-    stubFetchWithMe(s)
-    render(React.createElement(AccountSwitcher, { product: 'admin', session: s }))
-    await waitFor(function() { expect(screen.getByText('Show all (2)')).toBeInTheDocument() })
-    fireEvent.click(screen.getByText('Show all (2)'))
-    expect(screen.getByText('aaron@sprintmode.co')).toBeInTheDocument()
-    fireEvent.click(screen.getByText('Show fewer'))
-    expect(screen.queryByText('aaron@sprintmode.co')).toBeNull()
-  })
-
-  it('a primary with no sign-in stamp still renders (Primary always shows)', async function() {
-    var s = emailSession([
-      { email: 'aaron@sprintmode.ai', is_primary: true },
-      { email: 'aaron@codepwr.com', is_primary: false },
-    ])
-    stubFetchWithMe(s)
-    render(React.createElement(AccountSwitcher, { product: 'admin', session: s }))
-    await waitFor(function() { expect(screen.getByText('aaron@sprintmode.ai')).toBeInTheDocument() })
-    expect(screen.queryByText('aaron@codepwr.com')).toBeNull()
-    expect(screen.getByText('Show all (2)')).toBeInTheDocument()
-  })
-
-  it('no stale addresses -> no Show all toggle', async function() {
-    var s = emailSession([
-      { email: 'aaron@sprintmode.ai', is_primary: true, last_sign_in_at: sqliteStamp(DAY) },
-      { email: 'aaron@codepwr.com', is_primary: false, last_sign_in_at: sqliteStamp(3 * DAY) },
-    ])
-    stubFetchWithMe(s)
-    render(React.createElement(AccountSwitcher, { product: 'admin', session: s }))
-    await waitFor(function() { expect(screen.getByText('aaron@codepwr.com')).toBeInTheDocument() })
-    expect(screen.queryByText(/Show all/)).toBeNull()
-  })
-})
+// I-29 menu cleanup (Aaron ruling 2026-08-18): the sign-in emails 90-day
+// display-rule tests were removed with the menu section itself. The managed
+// Sign-in emails surface lives on the profile page (ProfileCard, UX-1943).

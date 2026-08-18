@@ -145,14 +145,9 @@ export function AccountSwitcher(props: AccountSwitcherProps) {
   var _me = useState<SessionData | null>(props.session || null); var me = _me[0]; var setMe = _me[1]
   var _swapBusy = useState<string | null>(null); var swapBusy = _swapBusy[0]; var setSwapBusy = _swapBusy[1]
   // Link-an-email inline flow
-  var _linkOpen = useState(false); var linkOpen = _linkOpen[0]; var setLinkOpen = _linkOpen[1]
-  var _linkVal = useState(''); var linkVal = _linkVal[0]; var setLinkVal = _linkVal[1]
-  var _linkState = useState<null | 'sending' | 'sent' | 'error'>(null); var linkState = _linkState[0]; var setLinkState = _linkState[1]
-  var _linkMsg = useState(''); var linkMsg = _linkMsg[0]; var setLinkMsg = _linkMsg[1]
   // Sign-in email display rule (BUG-2033 addendum): Primary + addresses used
   // to sign in within the last 90 days render by default; the rest collapse
   // behind "Show all (N)". The data stays — only the default render changes.
-  var _showAllEmails = useState(false); var showAllEmails = _showAllEmails[0]; var setShowAllEmails = _showAllEmails[1]
 
   var authHeaders = useCallback(function(extra?: Record<string, string>): Record<string, string> {
     var h: Record<string, string> = extra ? { ...extra } : {}
@@ -243,30 +238,6 @@ export function AccountSwitcher(props: AccountSwitcherProps) {
       .catch(function() { setSwapBusy(null) })
   }
 
-  function sendLinkEmail() {
-    var email = linkVal.trim().toLowerCase()
-    if (!email || email.indexOf('@') === -1 || linkState === 'sending') return
-    setLinkState('sending')
-    fetch(authBase + '/api/identity/link-email-request', {
-      method: 'POST',
-      credentials: 'include',
-      headers: authHeaders({ 'Content-Type': 'application/json' }),
-      body: JSON.stringify({ email: email, redirect: typeof window !== 'undefined' ? window.location.href : undefined }),
-    })
-      .then(function(r) { return r.json() })
-      .then(function(d: { ok: boolean; error?: string }) {
-        if (d && d.ok) {
-          setLinkState('sent')
-          setLinkMsg('Check ' + email + ' for a confirmation link.')
-          setLinkVal('')
-        } else {
-          setLinkState('error')
-          setLinkMsg((d && d.error) || 'Could not send the confirmation link.')
-        }
-      })
-      .catch(function() { setLinkState('error'); setLinkMsg('Network error \u2014 try again.') })
-  }
-
   var currentUrl = typeof window !== 'undefined' ? window.location.href : '/'
   var addAccountHref = meUserId
     ? '/auth/link-account?link_to=' + encodeURIComponent(meUserId) + '&redirect=' + encodeURIComponent(currentUrl)
@@ -281,19 +252,6 @@ export function AccountSwitcher(props: AccountSwitcherProps) {
   // to gate the mount.
   var lensed = !!(props.session && (props.session as any).viewing_as) || !!(me && (me as any).viewing_as)
   if (lensed) return null
-
-  // Claim-return confirmation: the email-claim verify redirect appends
-  // ?linked=<email>. Shown once, then cleared from the URL.
-  var linkedParam: string | null = null
-  try {
-    var _sp = new URLSearchParams(window.location.search)
-    linkedParam = _sp.get('linked')
-    if (linkedParam) {
-      _sp.delete('linked')
-      var _qs = _sp.toString()
-      window.history.replaceState({}, '', window.location.pathname + (_qs ? '?' + _qs : ''))
-    }
-  } catch (_e) { linkedParam = null }
 
   // OTHER ACCOUNTS: genuinely-linked personal identities only. Records the
   // consolidation emptied (no email, nothing to open) are dead weight in
@@ -398,88 +356,14 @@ export function AccountSwitcher(props: AccountSwitcherProps) {
   ) : null
 
   // ── Section 2: SIGN-IN EMAILS (UX-1940 §2 + BUG-2033 display rule) ──────
-  var emails = (me && me.emails) || []
   // Recent = signed in within the last 90 days (last_sign_in_at from
   // /auth/me, derived server-side from the magic-token trail). A missing or
   // unparsable stamp counts as NOT recent — it collapses.
-  var NINETY_DAYS_MS = 90 * 24 * 60 * 60 * 1000
-  var recentCutoff = Date.now() - NINETY_DAYS_MS
-  function emailIsRecent(em: { last_sign_in_at?: string | null }): boolean {
-    if (!em.last_sign_in_at) return false
-    // SQLite datetime() is 'YYYY-MM-DD HH:MM:SS' in UTC — normalize to ISO.
-    var raw = em.last_sign_in_at.indexOf('T') === -1
-      ? em.last_sign_in_at.replace(' ', 'T') + 'Z'
-      : em.last_sign_in_at
-    var t = Date.parse(raw)
-    return isFinite(t) && t >= recentCutoff
-  }
-  var defaultEmails = emails.filter(function(em) { return em.is_primary || emailIsRecent(em) })
-  var collapsedCount = emails.length - defaultEmails.length
-  var visibleEmails = showAllEmails || collapsedCount <= 0 ? emails : defaultEmails
-  var emailsSection = React.createElement(React.Fragment, null,
-    React.createElement('div', { style: { height: 1, background: 'var(--border)', margin: '4px 0' } }),
-    sectionLabel('Sign-in emails', 'all open this account'),
-    linkedParam
-      ? React.createElement('div', {
-          style: {
-            margin: '2px 8px 4px', padding: '7px 10px', borderRadius: 6,
-            background: 'var(--accent-10)', color: 'var(--accent)',
-            fontSize: 12, lineHeight: 1.4,
-          }
-        }, linkedParam + ' is now linked to this account.')
-      : null,
-    visibleEmails.map(function(em) {
-      // Plain text rows: no avatars, no chevrons, nothing clickable (the
-      // ruled affordance split vs Other accounts).
-      return React.createElement('div', {
-        key: em.email,
-        style: { display: 'flex', alignItems: 'center', gap: 6, padding: '4px 10px', fontSize: 12, color: 'var(--foreground)' },
-      },
-        React.createElement('span', { style: { overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' as const } }, em.email),
-        em.is_primary ? React.createElement('span', { style: { fontSize: 9, fontWeight: 700, padding: '1px 6px', borderRadius: 9, background: 'var(--accent-10)', color: 'var(--accent)', flexShrink: 0 } }, 'Primary') : null
-      )
-    }),
-    collapsedCount > 0 ? React.createElement('button', {
-      onClick: function() { setShowAllEmails(!showAllEmails) },
-      style: {
-        display: 'block', padding: '4px 10px 2px', fontSize: 11, fontWeight: 500,
-        color: 'var(--accent)', background: 'transparent', border: 'none',
-        cursor: 'pointer', textAlign: 'left' as const, width: '100%',
-      },
-    }, showAllEmails ? 'Show fewer' : 'Show all (' + emails.length + ')') : null,
-    linkOpen
-      ? React.createElement('div', { style: { padding: '4px 10px 6px' } },
-          React.createElement('div', { style: { display: 'flex', gap: 5 } },
-            React.createElement('input', {
-              autoFocus: true, type: 'email', value: linkVal, placeholder: 'name@example.com',
-              onChange: function(e: React.ChangeEvent<HTMLInputElement>) { setLinkVal(e.target.value) },
-              onKeyDown: function(e: React.KeyboardEvent<HTMLInputElement>) { if (e.key === 'Enter') sendLinkEmail(); if (e.key === 'Escape') { setLinkOpen(false); setLinkState(null) } },
-              style: { flex: 1, minWidth: 0, fontSize: 12, padding: '4px 8px', border: '1px solid var(--border)', borderRadius: 6, background: 'var(--bg)', color: 'var(--foreground)', outline: 'none' },
-            }),
-            React.createElement('button', {
-              onClick: sendLinkEmail,
-              disabled: linkState === 'sending' || !linkVal.trim(),
-              style: { fontSize: 11, fontWeight: 600, padding: '4px 10px', borderRadius: 6, border: 'none', background: 'var(--accent)', color: '#fff', cursor: 'pointer', flexShrink: 0 },
-            }, linkState === 'sending' ? '\u2026' : 'Send')
-          ),
-          linkState === 'sent' || linkState === 'error'
-            ? React.createElement('div', { style: { marginTop: 4, fontSize: 11, color: linkState === 'error' ? 'var(--red, #dc2626)' : 'var(--muted)', lineHeight: 1.4 } }, linkMsg)
-            : React.createElement('div', { style: { marginTop: 4, fontSize: 10, color: 'var(--muted)', lineHeight: 1.4 } }, 'We send a confirmation link to the address; it joins this account once verified.')
-        )
-      : React.createElement('button', {
-          onClick: function() { setLinkOpen(true); setLinkState(null); setLinkMsg('') },
-          style: {
-            display: 'flex', alignItems: 'center', gap: 7, padding: '6px 10px', borderRadius: 6,
-            fontSize: 12, color: 'var(--foreground)', border: 'none', background: 'transparent',
-            cursor: 'pointer', width: '100%', textAlign: 'left' as const, transition: 'background .15s',
-          },
-          onMouseEnter: function(e: React.MouseEvent<HTMLButtonElement>) { (e.currentTarget as HTMLButtonElement).style.background = 'var(--bg-subtle)' },
-          onMouseLeave: function(e: React.MouseEvent<HTMLButtonElement>) { (e.currentTarget as HTMLButtonElement).style.background = 'transparent' },
-        },
-          React.createElement(PlusIcon, null),
-          'Link an email'
-        )
-  )
+  // I-29 menu cleanup (Aaron ruling 2026-08-18): the Sign-in emails section
+  // and the Link-an-email affordance are OUT of the user menu fleet-wide.
+  // The mechanism and the address list live on the profile page's managed
+  // Sign-in emails card (ProfileCard, UX-1943) — capability kept, menu real
+  // estate reclaimed. Aliases nobody signs in with have no business here.
 
   // ── Section 3: OTHER ACCOUNTS (UX-1940 §3) ──────────────────────────────
   var otherSection = React.createElement(React.Fragment, null,
@@ -547,7 +431,6 @@ export function AccountSwitcher(props: AccountSwitcherProps) {
 
   return React.createElement(React.Fragment, null,
     rolesSection,
-    emailsSection,
     otherSection
   )
 }

@@ -1,0 +1,162 @@
+name: sm dup claim
+
+# Two open PRs on one Waffle square means two sessions built the same work.
+# BUG-2094: six incidents in three days, all parallel sessions of one identity,
+# none of them visible to each other. The claim trail exists and nothing forces
+# anyone to read it — and a process rule alone failed twice in one night inside
+# the thread that wrote the rule, then again after the fire-prompt contract
+# shipped. So this is a check, not a reminder: the second PR goes red and a
+# human decides which one lives.
+#
+# WHY THIS READS GITHUB AND NOT WAFFLE. The managed contract states that hooks,
+# the guard and CI cannot reach the board — they have no MCP — and that a Waffle
+# key must never appear in a workflow file. So the claim trail is unreadable
+# from here by design. What IS readable is the square reference the contract
+# already requires in every branch name, and that is enough to answer the only
+# question this check asks: is someone else already holding this square?
+#
+# WHAT IT DOES NOT CATCH, stated so nobody mistakes it for the whole fix: a
+# session that lands without opening a PR, and two sessions on genuinely
+# different squares whose work happens to overlap. Those need the claim gate or
+# branch reservation. This closes the shape that actually recurred.
+#
+# AND IT IS OPT-OUTABLE BY CONSTRUCTION. A branch named off-contract carries no
+# square, and a PR with no square reference passes — so a session that skips the
+# naming rule is unchecked. That is deliberate: the alternative is refusing sync
+# renders, dependabot bumps and docs fixes, which would make this a gate on
+# branch naming rather than on collisions. It also doubles as the escape hatch
+# when two PRs genuinely belong on one square: name the second branch without
+# the square prefix and link the item in prose rather than on the claim line.
+# So this enforces against ACCIDENTAL collisions. Deliberate ones still need
+# (a) the claim gate or (b) branch reservation.
+
+on:
+  pull_request:
+    # `edited` on purpose: the body carries the claim, so correcting it must
+    # re-run the check. Closing the OTHER PR fires nothing here, which is why
+    # the failure message says to push or re-run rather than promising this
+    # clears itself.
+    types: [opened, reopened, synchronize, ready_for_review, edited]
+  merge_group:
+
+permissions:
+  contents: read
+  pull-requests: read
+
+concurrency:
+  group: sm-dup-claim-${{ github.repository }}-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  dup-claim:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check for another open PR on the same square
+        env:
+          GH_TOKEN: ${{ github.token }}
+          REPO: ${{ github.repository }}
+          PR: ${{ github.event.pull_request.number }}
+          HEAD_REF: ${{ github.event.pull_request.head.ref }}
+          PR_BODY: ${{ github.event.pull_request.body }}
+        run: |
+          if [ "${{ github.event_name }}" = "merge_group" ]; then
+            echo "merge_group build: the check already ran on the PR itself."
+            exit 0
+          fi
+          # Per-run scratch. Fixed names are shared state between concurrent
+          # runs on one machine, and a check that reads another run's data
+          # answers the wrong question (BUG-2018).
+          WORK="$(mktemp -d)"
+          export WORK
+          trap 'rm -rf "$WORK"' EXIT
+
+          # Branch on gh's OWN exit status. Under `bash -e` without pipefail a
+          # pipe reports only its last command, so an API failure would read as
+          # "no other PRs" and pass a check that verified nothing.
+          rc=0
+          gh api "repos/$REPO/pulls?state=open&per_page=100" --paginate --slurp \
+            > "$WORK/open.json" 2>"$WORK/open.err" || rc=$?
+          if [ "$rc" -ne 0 ]; then
+            echo "::error::Could not list open PRs (gh exit $rc) - failing closed rather than passing an unchecked duplicate check."
+            cat "$WORK/open.err" >&2
+            exit 1
+          fi
+
+          python3 - <<'PY'
+          import json, os, re, sys
+
+          WORK = os.environ["WORK"]
+          me = int(os.environ["PR"])
+          head_ref = os.environ.get("HEAD_REF", "")
+          body = os.environ.get("PR_BODY") or ""
+
+          # The contract's own branch-naming rule: bug-812-dmarc-records,
+          # feat-640-inbox-filters. Display numbers are globally unique across
+          # types, so the NUMBER is the square identity — bug-812 and task-812
+          # would be the same square, and keying on the prefix would miss that.
+          BRANCH = re.compile(r"(?:^|/)(?:bug|feat|task|ux|ha)-(\d+)(?:-|$)", re.I)
+          # The body counts ONLY on its claim line — the house form
+          # `Waffle item: BUG-812 (...)`, which the contract does not itself
+          # mandate, so emphasis and the short `Waffle:` header are tolerated.
+          # Matching square tokens anywhere
+          # in the body reads ordinary cross-referencing prose as a claim:
+          # "supersedes BUG-800", a link to a related square, even a branch name
+          # quoted in an example. Every one of those would fail a PR that is not
+          # a duplicate, and a check that cries wolf is one people route around —
+          # which is the failure this square is about, not a smaller version of it.
+          # No leading whitespace allowance: an indented line is a code block in
+          # markdown, and an example of a claim line must not become one. Fenced
+          # regions are stripped before matching for the same reason — this
+          # workflow's own header and the CHANGELOG quote the form.
+          FENCED = re.compile(r"(?ms)^```.*?^```[ \t]*$")
+          CLAIM_LINE = re.compile(r"^\**(?:waffle(?: item)?|item)\**[ \t]*:(.*)$", re.I | re.M)
+          CLAIM_REF = re.compile(r"(?:\b(?:BUG|FEAT|TASK|UX|HA)-(\d+)\b)"
+                                 r"|(?:/squares/(\d+))", re.I)
+
+          def squares(branch, text):
+              found = set()
+              for m in BRANCH.finditer(branch or ""):
+                  found.add(m.group(1))
+              for line in CLAIM_LINE.findall(FENCED.sub("", text or "")):
+                  for m in CLAIM_REF.finditer(line):
+                      found.add(m.group(1) or m.group(2))
+              return found
+
+          mine = squares(head_ref, body)
+          if not mine:
+              # Nothing to compare. A sync render, a dependabot bump or a docs
+              # typo carries no square, and refusing those would make this a
+              # gate on branch naming rather than on collisions.
+              print("No square reference on this PR - nothing to compare.")
+              sys.exit(0)
+
+          others = []
+          # --slurp gives one array of pages. Splicing the concatenated stream
+          # with a regex instead would rewrite any `] [` inside a PR body —
+          # `- [ ] [Docs](url)` is ordinary markdown — and make correctness
+          # depend on no body ever putting that sequence near a square token.
+          with open(os.path.join(WORK, "open.json"), encoding="utf-8") as fh:
+              pages = json.load(fh)
+          for pr in [item for page in pages for item in page]:
+              if pr["number"] == me:
+                  continue
+              theirs = squares(pr.get("head", {}).get("ref", ""), pr.get("body") or "")
+              shared = mine & theirs
+              if shared:
+                  others.append((pr["number"], pr["user"]["login"],
+                                 pr.get("draft", False), sorted(shared), pr["html_url"]))
+
+          if not others:
+              print("Square(s) %s: no other open PR - clear." % ", ".join(sorted(mine)))
+              sys.exit(0)
+
+          print("::error::Another open PR is already on this square. Two sessions "
+                "on one square is the collision this check exists to stop. Decide "
+                "which PR lives; after closing the other, push or re-run this "
+                "check - closing it fires no event here.")
+          for num, who, draft, shared, url in others:
+              print("  square %s -> PR #%d by %s%s  %s"
+                    % (", ".join(shared), num, who, " (draft)" if draft else "", url),
+                    file=sys.stderr)
+          sys.exit(1)
+          PY

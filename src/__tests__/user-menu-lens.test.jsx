@@ -16,10 +16,6 @@ import { MemoryRouter } from 'react-router-dom'
 import Layout from '../Layout.tsx'
 import { AccountSwitcher } from '../AccountSwitcher.tsx'
 
-var DAY = 24 * 60 * 60 * 1000
-function sqliteStamp(msAgo) {
-  return new Date(Date.now() - msAgo).toISOString().slice(0, 19).replace('T', ' ')
-}
 
 function operatorFields() {
   return {

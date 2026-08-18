@@ -966,12 +966,95 @@ export function parsePerms(session: SessionData | ViewAsUser | null): Permission
 }
 
 
-// TASK-2062: the legacy in-shell Waffle panel is retired. The shell now
-// opens the ONE panel implementation - the Waffle app's standalone
-// /panel page - gated by the same role grant + portal feature toggle.
+// TASK-2062 retired the legacy in-shell BugPanel; BUG-2200 restores the
+// DRAWER as the default surface (Aaron ruling 2026-08-18): button/Cmd+.
+// open a right-side drawer over the current page embedding the ONE panel
+// implementation (the Waffle app's /panel), drag-to-resize, with a popout
+// button on the drawer for a window. Same gating as before.
+var wafflePanelUrl = function (focusBugId?: string | null) {
+  return 'https://waffle.sprintmode.ai/panel' + (focusBugId ? '?bug=' + encodeURIComponent(focusBugId) : '')
+}
+var openWaffleDrawerListeners: Array<(bugId?: string | null) => void> = []
 function openWafflePanel(focusBugId?: string | null) {
-  var url = 'https://waffle.sprintmode.ai/panel' + (focusBugId ? '?bug=' + encodeURIComponent(focusBugId) : '')
-  window.open(url, 'waffle-panel', 'width=440,height=880,noopener')
+  // The drawer host (mounted by Layout) subscribes; if none is mounted
+  // (degenerate embeds), fall back to the popout window.
+  if (openWaffleDrawerListeners.length) { openWaffleDrawerListeners.forEach(function (f) { f(focusBugId) }); return }
+  window.open(wafflePanelUrl(focusBugId), 'waffle-panel', 'width=440,height=880,noopener')
+}
+
+function WaffleDrawer() {
+  var readW = function (): number {
+    try { var v = parseInt(window.localStorage.getItem('wf_shell_panel_w') || '', 10); if (v >= 340 && v <= 960) return v } catch (_e) { /* no storage */ }
+    return 440
+  }
+  var st = React.useState<{ open: boolean; bug?: string | null }>({ open: false })
+  var open = st[0]; var setOpen = st[1]
+  var wst = React.useState<number>(readW)
+  var width = wst[0]; var setWidth = wst[1]
+  var dragRef = React.useRef<{ on: boolean; startX: number; startW: number }>({ on: false, startX: 0, startW: 0 })
+
+  React.useEffect(function () {
+    var f = function (bugId?: string | null) { setOpen({ open: true, bug: bugId }) }
+    openWaffleDrawerListeners.push(f)
+    return function () { openWaffleDrawerListeners = openWaffleDrawerListeners.filter(function (x) { return x !== f }) }
+  }, [])
+  React.useEffect(function () {
+    if (!open.open) return
+    var onKey = function (e: KeyboardEvent) { if (e.key === 'Escape') setOpen({ open: false }) }
+    window.addEventListener('keydown', onKey)
+    return function () { window.removeEventListener('keydown', onKey) }
+  }, [open.open])
+  React.useEffect(function () {
+    var onMove = function (e: MouseEvent) {
+      if (!dragRef.current.on) return
+      var w = dragRef.current.startW + (dragRef.current.startX - e.clientX)
+      if (w < 340) w = 340
+      if (w > 960) w = 960
+      setWidth(w)
+    }
+    var onUp = function () {
+      if (!dragRef.current.on) return
+      dragRef.current.on = false
+      document.body.style.userSelect = ''
+      try { window.localStorage.setItem('wf_shell_panel_w', String(width)) } catch (_e) { /* fine */ }
+    }
+    window.addEventListener('mousemove', onMove)
+    window.addEventListener('mouseup', onUp)
+    return function () { window.removeEventListener('mousemove', onMove); window.removeEventListener('mouseup', onUp) }
+  }, [width])
+
+  if (!open.open) return null
+  var url = wafflePanelUrl(open.bug)
+  return React.createElement('div', {
+    style: { position: 'fixed', top: 0, right: 0, bottom: 0, width: width, zIndex: 9600, display: 'flex', flexDirection: 'column', background: 'var(--bg-card, #fff)', borderLeft: '1px solid var(--border, hsl(214,32%,91%))', boxShadow: '-8px 0 28px rgba(0,0,0,0.14)' },
+    role: 'dialog', 'aria-label': 'Waffle panel',
+  },
+    // drag handle
+    React.createElement('div', {
+      onMouseDown: function (e: React.MouseEvent) { dragRef.current = { on: true, startX: e.clientX, startW: width }; document.body.style.userSelect = 'none' },
+      style: { position: 'absolute', left: -4, top: 0, bottom: 0, width: 8, cursor: 'col-resize' },
+      'aria-hidden': true,
+    }),
+    // header strip: popout + close
+    React.createElement('div', { style: { display: 'flex', alignItems: 'center', gap: 8, padding: '8px 12px', borderBottom: '1px solid var(--border, hsl(214,32%,91%))', flexShrink: 0 } },
+      React.createElement('span', { style: { fontSize: 13, fontWeight: 700 } }, 'Waffle'),
+      React.createElement('span', { style: { flex: 1 } }),
+      React.createElement('button', {
+        onClick: function () { window.open(url, 'waffle-panel', 'width=' + width + ',height=880,noopener'); setOpen({ open: false }) },
+        title: 'Open in window', 'aria-label': 'Open in window',
+        style: { border: '1px solid var(--border, hsl(214,32%,91%))', background: 'transparent', borderRadius: 8, padding: '4px 8px', cursor: 'pointer', fontSize: 12 },
+      }, 'Pop out'),
+      React.createElement('button', {
+        onClick: function () { setOpen({ open: false }) },
+        title: 'Close', 'aria-label': 'Close panel',
+        style: { border: 'none', background: 'transparent', cursor: 'pointer', fontSize: 16, lineHeight: 1, padding: 4 },
+      }, '\u00d7')
+    ),
+    React.createElement('iframe', {
+      src: url, title: 'Waffle panel',
+      style: { border: 'none', width: '100%', flex: 1 },
+    })
+  )
 }
 function WafflePanelButton(props: { onClick: () => void }) {
   // Aaron branding rule: the button opens Waffle, so it carries the Waffle
@@ -1935,6 +2018,7 @@ const Layout: React.FC<LayoutProps> = function Layout(props: LayoutProps) {
     ),
     notificationBellEnabled ? React.createElement(NotificationBellNav, { apiBase: notificationApiBase, href: notificationHref, onNavigate: function(href: string) { navigate(href) } }) : null,
     bugPanelEnabled ? React.createElement(WafflePanelButton, { onClick: function() { openWafflePanel() } }) : null,
+    bugPanelEnabled ? React.createElement(WaffleDrawer) : null,
     React.createElement(HeaderUserMenu, { session: session, profilePath: profilePath, logoutHref: logoutHref, userMenuExtra: userMenuExtra, portalSubdomain: portalSubdomain, authBase: vaAuthBase })
   ) : null
 

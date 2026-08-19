@@ -104407,7 +104407,9 @@ function U7(t) {
 		fontSize: 12,
 		color: "var(--muted)"
 	} }, "No portals available"));
-	var L = C && C.my_roles || [], R = xMe(C), z = L.length > 0 ? e.createElement(e.Fragment, null, e.createElement("div", { style: {
+	var L = C && C.my_roles || [];
+	xMe(C);
+	var R = L.length > 0 ? e.createElement(e.Fragment, null, e.createElement("div", { style: {
 		height: 1,
 		background: "var(--border)",
 		margin: "4px 0"
@@ -104446,7 +104448,7 @@ function U7(t) {
 			padding: "2px 8px",
 			borderRadius: 9,
 			flexShrink: 0
-		} }, "Active") : R ? e.createElement("button", {
+		} }, "Active") : e.createElement("button", {
 			onClick: function() {
 				M(t.role);
 			},
@@ -104462,8 +104464,8 @@ function U7(t) {
 				cursor: E ? "wait" : "pointer",
 				flexShrink: 0
 			}
-		}, E === t.role ? "…" : "Swap") : null);
-	}), null) : null, B = e.createElement(e.Fragment, null, e.createElement("div", { style: {
+		}, E === t.role ? "…" : "Swap"));
+	}), null) : null, z = e.createElement(e.Fragment, null, e.createElement("div", { style: {
 		height: 1,
 		background: "var(--border)",
 		margin: "4px 0"
@@ -104556,7 +104558,7 @@ function U7(t) {
 			e.currentTarget.style.background = "transparent";
 		}
 	}, e.createElement(_Me, null), "Add Account"));
-	return e.createElement(e.Fragment, null, z, B);
+	return e.createElement(e.Fragment, null, R, z);
 }
 //#endregion
 //#region src/ActingRoleChip.tsx

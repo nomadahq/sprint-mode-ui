@@ -345,11 +345,11 @@ export function AccountSwitcher(props: AccountSwitcherProps) {
         ),
         r.is_active
           ? React.createElement('span', { style: { fontSize: 10, fontWeight: 700, textTransform: 'uppercase' as const, letterSpacing: '0.4px', color: 'var(--accent)', background: 'var(--accent-10)', padding: '2px 8px', borderRadius: 9, flexShrink: 0 } }, 'Active')
-          : (manageGate ? React.createElement('button', {
+          : React.createElement('button', {
               onClick: function() { swapTo(r.role) },
               disabled: swapBusy !== null,
               style: { fontSize: 11, fontWeight: 600, color: 'var(--accent)', background: 'transparent', border: '1px solid var(--border)', borderRadius: 6, padding: '3px 10px', cursor: swapBusy ? 'wait' : 'pointer', flexShrink: 0 },
-            }, swapBusy === r.role ? '\u2026' : 'Swap') : null)
+            }, swapBusy === r.role ? '\u2026' : 'Swap')
       )
     }),
     // PEOPLE-PANEL-1 PR-3 (Aaron ruling 2026-08-18): "Manage in Portal Manager"

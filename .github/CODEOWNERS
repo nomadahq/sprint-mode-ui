@@ -1,13 +1,39 @@
 # sm-workflow:begin
-# Managed by sm-workflow (wf sync). Repo-specific paths go BELOW the end marker.
-/.github/                     @sprint-mode/reviewers
-/.githooks/                   @sprint-mode/reviewers
-/.claude/                     @sprint-mode/reviewers
-/scripts/guard-git.sh         @sprint-mode/reviewers
-/scripts/hook-env.sh          @sprint-mode/reviewers
-/scripts/pr-sweep.py          @sprint-mode/reviewers
-/AGENTS.md                    @sprint-mode/reviewers
-/CLAUDE.md                    @sprint-mode/reviewers
-/.sm-workflow.conf            @sprint-mode/reviewers
-/wrangler.toml                @sprint-mode/reviewers
+# Managed by sm-workflow (wf sync). Repo-specific paths go BELOW the end marker —
+# add your auth middleware and any other repo-owned rail files there.
+# The dangerous-file list, per the decision owner's 2026-08-11 ruling (TASK-1844)
+# as consolidated on 2026-08-13: the workflows directory whole, the gate's own
+# rails, guard and actor-gate scripts plus the two files that arm them,
+# migration scripts, and wrangler.toml. Everything else lands ungated — a
+# routine change must not trip the codeowner gate.
+#
+# `/.github/workflows/` is a DIRECTORY gate, deliberately, and it replaced four
+# release-verb globs (`*deploy*`, `*publish*`, `*push*`, `*release*`) plus
+# `sm-*`. Per-file patterns can only describe files that already exist: a
+# workflow added tomorrow under a name nobody predicted was born ungated and
+# merged with no tap, then ran on the default branch holding GITHUB_TOKEN and
+# the repo's secrets. No pattern can express "a file that did not exist
+# yesterday", so the directory is the unit. Narrowing this back to per-file
+# globs re-opens that hole; the coverage test pins it with a workflow filename
+# matching none of the old globs.
+/.github/CODEOWNERS                    @sprint-mode/reviewers
+/.github/workflows/                    @sprint-mode/reviewers
+/.githooks/                            @sprint-mode/reviewers
+# The two files that ARM the gated scripts. `.claude/settings.json` is the only
+# place `guard-git.sh` is registered, via hooks.PreToolUse — delete that stanza
+# and the gated script stays byte-identical on disk and is never invoked. It
+# also carries extraKnownMarketplaces and the pre-approved MCP verb allowlist.
+# `.sm-workflow.conf` is the sole input to sm-workflow-drift.yml's verdict, and
+# carries `landing_branches` (guard-git.sh substitutes it for `main`, so an edit
+# stops blocking direct pushes), `hook_profile`, `sweep` and `agent_pilot`.
+# Gating an enforcer while leaving its arming file open is a bypass, not a
+# narrowing. The rest of /.claude/ stays routine.
+/.claude/settings.json                 @sprint-mode/reviewers
+/.sm-workflow.conf                     @sprint-mode/reviewers
+/scripts/guard-git.sh                  @sprint-mode/reviewers
+/scripts/hook-env.sh                   @sprint-mode/reviewers
+/scripts/pr-sweep.py                   @sprint-mode/reviewers
+/scripts/check-migration-numbers.sh    @sprint-mode/reviewers
+/scripts/migration-dupe-allowlist.txt  @sprint-mode/reviewers
+wrangler.toml                          @sprint-mode/reviewers
 # sm-workflow:end

@@ -13,6 +13,7 @@ import urllib.request
 from datetime import datetime
 
 GATE = "codeowner-gate"
+EMIT_USER_AGENT = "sm-workflow-kit-emit/1 (+https://github.com/sprint-mode/sm-workflow)"
 STALLED_LABEL = "sm:stalled"
 OPTOUT_LABEL = "sm:no-sweep"
 REVIEWERS = "@sprint-mode/reviewers"
@@ -289,7 +290,13 @@ def emit(event_type, payload):
     req = urllib.request.Request(
         "https://webhook-hub.sprintmode.ai/events", data=body,
         headers={"Authorization": "Bearer " + secret,
-                 "Content-Type": "application/json"})
+                 "Content-Type": "application/json",
+                 # Cloudflare's edge bot-mitigation refuses urllib's default
+                 # "Python-urllib/3.x" from a GitHub Actions datacenter IP,
+                 # before the hub ever sees the request. That is what the five
+                 # HTTP 403s on sm-api were: the hub 401s on a bad secret and
+                 # never 403s, so a 403 here was never an auth failure.
+                 "User-Agent": EMIT_USER_AGENT})
     try:
         urllib.request.urlopen(req, timeout=10).read()
     except Exception as exc:                                    # noqa: BLE001

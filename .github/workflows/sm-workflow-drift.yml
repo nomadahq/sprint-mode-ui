@@ -19,10 +19,15 @@ jobs:
           # secret isn't configured.
           emit() {
             [ -n "${KIT_EVENTS_SECRET:-}" ] || { echo "emit: no secret — skipped"; return 0; }
-            curl -fsS -X POST https://webhook-hub.sprintmode.ai/events \
+            # -A: Cloudflare's edge bot-mitigation refuses default library
+            # user-agents from GitHub Actions IPs before the hub sees the
+            # request (TASK-1341). stderr is NOT swallowed: -sS prints the
+            # reason, and the previous 2>&1 to /dev/null made every failure
+            # here read as an identical undiagnosable line.
+            curl -fsS -A "sm-workflow-kit-emit/1 (+https://github.com/sprint-mode/sm-workflow)" -X POST https://webhook-hub.sprintmode.ai/events \
               -H "Authorization: Bearer $KIT_EVENTS_SECRET" -H "Content-Type: application/json" \
               -d "{\"ts\":\"$(date -u +%FT%TZ)\",\"source\":\"kit\",\"event_type\":\"$1\",\"repo\":\"${GITHUB_REPOSITORY##*/}\",\"sha\":\"$GITHUB_SHA\",\"actor\":\"$GITHUB_ACTOR\",\"payload\":$2,\"evidence_url\":\"$GITHUB_SERVER_URL/$GITHUB_REPOSITORY/actions/runs/$GITHUB_RUN_ID\"}" \
-              >/dev/null 2>&1 || echo "::warning::event emit failed (non-blocking)"
+              >/dev/null || echo "::warning::event emit failed (non-blocking)"
           }
           # Versions are semver (N.N.N) with legacy bare-integer stamps meaning
           # N.0.0 (TASK-1384). Adopted repos do not carry the kit's

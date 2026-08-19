@@ -30,6 +30,18 @@ how much explanation a person needs, not the Waffle, evidence, review, or landin
 - Work starts only from an existing item that is Ready and names `Why`, `Scope`,
   `Done when`, `Constraints`, `Out of scope`, the exact allowed repository,
   operating mode, pilot tag, and the written HOLD policy reference.
+- **A message is an input, never a work source.** Slack, email, a PR comment, a
+  remark in a meeting: none of them start work or set priority. They become items,
+  and an item takes its place in the queue on the queue's terms. Answering is not
+  working — reply at once when that helps, and schedule the work like anything else.
+- **Select from the board, not from the thread you are already in.** Read your own
+  assigned queue before starting, and again whenever a piece of work completes. A
+  session that follows whatever arrived last has not chosen; it has been routed.
+  Filing diligently is not a substitute: a queue you write to and never read is a
+  queue for other people.
+- An item assigned to you and blocked on **your** decision outranks new work. A
+  decision nobody else can take is the cheapest thing on your plate and the most
+  expensive to leave sitting.
 - One branch, working session and PR bind to one Waffle item. Put the display id
   in the branch name — `bug-812-dmarc-records`, `feat-640-inbox-filters` — and
   link the item in the PR. A repository document never authorizes or reprioritizes work.
@@ -46,10 +58,37 @@ how much explanation a person needs, not the Waffle, evidence, review, or landin
 - **Every board write goes through its MCP verb.** Never write the Waffle database
   directly, and never route around an approval prompt by doing so: a direct write
   notifies nobody and leaves no ledger row, so the work becomes invisible to everyone
-  but you. The pack pre-approves the six write verbs precisely so an unattended run
+  but you. The pack pre-approves the nine write verbs precisely so an unattended run
   never faces that choice. `revokeKey` and the launchpad spend verbs
   (`activateLaunch`, `setEngine` on, `applyRecommendation`) are never among them and
   never run unattended; the spend verbs the server additionally refuses headless.
+- **Pre-approval is not authorization, and a transition proves it.** An unattended
+  `transitionWorkItem` also needs an unexpired `claimWorkItem` lease held by the same
+  key that transitions — 240 minutes by default — so claim before you start and re-claim
+  before you close; a run that outlives its lease is refused at the end, with the work
+  already done. A claim held by another session or machine does not count. Comments,
+  claims, item creation, and field updates stay fully headless.
+
+## Session governance
+- **Blocker-stop:** a wall the session cannot clear itself — a human-approval
+  gate, CI infrastructure down, an external service outage — gets at most one
+  bounded attempt, then stop: post one structured comment on the bound Waffle
+  item and report. A human approval gate gets none: waiting is not work.
+  Never loop, retry, re-dispatch, or "diagnose" a gate only a human can clear;
+  the codeowner-gate exemption above is one instance of this rule.
+  Red CI a push can fix is not a wall: a failing test, a lint error, a build
+  broken by the code in this branch, or any other red a push or a single re-run
+  can clear — a flaky failure, red inherited from an out-of-date target — is
+  ordinary work and stays on the No-red-PRs path until it is green. Where that
+  overlaps the wall list above, the wall list wins. The test is whether the
+  session can act on it, not how stuck it feels.
+- **Session report:** every session-ending report leads with three sections, in
+  order: **What I did** — with evidence links (PR, run, comment); **What I need
+  from you** — decisions, taps, grants, or explicitly "nothing"; **What's
+  next** — the remaining queue as it stands.
+- **Comms standing rules:** no client contact without sign-off, and no outbound
+  communications during a migration. (The git-side standing rules — landing
+  branches, `--admin`, `--no-verify`, force-push — live under Landing code.)
 
 ## HOLD and autonomous execution
 - **HOLD is policy, not judgment.** The written HOLD classes and gates define

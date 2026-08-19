@@ -3,8 +3,16 @@ name: codeowner gate
 # GitHub does not enforce require_code_owner_review when required approvals is 0
 # (proven by the sm-api #1008 incident). This required check IS the binding:
 # a PR touching CODEOWNERS-listed paths fails this gate until a non-author
-# org member/collaborator approves. Approvals re-trigger the gate via
-# pull_request_review, so auto-merge proceeds hands-free after approval.
+# org member/collaborator approves.
+#
+# Approvals re-trigger the gate via pull_request_review — but that alone does
+# NOT make auto-merge proceed, which this file claimed until BUG-2138. The
+# re-triggered run lands in a NEW check suite and the pre-approval failure sits
+# in the old one, unclearable, holding the rollup at FAILURE forever. The
+# clear-stale-suite job below re-requests those runs once the gate has decided
+# yes. It is warn-only: clearing a stale suite is a convenience, never a
+# verdict, so a settled approval never turns red because a follow-up call
+# failed.
 
 on:
   pull_request:
@@ -13,6 +21,10 @@ on:
     types: [submitted, edited, dismissed]
   merge_group:
 
+# Workflow-level scope stays read-only for BOTH jobs. The write scope BUG-2138
+# needs is declared on the job that needs it, and nowhere else: a `pull_request`
+# run executes the workflow file from the PR branch, so a workflow-level grant
+# would hand a write-scoped token to anyone who can push a branch.
 permissions:
   contents: read
   pull-requests: read
@@ -33,6 +45,16 @@ jobs:
             echo "merge_group build: the gate already passed on the PR itself."
             exit 0
           fi
+          # Per-run scratch directory, exported so the python heredoc below sees
+          # it. Fixed /tmp names would be shared state: two gate jobs on one
+          # runner — a self-hosted runner, a re-run overlapping its predecessor,
+          # or two PRs whose reviews land together — read each other's
+          # CODEOWNERS, file list and reviews. The gate would then decide one
+          # PR's approval question from another PR's data, which is a wrong
+          # verdict in either direction, not a flake.
+          WORK="$(mktemp -d)"
+          export WORK
+          trap 'rm -rf "$WORK"' EXIT
           # CODEOWNERS from the BASE branch — a PR must not be able to edit
           # its own gate out of existence.
           #
@@ -46,31 +68,58 @@ jobs:
           # base); anything else is an unverifiable state and fails closed.
           rc=0
           gh api "repos/$REPO/contents/.github/CODEOWNERS?ref=$BASE" --jq .content \
-            > /tmp/codeowners.b64 2>/tmp/codeowners.err || rc=$?
+            > "$WORK/codeowners.b64" 2>"$WORK/codeowners.err" || rc=$?
           if [ "$rc" -ne 0 ]; then
             # A 404 says "not found" without saying WHAT was not found: the file,
             # the ref, or the repository. Only a file-level 404 means "no
             # CODEOWNERS"; the others mean we could not look. Confirm the base is
             # readable before treating absence as an answer.
-            if grep -q 'HTTP 404' /tmp/codeowners.err \
+            if grep -q 'HTTP 404' "$WORK/codeowners.err" \
                && gh api "repos/$REPO/commits/$BASE" --jq .sha >/dev/null 2>&1; then
               echo "No CODEOWNERS on $BASE - nothing to gate."
               exit 0
             fi
             echo "::error::Could not read CODEOWNERS from $BASE (gh exit $rc) - failing closed rather than passing an unchecked gate."
-            cat /tmp/codeowners.err >&2
+            cat "$WORK/codeowners.err" >&2
             exit 1
           fi
-          if ! base64 -d < /tmp/codeowners.b64 > /tmp/codeowners; then
+          if ! base64 -d < "$WORK/codeowners.b64" > "$WORK/codeowners"; then
             echo "::error::CODEOWNERS on $BASE could not be decoded - failing closed."
             exit 1
           fi
-          gh api "repos/$REPO/pulls/$PR/files" --paginate --jq '.[].filename' > /tmp/files
-          gh api "repos/$REPO/pulls/$PR/reviews" --paginate > /tmp/reviews.json
+          # BUG-2139: these two calls used to carry no diagnostic. Under `bash -e`
+          # a gh failure aborts the step, so they DID fail closed — but silently,
+          # printing at most gh's own one-line error and leaving a red required
+          # check indistinguishable from a refusal to approve. Measured on
+          # sm-api#1540 during the 2026-08-17 GitHub outage: four heads carrying
+          # an identical file list answered FAILURE, SUCCESS, FAILURE, SUCCESS,
+          # one of them exiting 1 having printed nothing at all. A gate that
+          # answers at random and will not say why teaches the fleet to ignore
+          # it. Same treatment as the CODEOWNERS read above: name the call, say
+          # the gate reached no decision, fail closed.
+          rc=0
+          gh api "repos/$REPO/pulls/$PR/files" --paginate --jq '.[].filename' \
+            > "$WORK/files" 2>"$WORK/files.err" || rc=$?
+          if [ "$rc" -ne 0 ]; then
+            echo "::error::Could not list the files on PR #$PR (gh exit $rc) - failing closed; the gate did not reach a decision. This is an API failure, not a missing approval."
+            cat "$WORK/files.err" >&2
+            exit 1
+          fi
+          rc=0
+          gh api "repos/$REPO/pulls/$PR/reviews" --paginate \
+            > "$WORK/reviews.json" 2>"$WORK/reviews.err" || rc=$?
+          if [ "$rc" -ne 0 ]; then
+            echo "::error::Could not read the reviews on PR #$PR (gh exit $rc) - failing closed; the gate did not reach a decision. This is an API failure, not a missing approval."
+            cat "$WORK/reviews.err" >&2
+            exit 1
+          fi
           python3 - <<'PY'
-          import json, os, re, sys
+          import json, os, re, subprocess, sys
 
           author = os.environ["AUTHOR"]
+          # The heredoc is quoted, so the shell does not interpolate here; the
+          # scratch directory arrives through the exported environment instead.
+          WORK = os.environ["WORK"]
           # encoding is pinned deliberately. open() would otherwise take it from
           # the runner locale, and that decides whether a corrupt payload fails
           # closed: the bytes a `null` .content decodes to are invalid UTF-8 (so
@@ -81,7 +130,7 @@ jobs:
           # This diagnostic stays ASCII: on a non-UTF-8 runner a non-ASCII one
           # dies encoding itself, losing the annotation it exists to print.
           try:
-              raw = open("/tmp/codeowners", encoding="utf-8-sig").read()
+              raw = open(os.path.join(WORK, "codeowners"), encoding="utf-8-sig").read()
           except UnicodeDecodeError:
               print("::error::CODEOWNERS on %s is not valid UTF-8 - failing closed."
                     % os.environ.get("BASE", "the base branch"))
@@ -165,7 +214,7 @@ jobs:
                   suffix = r"(?:/.*)?"
               return re.fullmatch(prefix + out + suffix, f) is not None
 
-          files = [l.strip() for l in open("/tmp/files") if l.strip()]
+          files = [l.strip() for l in open(os.path.join(WORK, "files")) if l.strip()]
           touched = sorted({f for f in files for p in patterns if matches(f, p)})
           if not touched:
               print("No codeowner-listed paths touched - gate passes.")
@@ -176,16 +225,58 @@ jobs:
               print("  ", f)
 
           latest = {}
-          for r in json.load(open("/tmp/reviews.json")):
+          for r in json.load(open(os.path.join(WORK, "reviews.json"))):
               u = r.get("user", {}).get("login")
               if u and r.get("state") in ("APPROVED", "CHANGES_REQUESTED", "DISMISSED"):
                   latest[u] = r  # list is chronological; keep the last decisive state
-          approvers = [
-              u for u, r in latest.items()
-              if r["state"] == "APPROVED"
-              and u != author
-              and r.get("author_association") in ("OWNER", "MEMBER", "COLLABORATOR")
-          ]
+          def has_write(login):
+              # BUG-1958: author_association reads NONE for an org member whose
+              # membership is private under the workflow token, so it silently
+              # discounted real approvals and the gate stayed red after a valid
+              # tap. Resolve the repo permission instead. Measured 2026-08-13
+              # under this gate's own token: this endpoint answers, while the
+              # org teams endpoints 404. Fails CLOSED — anything that is not a
+              # clean positive is a no, so an API hiccup can never open the gate
+              # (the BUG-1636 rule).
+              # `.permission` is the legacy field and reports exactly one of
+              # admin / write / read / none: maintain resolves to write and
+              # triage to read, which is the grouping this gate wants. The
+              # granular `.role_name` is deliberately not used — it can carry a
+              # custom org role name this gate could not classify.
+              try:
+                  p = subprocess.run(
+                      ["gh", "api",
+                       "repos/%s/collaborators/%s/permission" % (os.environ["REPO"], login),
+                       "--jq", ".permission"],
+                      capture_output=True, text=True, timeout=30)
+              except Exception as exc:
+                  print("  %s: permission lookup failed (%s) - not counted" % (login, exc))
+                  return False
+              if p.returncode != 0:
+                  # 404 means "not a collaborator" — a correct deny. Anything
+                  # else means the gate could not look, which is also a deny but
+                  # a different problem, so print enough to tell them apart.
+                  print("  %s: permission lookup did not resolve (exit %d) - not "
+                        "counted: %s" % (login, p.returncode,
+                                         " ".join(p.stderr.split())[:200]))
+                  return False
+              level = p.stdout.strip()
+              if level in ("admin", "write"):
+                  return True
+              print("  %s: repo permission=%s - not counted" % (login, level or "empty"))
+              return False
+
+          approvers = []
+          for u, r in latest.items():
+              if r["state"] != "APPROVED" or u == author:
+                  continue
+              if r.get("author_association") in ("OWNER", "MEMBER", "COLLABORATOR"):
+                  approvers.append(u)
+              elif has_write(u):
+                  print("  %s: author_association=%s, but repo permission grants "
+                        "write - counted (BUG-1958: private membership reads NONE)"
+                        % (u, r.get("author_association")))
+                  approvers.append(u)
           if approvers:
               print("Approved by:", ", ".join(approvers), "- gate passes.")
               sys.exit(0)
@@ -194,3 +285,102 @@ jobs:
                 "re-runs automatically when a review is submitted.")
           sys.exit(1)
           PY
+
+  # BUG-2138: an approval does not clear the pre-approval failure.
+  #
+  # The gate runs on `pull_request` before any review exists and fails
+  # correctly. When the approval lands, `pull_request_review` fires a SECOND
+  # run, and GitHub puts it in a NEW check suite. The first suite's failure
+  # never clears, the rollup stays FAILURE, and an armed auto-merge never
+  # fires. Proven on 19 tapped PRs on 2026-08-14: every one sat blocked with
+  # the approval present, green re-runs and auto-merge armed, and re-running
+  # the failed jobs in the ORIGINAL run flipped each rollup green and merged
+  # them hands-free.
+  #
+  # A SEPARATE JOB, deliberately. `actions: write` belongs only to the code
+  # that needs it: declared at workflow level it would also be live on every
+  # `pull_request` run, which executes the workflow file FROM THE PR BRANCH —
+  # handing a write-scoped token to anyone who can push a branch, in every
+  # adopted repo, on a trigger where this code cannot even run.
+  #
+  # `needs` carries the authorization: this job starts only when the gate job
+  # succeeded, so the approval question is settled yes before any earlier run
+  # is asked to decide it again.
+  clear-stale-suite:
+    needs: codeowner-gate
+    if: github.event_name == 'pull_request_review'
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      # Solely to re-request this workflow's OWN earlier failed runs on this
+      # head. The token cannot approve, merge, or write code with it.
+      #
+      # It IS a real write token even on a fork PR: `pull_request_review` runs
+      # in the base-repository context, so the read-only-token rule that covers
+      # fork `pull_request` runs does not apply here. Scoping it to this job is
+      # what bounds the exposure — not the trigger.
+      actions: write
+    steps:
+      - name: Re-request the runs whose stale failure holds the rollup red
+        env:
+          GH_TOKEN: ${{ github.token }}
+          REPO: ${{ github.repository }}
+          HEAD_SHA: ${{ github.event.pull_request.head.sha }}
+          THIS_RUN: ${{ github.run_id }}
+        run: |
+          # Never fatal, in any arm. Failing to clear a stale suite must not
+          # turn a settled approval red; it degrades to a human re-run, which
+          # is where this started.
+          set -u
+          # Guarded like every other arm: the default shell is `bash -e`, so an
+          # unguarded mktemp failure would exit non-zero and redden this job in
+          # the very suite the approval just created — the one thing this must
+          # never do — and the EXIT trap would then run `rm -rf ""`.
+          WORK="$(mktemp -d)" || { echo "::warning::No scratch directory available - not clearing anything."; exit 0; }
+          trap 'rm -rf "$WORK"' EXIT
+          if [ -z "${HEAD_SHA:-}" ]; then
+            echo "::warning::No head SHA on this event - cannot identify the runs to clear."
+            exit 0
+          fi
+          # Derive this workflow's own file name rather than hardcoding it, so a
+          # repo that renames the managed file still clears its own runs.
+          WF_REF="${GITHUB_WORKFLOW_REF:-}"
+          WF_FILE="${WF_REF%%@*}"
+          WF_FILE="${WF_FILE##*/}"
+          case "$WF_FILE" in
+            *.yml|*.yaml) : ;;
+            *)
+              echo "::warning::Could not derive this workflow's file name from GITHUB_WORKFLOW_REF ('$WF_REF') - not clearing anything."
+              exit 0 ;;
+          esac
+          # EVERY failed run on this head, not just the newest and not just the
+          # pull_request ones. A COMMENT or CHANGES_REQUESTED review before the
+          # approval leaves a failed pull_request_review run; reopened and
+          # ready_for_review leave extra pull_request runs. Any one of them
+          # holds the rollup red, so clearing only one leaves the human doing
+          # exactly what this exists to remove.
+          rc=0
+          gh api "repos/$REPO/actions/workflows/$WF_FILE/runs?head_sha=$HEAD_SHA&per_page=100" \
+            --jq ".workflow_runs[] | select(.conclusion == \"failure\") | select(.id != $THIS_RUN) | .id" \
+            > "$WORK/stale" 2>"$WORK/stale.err" || rc=$?
+          if [ "$rc" -ne 0 ]; then
+            echo "::warning::The earlier runs on $HEAD_SHA could not be looked up (gh exit $rc). A stale failed check suite may still hold the rollup red; re-run its failed jobs to clear it."
+            cat "$WORK/stale.err" >&2
+            exit 0
+          fi
+          if [ ! -s "$WORK/stale" ]; then
+            echo "No failed run on $HEAD_SHA - no stale suite to clear."
+            exit 0
+          fi
+          while read -r run_id; do
+            [ -n "$run_id" ] || continue
+            rc=0
+            gh api -X POST "repos/$REPO/actions/runs/$run_id/rerun-failed-jobs" \
+              >/dev/null 2>"$WORK/rerun.err" || rc=$?
+            if [ "$rc" -ne 0 ]; then
+              echo "::warning::Re-requesting run $run_id failed (gh exit $rc). Its stale failure may still hold the rollup red; re-run its failed jobs to clear it."
+              cat "$WORK/rerun.err" >&2
+            else
+              echo "Re-requested the failed jobs on run $run_id: the approval now clears that check suite."
+            fi
+          done < "$WORK/stale"

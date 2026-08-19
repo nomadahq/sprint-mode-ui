@@ -6,7 +6,10 @@
       "mcp__waffle__transitionWorkItem",
       "mcp__waffle__addComment",
       "mcp__waffle__createWaffle",
-      "mcp__waffle__claimWorkItem"
+      "mcp__waffle__claimWorkItem",
+      "mcp__waffle__editComment",
+      "mcp__waffle__linkBlocker",
+      "mcp__waffle__unlinkBlocker"
     ]
   },
   "hooks": {
@@ -14,13 +17,23 @@
       {
         "matcher": "Bash",
         "hooks": [
-          { "type": "command", "command": "bash \"$CLAUDE_PROJECT_DIR\"/scripts/guard-git.sh" }
+          {
+            "type": "command",
+            "command": "bash \"$CLAUDE_PROJECT_DIR\"/scripts/guard-git.sh"
+          }
         ]
       }
     ]
   },
   "extraKnownMarketplaces": {
-    "sm-workflow": { "source": { "source": "github", "repo": "sprint-mode/sm-workflow" } }
+    "sm-workflow": {
+      "source": {
+        "source": "github",
+        "repo": "sprint-mode/sm-workflow"
+      }
+    }
   },
-  "enabledPlugins": { "sm-workflow@sm-workflow": true }
+  "enabledPlugins": {
+    "sm-workflow@sm-workflow": true
+  }
 }

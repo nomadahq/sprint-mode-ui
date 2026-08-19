@@ -49,6 +49,8 @@ interface PortalInfo {
   brand_tint: string | null
   logo_mark_url: string | null
   custom_domain: string | null
+  /** Role the linked account holds on this portal (from PR-B /api/auth/linked-accounts) */
+  role?: string | null
 }
 
 interface LinkedAccount {
@@ -108,21 +110,7 @@ function sectionLabel(text: string, sub?: string) {
   }, text, sub ? React.createElement('span', { style: { fontWeight: 400, textTransform: 'none' as const, letterSpacing: 0 } }, ' \u00b7 ' + sub) : null)
 }
 
-/** portal_manager edit gate for the Manage shortcut (approval amendment) AND
- *  the role Swap control (BUG-2033 item 3 — same permission basis for both):
- *  the leaf key on the resolved permissions map, super_admin bypass. The
- *  materialized section key (BUG-1988) is accepted as a fallback. */
-function canManagePortalManager(session: SessionData | null | undefined): boolean {
-  if (!session) return false
-  var role = (session.role || session.portal_role || '') as string
-  if (role === 'super_admin') return true
-  var perms = session.permissions
-  if (!perms || typeof perms === 'string') return false
-  var leaf = (perms as Record<string, { edit?: boolean }>)['portal_manager.portal_manager']
-  if (leaf && leaf.edit === true) return true
-  var section = (perms as Record<string, { edit?: boolean }>)['portal_manager']
-  return !!(section && section.edit === true)
-}
+
 
 // Module-level cache — survives mount/unmount cycles so the user menu
 // opens instantly after the first fetch. Keyed by apiBase|product so
@@ -313,7 +301,8 @@ export function AccountSwitcher(props: AccountSwitcherProps) {
                   }
                 }, (p.name || p.subdomain).charAt(0).toUpperCase())
               })(),
-              React.createElement('span', { style: { fontSize: 13 } }, p.name || p.subdomain)
+              React.createElement('span', { style: { flex: 1, fontSize: 13, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' as const } }, p.name || p.subdomain),
+              p.role ? React.createElement('span', { style: { fontSize: 11, color: 'var(--muted)', flexShrink: 0, marginLeft: 4 } }, p.role.split(/[_\s]+/).map(function(w) { return w.charAt(0).toUpperCase() + w.slice(1) }).join(' ')) : null
             )
           })
         : React.createElement('div', {
@@ -324,7 +313,6 @@ export function AccountSwitcher(props: AccountSwitcherProps) {
 
   // ── Section 1: ROLES (UX-1940 §1) ───────────────────────────────────────
   var myRoles = (me && me.my_roles) || []
-  var manageGate = canManagePortalManager(me)
   var rolesSection = myRoles.length > 0 ? React.createElement(React.Fragment, null,
     React.createElement('div', { style: { height: 1, background: 'var(--border)', margin: '4px 0' } }),
     sectionLabel('Roles'),
@@ -342,11 +330,11 @@ export function AccountSwitcher(props: AccountSwitcherProps) {
         ),
         r.is_active
           ? React.createElement('span', { style: { fontSize: 10, fontWeight: 700, textTransform: 'uppercase' as const, letterSpacing: '0.4px', color: 'var(--accent)', background: 'var(--accent-10)', padding: '2px 8px', borderRadius: 9, flexShrink: 0 } }, 'Active')
-          : (manageGate ? React.createElement('button', {
+          : React.createElement('button', {
               onClick: function() { swapTo(r.role) },
               disabled: swapBusy !== null,
               style: { fontSize: 11, fontWeight: 600, color: 'var(--accent)', background: 'transparent', border: '1px solid var(--border)', borderRadius: 6, padding: '3px 10px', cursor: swapBusy ? 'wait' : 'pointer', flexShrink: 0 },
-            }, swapBusy === r.role ? '\u2026' : 'Swap') : null)
+            }, swapBusy === r.role ? '\u2026' : 'Swap')
       )
     }),
     // PEOPLE-PANEL-1 PR-3 (Aaron ruling 2026-08-18): "Manage in Portal Manager"
@@ -367,7 +355,7 @@ export function AccountSwitcher(props: AccountSwitcherProps) {
   // ── Section 3: OTHER ACCOUNTS (UX-1940 §3) ──────────────────────────────
   var otherSection = React.createElement(React.Fragment, null,
     React.createElement('div', { style: { height: 1, background: 'var(--border)', margin: '4px 0' } }),
-    sectionLabel('Other accounts', 'separate sign-ins'),
+    sectionLabel('Linked accounts', 'separate sign-ins'),
 
     otherAccounts.map(function(account) {
       var initials = (account.display_name || account.email || '?')

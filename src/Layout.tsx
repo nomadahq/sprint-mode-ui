@@ -168,6 +168,12 @@ export interface LayoutProps {
   onViewAsChange?: (viewAs: ViewAsUser | null) => void
   onViewAsTeamChange?: (viewAs: ViewAsUser | null) => void
   portalSubdomain?: string
+  /** When passed, renders an "MCP Keys" link in the user menu between
+   *  Notification Settings and the Roles/Linked-Accounts section. */
+  mcpKeysPath?: string
+  /** When passed, renders an "API Keys" link in the user menu between
+   *  Notification Settings and the Roles/Linked-Accounts section. */
+  apiKeysPath?: string
   viewAsClientNav?: (NavSection & { type?: string; heading?: string })[]
 }
 
@@ -551,6 +557,8 @@ function HeaderUserMenu(props: {
   userMenuExtra?: React.ReactNode
   portalSubdomain?: string
   authBase?: string
+  mcpKeysPath?: string
+  apiKeysPath?: string
 }) {
   var session = props.session; var profilePath = props.profilePath; var logoutHref = props.logoutHref
   var userMenuExtra = props.userMenuExtra
@@ -637,6 +645,21 @@ function HeaderUserMenu(props: {
         ),
         'Notification Settings'
       ),
+      
+      props.mcpKeysPath ? React.createElement('a', { href: props.mcpKeysPath, style: { display: 'flex', alignItems: 'center', gap: 7, padding: '8px 10px', borderRadius: 6, fontSize: 13, color: 'var(--foreground)', textDecoration: 'none' } },
+        React.createElement('svg', { width: 14, height: 14, viewBox: '0 0 24 24', fill: 'none', stroke: 'currentColor', strokeWidth: 2, strokeLinecap: 'round', strokeLinejoin: 'round', style: { flexShrink: 0, color: 'var(--muted)' } },
+          React.createElement('path', { d: 'M16.555 3.843l3.602 3.602a2.877 2.877 0 0 1 0 4.069l-2.643 2.643a2.877 2.877 0 0 1-4.069 0l-.301-.301-6.558 6.558a2 2 0 0 1-1.239.578l-.175.008h-1.172a1 1 0 0 1-.993-.883l-.007-.117v-1.172a2 2 0 0 1 .467-1.284l.119-.13.414-.414h2v-2h2v-2l2.144-2.144-.301-.301a2.877 2.877 0 0 1 0-4.069l2.643-2.643a2.877 2.877 0 0 1 4.069 0z' }),
+          React.createElement('path', { d: 'M15 9h.01' })
+        ),
+        'MCP Keys'
+      ) : null,
+      props.apiKeysPath ? React.createElement('a', { href: props.apiKeysPath, style: { display: 'flex', alignItems: 'center', gap: 7, padding: '8px 10px', borderRadius: 6, fontSize: 13, color: 'var(--foreground)', textDecoration: 'none' } },
+        React.createElement('svg', { width: 14, height: 14, viewBox: '0 0 24 24', fill: 'none', stroke: 'currentColor', strokeWidth: 2, strokeLinecap: 'round', strokeLinejoin: 'round', style: { flexShrink: 0, color: 'var(--muted)' } },
+          React.createElement('path', { d: 'M16.555 3.843l3.602 3.602a2.877 2.877 0 0 1 0 4.069l-2.643 2.643a2.877 2.877 0 0 1-4.069 0l-.301-.301-6.558 6.558a2 2 0 0 1-1.239.578l-.175.008h-1.172a1 1 0 0 1-.993-.883l-.007-.117v-1.172a2 2 0 0 1 .467-1.284l.119-.13.414-.414h2v-2h2v-2l2.144-2.144-.301-.301a2.877 2.877 0 0 1 0-4.069l2.643-2.643a2.877 2.877 0 0 1 4.069 0z' }),
+          React.createElement('path', { d: 'M15 9h.01' })
+        ),
+        'API Keys'
+      ) : null,
       userMenuExtra || null,
       // BUG-2033: the operator's roles, sign-in emails, and Other Accounts
       // never render inside a lensed shell. The AccountSwitcher also guards
@@ -1875,7 +1898,7 @@ const Layout: React.FC<LayoutProps> = function Layout(props: LayoutProps) {
       )
     ),
     notificationBellEnabled ? React.createElement(NotificationBellNav, { apiBase: notificationApiBase, href: notificationHref, onNavigate: function(href: string) { navigate(href) } }) : null,
-    React.createElement(HeaderUserMenu, { session: session, profilePath: profilePath, logoutHref: logoutHref, userMenuExtra: userMenuExtra, portalSubdomain: portalSubdomain, authBase: vaAuthBase })
+    React.createElement(HeaderUserMenu, { session: session, profilePath: profilePath, logoutHref: logoutHref, userMenuExtra: userMenuExtra, portalSubdomain: portalSubdomain, authBase: vaAuthBase, mcpKeysPath: props.mcpKeysPath, apiKeysPath: props.apiKeysPath })
   ) : null
 
   return (

@@ -197,13 +197,31 @@ describe('role Swap permission gate (BUG-2033 item 3)', function() {
     })
   }
 
-  it('no portal_manager edit -> role list renders, Swap does not', async function() {
+  it('no portal_manager edit -> role list renders, Swap still renders (Swap no longer gated on portal_manager)', async function() {
+    // MENU-FAMILY-1 fix (Aaron ruling 2026-08-19): Swap renders on every inactive
+    // row — swapping between own roles needs no permission; server validates membership.
     var s = withRoles({ dashboard: { view: true } })
     stubFetchWithMe(s)
     render(React.createElement(AccountSwitcher, { product: 'admin', session: s }))
     await waitFor(function() { expect(screen.getByText('Support')).toBeInTheDocument() })
-    expect(screen.queryByText('Swap')).toBeNull()
+    expect(screen.getByText('Swap')).toBeInTheDocument()
     expect(screen.queryByText(/Manage in Portal Manager/)).toBeNull()
+  })
+
+  it('customer role active + non-portal_manager perms -> Swap renders on admin row', async function() {
+    // Regression guard: swap back from customer role to admin must be possible
+    // even when permissions map does not include portal_manager.
+    var s = Object.assign(operatorFields(), {
+      permissions: { dashboard: { view: true } },
+      my_roles: [
+        { role: 'customer', display_name: 'Customer', is_default: false, is_active: true },
+        { role: 'admin', display_name: 'Admin', is_default: true, is_active: false },
+      ],
+    })
+    stubFetchWithMe(s)
+    render(React.createElement(AccountSwitcher, { product: 'admin', session: s }))
+    await waitFor(function() { expect(screen.getByText('Admin')).toBeInTheDocument() })
+    expect(screen.getByText('Swap')).toBeInTheDocument()
   })
 
   it('portal_manager edit -> Swap renders on non-active roles; Manage link absent (PEOPLE-PANEL-1 PR-3)', async function() {

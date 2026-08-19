@@ -148,6 +148,12 @@ export interface LayoutProps {
     onViewAsChange?: (viewAs: ViewAsUser | null) => void;
     onViewAsTeamChange?: (viewAs: ViewAsUser | null) => void;
     portalSubdomain?: string;
+    /** When passed, renders an "MCP Keys" link in the user menu between
+     *  Notification Settings and the Roles/Linked-Accounts section. */
+    mcpKeysPath?: string;
+    /** When passed, renders an "API Keys" link in the user menu between
+     *  Notification Settings and the Roles/Linked-Accounts section. */
+    apiKeysPath?: string;
     viewAsClientNav?: (NavSection & {
         type?: string;
         heading?: string;

@@ -13,7 +13,6 @@ export interface PortalConfig {
     nav_enabled?: boolean | number;
     billing_enabled?: boolean | number;
     cmdk_enabled?: boolean | number;
-    bug_panel?: boolean | number;
     updates_enabled?: boolean | number;
     chat_enabled?: boolean | number;
     [key: string]: unknown;

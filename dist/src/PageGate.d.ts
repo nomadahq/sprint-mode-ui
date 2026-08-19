@@ -50,4 +50,4 @@ export declare function SectionDeniedPanel(): React.DetailedReactHTMLElement<{
     };
     'data-testid': string;
 }, HTMLElement>;
-export declare function PageGate(props: PageGateProps): React.FunctionComponentElement<React.FragmentProps> | React.FunctionComponentElement<AdminEmptyStateProps>;
+export declare function PageGate(props: PageGateProps): React.FunctionComponentElement<React.FragmentProps> | React.FunctionComponentElement<AdminEmptyStateProps> | null;

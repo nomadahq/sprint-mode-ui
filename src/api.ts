@@ -21,6 +21,10 @@ export interface SessionData {
   }[]
   acting_role?: { portal: string; role: string }
   role_display_name?: string
+  // ROLE-VIEW-CONTRACT-1: role_type of the ACTIVE role on the request portal.
+  // 'team' | 'customer' | null. Set server-side on /auth/me; null when no
+  // portal context or the role row has no type recorded.
+  active_role_type?: string | null
   title?: string | null
   user_id?: string
   emails?: { email: string; is_primary: boolean; email_type?: string; last_sign_in_at?: string | null }[]
@@ -146,4 +150,24 @@ export function formatRelative(str: string | null | undefined): string {
 export function escapeHtml(str: string | null | undefined): string {
   if (!str) return ''
   return String(str).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;')
+}
+
+// ROLE-VIEW-CONTRACT-1: return the role_type of the user's currently active
+// role on the request portal. Reads active_role_type (server-set, 1.0.172+)
+// first; falls back to scanning my_roles[] for backwards compatibility with
+// sessions issued before the field was added.
+// Returns 'team' | 'customer' | null.
+export function getActiveRoleType(session: SessionData | null | undefined): string | null {
+  if (!session || !session.ok) return null
+  // Prefer the server-computed field (sm-api >= ROLE-VIEW-CONTRACT-1).
+  if (session.active_role_type !== undefined) return session.active_role_type ?? null
+  // Fallback: scan my_roles for the active entry.
+  var roles = session.my_roles
+  if (roles && roles.length > 0) {
+    var active = roles.find(function(r) { return r.is_active })
+    if (active) return active.role_type ?? null
+    // No is_active flag — return the default role's type if only one role.
+    if (roles.length === 1) return roles[0].role_type ?? null
+  }
+  return null
 }

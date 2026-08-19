@@ -104450,17 +104450,7 @@ function B7(t) {
 				flexShrink: 0
 			}
 		}, E === t.role ? "…" : "Swap") : null);
-	}), R ? e.createElement("a", {
-		href: "https://admin.sprintmode.ai/portals" + (a ? "/" + a : "") + "?tab=roles",
-		style: {
-			display: "block",
-			padding: "4px 10px 6px",
-			fontSize: 11,
-			color: "var(--accent)",
-			textDecoration: "none",
-			fontWeight: 500
-		}
-	}, "Manage in Portal Manager ↗") : null) : null, B = e.createElement(e.Fragment, null, e.createElement("div", { style: {
+	}), null) : null, B = e.createElement(e.Fragment, null, e.createElement("div", { style: {
 		height: 1,
 		background: "var(--border)",
 		margin: "4px 0"

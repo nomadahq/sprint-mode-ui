@@ -349,10 +349,9 @@ export function AccountSwitcher(props: AccountSwitcherProps) {
             }, swapBusy === r.role ? '\u2026' : 'Swap') : null)
       )
     }),
-    manageGate ? React.createElement('a', {
-      href: 'https://admin.sprintmode.ai/portals' + (product ? '/' + product : '') + '?tab=roles',
-      style: { display: 'block', padding: '4px 10px 6px', fontSize: 11, color: 'var(--accent)', textDecoration: 'none', fontWeight: 500 },
-    }, 'Manage in Portal Manager \u2197') : null
+    // PEOPLE-PANEL-1 PR-3 (Aaron ruling 2026-08-18): "Manage in Portal Manager"
+    // link deleted entirely — no gating, unconditional removal.
+    null
   ) : null
 
   // ── Section 2: SIGN-IN EMAILS (UX-1940 §2 + BUG-2033 display rule) ──────

@@ -113116,12 +113116,15 @@ function K9() {
 }
 function YNe(t) {
 	var n = Y7(), r = Q7(), i = t.session === void 0 ? n : t.session, a = r ? r.role || r.portal_role : i?.role || i?.portal_role || null, o = c9(r || i);
-	if (t.adminEmptyState && !r && ee(i) === "team") {
-		var s = t.adminEmptyStateProps || {
-			portalName: "",
-			roleDisplayName: ""
-		};
-		return e.createElement(W9, s);
+	if (t.adminEmptyState && !r) {
+		if (!(i != null && ("active_role_type" in i || Array.isArray(i?.my_roles)))) return null;
+		if (ee(i) === "team") {
+			var s = t.adminEmptyStateProps || {
+				portalName: "",
+				roleDisplayName: ""
+			};
+			return e.createElement(W9, s);
+		}
 	}
 	return G9(o, a, t.permKey) ? e.createElement(e.Fragment, null, t.children) : e.createElement(e.Fragment, null, t.fallback === void 0 ? e.createElement(K9, null) : t.fallback);
 }

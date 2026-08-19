@@ -112,6 +112,25 @@ export function PageGate(props: PageGateProps) {
   // ROLE-VIEW-CONTRACT-1: admin empty state gate.
   // View-as (VAT/VAU) is exempt — it already flips effective role.
   if (props.adminEmptyState && !viewAsTeam) {
+    // Flash fix: hold render until role_type is definitively resolved.
+    // role_type is resolved when the session has active_role_type set (sm-api
+    // ROLE-VIEW-CONTRACT-1) or my_roles is present (even empty). Without one
+    // of these, session is still loading or pre-dates the field — rendering
+    // children before the verdict causes a visible flash of customer content
+    // followed by a swap to AdminEmptyState on the next render.
+    var roleTypeResolved =
+      session !== null &&
+      session !== undefined &&
+      (
+        'active_role_type' in (session as object) ||
+        Array.isArray((session as any)?.my_roles)
+      )
+    if (!roleTypeResolved) {
+      // Hold: return null (blank) until role resolves. Layout chrome is
+      // already rendered; only the page content area is blank during the
+      // single async tick before my_roles arrives.
+      return null
+    }
     var activeRoleType = getActiveRoleType(session)
     if (activeRoleType === 'team') {
       var aeProps = props.adminEmptyStateProps || { portalName: '', roleDisplayName: '' }

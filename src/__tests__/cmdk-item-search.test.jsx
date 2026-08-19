@@ -16,7 +16,7 @@ describe('mapBugsToCmdKItems', function() {
     }])
     expect(items).toHaveLength(1)
     expect(items[0].label).toBe('Lanes derive from events present')
-    expect(items[0].to).toBe('?bug=bug_abc123def456')
+    expect(items[0].to).toBe('https://waffle.sprintmode.ai/squares/bug_abc123def456')
     expect(items[0].meta.badge).toBe('BUG-812')
     expect(items[0].meta.detail).toBe('open \u00b7 waffle')
     expect(items[0].keywords).toContain('BUG-812')

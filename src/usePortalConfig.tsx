@@ -14,7 +14,7 @@ export interface PortalConfig {
   nav_enabled?: boolean | number
   billing_enabled?: boolean | number
   cmdk_enabled?: boolean | number
-  bug_panel?: boolean | number
+  // bug_panel removed — BUG-2220 killed cross-portal panel
   updates_enabled?: boolean | number
   chat_enabled?: boolean | number
   [key: string]: unknown

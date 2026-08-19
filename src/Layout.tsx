@@ -68,7 +68,7 @@ export function mapBugsToCmdKItems(rows: WaffleSearchRow[]): CmdKItem[] {
     var handle = b.display_id || (b.id || '').slice(0, 12)
     return {
       label: b.title || handle,
-      to: '?bug=' + encodeURIComponent(b.id),
+      to: 'https://waffle.sprintmode.ai/squares/' + encodeURIComponent(b.id),
       section: 'Work items',
       keywords: [b.id, b.display_id, b.tags, b.subsystem, b.product].filter(Boolean).join(' '),
       meta: {
@@ -167,11 +167,6 @@ export interface LayoutProps {
   viewAsAnyRole?: boolean
   onViewAsChange?: (viewAs: ViewAsUser | null) => void
   onViewAsTeamChange?: (viewAs: ViewAsUser | null) => void
-  bugPanel?: boolean | number
-  bugPanelAdmin?: boolean
-  bugPanelLabel?: string
-  /** WAFFLE-3.5: forwarded to the embedded panel — its MCP Keys button navigates here instead of opening the modal. */
-  bugPanelMcpKeysHref?: string
   portalSubdomain?: string
   viewAsClientNav?: (NavSection & { type?: string; heading?: string })[]
 }
@@ -966,122 +961,9 @@ export function parsePerms(session: SessionData | ViewAsUser | null): Permission
 }
 
 
-// TASK-2062 retired the legacy in-shell BugPanel; BUG-2200 restores the
-// DRAWER as the default surface (Aaron ruling 2026-08-18): button/Cmd+.
-// open a right-side drawer over the current page embedding the ONE panel
-// implementation (the Waffle app's /panel), drag-to-resize, with a popout
-// button on the drawer for a window. Same gating as before.
-var wafflePanelUrl = function (focusBugId?: string | null) {
-  return 'https://waffle.sprintmode.ai/panel' + (focusBugId ? '?bug=' + encodeURIComponent(focusBugId) : '')
-}
-var openWaffleDrawerListeners: Array<(bugId?: string | null) => void> = []
-function openWafflePanel(focusBugId?: string | null) {
-  // The drawer host (mounted by Layout) subscribes; if none is mounted
-  // (degenerate embeds), fall back to the popout window.
-  if (openWaffleDrawerListeners.length) { openWaffleDrawerListeners.forEach(function (f) { f(focusBugId) }); return }
-  window.open(wafflePanelUrl(focusBugId), 'waffle-panel', 'width=440,height=880,noopener')
-}
-
-function WaffleDrawer() {
-  var readW = function (): number {
-    try { var v = parseInt(window.localStorage.getItem('wf_shell_panel_w') || '', 10); if (v >= 340 && v <= 960) return v } catch (_e) { /* no storage */ }
-    return 440
-  }
-  var st = React.useState<{ open: boolean; bug?: string | null }>({ open: false })
-  var open = st[0]; var setOpen = st[1]
-  var wst = React.useState<number>(readW)
-  var width = wst[0]; var setWidth = wst[1]
-  var dragRef = React.useRef<{ on: boolean; startX: number; startW: number }>({ on: false, startX: 0, startW: 0 })
-
-  React.useEffect(function () {
-    var f = function (bugId?: string | null) { setOpen({ open: true, bug: bugId }) }
-    openWaffleDrawerListeners.push(f)
-    return function () { openWaffleDrawerListeners = openWaffleDrawerListeners.filter(function (x) { return x !== f }) }
-  }, [])
-  React.useEffect(function () {
-    if (!open.open) return
-    var onKey = function (e: KeyboardEvent) { if (e.key === 'Escape') setOpen({ open: false }) }
-    window.addEventListener('keydown', onKey)
-    return function () { window.removeEventListener('keydown', onKey) }
-  }, [open.open])
-  React.useEffect(function () {
-    var onMove = function (e: MouseEvent) {
-      if (!dragRef.current.on) return
-      var w = dragRef.current.startW + (dragRef.current.startX - e.clientX)
-      if (w < 340) w = 340
-      if (w > 960) w = 960
-      setWidth(w)
-    }
-    var onUp = function () {
-      if (!dragRef.current.on) return
-      dragRef.current.on = false
-      document.body.style.userSelect = ''
-      try { window.localStorage.setItem('wf_shell_panel_w', String(width)) } catch (_e) { /* fine */ }
-    }
-    window.addEventListener('mousemove', onMove)
-    window.addEventListener('mouseup', onUp)
-    return function () { window.removeEventListener('mousemove', onMove); window.removeEventListener('mouseup', onUp) }
-  }, [width])
-
-  if (!open.open) return null
-  var url = wafflePanelUrl(open.bug)
-  return React.createElement('div', {
-    style: { position: 'fixed', top: 0, right: 0, bottom: 0, width: width, zIndex: 9600, display: 'flex', flexDirection: 'column', background: 'var(--bg-card, #fff)', borderLeft: '1px solid var(--border, hsl(214,32%,91%))', boxShadow: '-8px 0 28px rgba(0,0,0,0.14)' },
-    role: 'dialog', 'aria-label': 'Waffle panel',
-  },
-    // drag handle
-    React.createElement('div', {
-      onMouseDown: function (e: React.MouseEvent) { dragRef.current = { on: true, startX: e.clientX, startW: width }; document.body.style.userSelect = 'none' },
-      style: { position: 'absolute', left: -4, top: 0, bottom: 0, width: 8, cursor: 'col-resize' },
-      'aria-hidden': true,
-    }),
-    // header strip: popout + close
-    React.createElement('div', { style: { display: 'flex', alignItems: 'center', gap: 8, padding: '8px 12px', borderBottom: '1px solid var(--border, hsl(214,32%,91%))', flexShrink: 0 } },
-      React.createElement('span', { style: { fontSize: 13, fontWeight: 700 } }, 'Waffle'),
-      React.createElement('span', { style: { flex: 1 } }),
-      React.createElement('button', {
-        onClick: function () { window.open(url, 'waffle-panel', 'width=' + width + ',height=880,noopener'); setOpen({ open: false }) },
-        title: 'Open in window', 'aria-label': 'Open in window',
-        style: { border: '1px solid var(--border, hsl(214,32%,91%))', background: 'transparent', borderRadius: 8, padding: '4px 8px', cursor: 'pointer', fontSize: 12 },
-      }, 'Pop out'),
-      React.createElement('button', {
-        onClick: function () { setOpen({ open: false }) },
-        title: 'Close', 'aria-label': 'Close panel',
-        style: { border: 'none', background: 'transparent', cursor: 'pointer', fontSize: 16, lineHeight: 1, padding: 4 },
-      }, '\u00d7')
-    ),
-    React.createElement('iframe', {
-      src: url, title: 'Waffle panel',
-      style: { border: 'none', width: '100%', flex: 1 },
-    })
-  )
-}
-function WafflePanelButton(props: { onClick: () => void }) {
-  // Aaron branding rule: the button opens Waffle, so it carries the Waffle
-  // mark from the R2 portal-branding endpoint (the Portal Manager source of
-  // truth). The tabler grid-4x4 is the FALLBACK only, on image load failure.
-  var fallback = React.createElement('svg', { width: 15, height: 15, viewBox: '0 0 24 24', fill: 'none', stroke: 'currentColor', strokeWidth: 2, strokeLinecap: 'round', 'aria-hidden': true },
-    React.createElement('path', { d: 'M4 9h16M4 15h16M9 4v16M15 4v16' }))
-  var img = React.createElement('img', {
-    src: 'https://api.sprintmode.ai/portals/waffle/logo_mark.png',
-    width: 16, height: 16, alt: 'Waffle',
-    style: { display: 'block', borderRadius: 4 },
-    onError: function (e: React.SyntheticEvent<HTMLImageElement>) {
-      var el = e.currentTarget as HTMLImageElement & { dataset: { fbk?: string } }
-      if (el.dataset.fbk) return
-      el.dataset.fbk = '1'
-      el.style.display = 'none'
-      var sib = el.nextElementSibling as HTMLElement | null
-      if (sib) sib.style.display = 'inline-flex'
-    },
-  })
-  var fallbackWrap = React.createElement('span', { style: { display: 'none', color: 'var(--muted)' } }, fallback)
-  return React.createElement('button', {
-    onClick: props.onClick,
-    title: 'Waffle panel (Cmd+.)',
-    style: { width: 30, height: 30, borderRadius: 8, border: '1px solid var(--border)', background: 'var(--bg-card)', color: 'var(--muted)', cursor: 'pointer', display: 'inline-flex', alignItems: 'center', justifyContent: 'center' },
-  }, img, fallbackWrap)
-}
+// BUG-2220: cross-portal panel removed. Waffle panel lives only inside the
+// Waffle app at waffle.sprintmode.ai. No button, no Cmd+., no drawer in
+// sm-ui or any portal shell.
 
 export function canViewSection(perms: Permissions | null, role: string | null | undefined, key: string | undefined): boolean {
   if (!key) return true
@@ -1391,28 +1273,18 @@ const Layout: React.FC<LayoutProps> = function Layout(props: LayoutProps) {
   var cmdKEnabled = props.cmdK !== undefined
     ? props.cmdK !== false
     : (portalCfg.config ? (portalCfg.config as any).cmdk !== 0 : true)
-  var bugPanelFlag = props.bugPanel !== undefined ? props.bugPanel : (portalCfg.config && (portalCfg.config as any).bug_panel)
+  // BUG-2220: bug_panel flag removed — panel feature killed cross-portal
 
   var _s = useState<SessionData | null>(sessionProp || null); var session = _s[0]; var setSession = _s[1]
   var _l = useState(!sessionProp); var loading = _l[0]; var setLoading = _l[1]
   var _ad = useState(false); var accessDenied = _ad[0]; var setAccessDenied = _ad[1]
   var _adEmail = useState(''); var accessDeniedEmail = _adEmail[0]; var setAccessDeniedEmail = _adEmail[1]
 
-  // Bug panel RBAC (WAFFLE-0): sm-api /auth/me returns bugs_access
-  // (0 none / 1 reporting / 2 triage) from the central access model
-  // (portal_roles bug_panel keys + admin-row bugs perm — see sm-api
-  // src/lib/bug-access.ts). The portal-level flag stays as an AND-gate.
-  // Legacy fallback (older sm-api without bugs_access): per-portal bugs
-  // permission + SM-team exception, as before.
+  // BUG-2220: bugPanelEnabled/bugPanelAdmin removed — panel killed cross-portal
   var _bugsAccess = session ? (session as any).bugs_access : undefined
   var _bugPerms = session && (session as any).permissions && (session as any).permissions.bugs
-  var _isSmTeamUser = session && ((session as any).is_sm_team || (session as any).role === 'super_admin' || (session as any).role === 'admin' || (session as any).portal_role === 'super_admin' || (session as any).portal_role === 'admin')
-  var _legacyEnabled = (!!(_bugPerms && _bugPerms.view) || !!_isSmTeamUser)
-  var bugPanelEnabled = !!bugPanelFlag && bugPanelFlag !== 0 && (_bugsAccess !== undefined ? _bugsAccess >= 1 : _legacyEnabled)
-  // Default to shown while config is still loading (backward compat for portals
-  // that haven't set this field yet / config fetch hasn't resolved).
+  var bugPanelAdmin = (_bugsAccess !== undefined ? _bugsAccess >= 2 : !!(_bugPerms && _bugPerms.edit))
   var notificationBellEnabled = portalCfg.config ? (portalCfg.config as any).notification_bell !== 0 : true
-  var bugPanelAdmin = props.bugPanelAdmin || (_bugsAccess !== undefined ? _bugsAccess >= 2 : !!(_bugPerms && _bugPerms.edit))
   var _m = useState(false); var mobileOpen = _m[0]; var setMobileOpen = _m[1]
   var _d = useState(false); var dropdownOpen = _d[0]; var setDropdownOpen = _d[1]
   // Sidebar rail collapse (desktop): narrow to icons; sections reveal a flyout on
@@ -1455,7 +1327,6 @@ const Layout: React.FC<LayoutProps> = function Layout(props: LayoutProps) {
   useEffect(function() {
     var handler = function(e: KeyboardEvent) {
       if ((e.metaKey || e.ctrlKey) && e.key === 'k') { e.preventDefault(); setCmdkOpen(true) }
-      if ((e.metaKey || e.ctrlKey) && e.key === '.') { e.preventDefault(); if (bugPanelEnabled) openWafflePanel() }
       if ((e.metaKey || e.ctrlKey) && e.key === 'i') {
         var tag = (document.activeElement?.tagName || '').toLowerCase()
         if (tag !== 'input' && tag !== 'textarea' && !(document.activeElement as HTMLElement)?.isContentEditable) {
@@ -1474,18 +1345,7 @@ const Layout: React.FC<LayoutProps> = function Layout(props: LayoutProps) {
     }
     window.addEventListener('keydown', handler)
     return function() { window.removeEventListener('keydown', handler) }
-  }, [bugPanelEnabled, portalPickerOpen, portalCount])
-
-  // Deep link: ?bug=bug_xxx opens the bug panel and focuses that bug
-  // TASK-2062: ?bug= deep links open the Waffle app panel popout focused
-  // on that item; the in-shell solo-card modal retired with the panel.
-  useEffect(function() {
-    var params = new URLSearchParams(window.location.search)
-    var bugId = params.get('bug')
-    if (bugId && bugPanelEnabled) {
-      openWafflePanel(bugId)
-    }
-  }, [bugPanelEnabled, location.search])
+  }, [portalPickerOpen, portalCount])
 
   useEffect(function() {
     if (sessionProp) { setSession(sessionProp); setLoading(false) }
@@ -1855,9 +1715,7 @@ const Layout: React.FC<LayoutProps> = function Layout(props: LayoutProps) {
   // (bugs_access >= 1 from /auth/me). Zero config by design (s12 test 2):
   // no Portal Manager tunable — the existing binary cmdk toggle governs the
   // whole palette. Queries the same api base the panel uses; results
-  // deep-link via ?bug=, the existing panel deep-link path, so selecting a
-  // result opens the slide-over focused on that item (or focuses the
-  // standalone board where it owns the route).
+  // Results link to waffle.sprintmode.ai/squares/{id} (the native Waffle item view).
   var sessionBugsAccess = (session as unknown as { bugs_access?: number } | null)?.bugs_access || 0
   var itemSearchActive = !cmdKOnSearch && (sessionBugsAccess >= 1 || !!bugPanelAdmin)
   function waffleItemSearch(q: string): Promise<{ items: CmdKItem[]; total?: number }> {
@@ -2017,8 +1875,6 @@ const Layout: React.FC<LayoutProps> = function Layout(props: LayoutProps) {
       )
     ),
     notificationBellEnabled ? React.createElement(NotificationBellNav, { apiBase: notificationApiBase, href: notificationHref, onNavigate: function(href: string) { navigate(href) } }) : null,
-    bugPanelEnabled ? React.createElement(WafflePanelButton, { onClick: function() { openWafflePanel() } }) : null,
-    bugPanelEnabled ? React.createElement(WaffleDrawer) : null,
     React.createElement(HeaderUserMenu, { session: session, profilePath: profilePath, logoutHref: logoutHref, userMenuExtra: userMenuExtra, portalSubdomain: portalSubdomain, authBase: vaAuthBase })
   ) : null
 
@@ -2346,8 +2202,6 @@ const Layout: React.FC<LayoutProps> = function Layout(props: LayoutProps) {
             recentKey={cmdKRecentKey}
           />
         )}
-
-        {/* TASK-2062: legacy BugPanel retired - the header button and Cmd+. open the Waffle app's /panel popout */}
 
         <PortalPicker open={portalPickerOpen} onClose={function() { setPortalPickerOpen(false) }} />
       </div>

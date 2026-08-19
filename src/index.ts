@@ -23,7 +23,7 @@ export {
 } from './components.tsx'
 
 // Layout shell with session context + view-as system + cmd+k + theme
-export { default as Layout, useSession, ViewAsContext, useViewAs, useViewAsTeam, CmdK, useTheme, PortalSwitcher } from './Layout.tsx'
+export { default as Layout, useSession, ViewAsContext, useViewAs, useViewAsTeam, CmdK, useTheme, PortalSwitcher, useDeployRefresh } from './Layout.tsx'
 export type { LayoutProps } from './Layout.tsx'
 
 // Login page

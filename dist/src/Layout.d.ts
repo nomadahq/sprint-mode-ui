@@ -147,11 +147,6 @@ export interface LayoutProps {
     viewAsAnyRole?: boolean;
     onViewAsChange?: (viewAs: ViewAsUser | null) => void;
     onViewAsTeamChange?: (viewAs: ViewAsUser | null) => void;
-    bugPanel?: boolean | number;
-    bugPanelAdmin?: boolean;
-    bugPanelLabel?: string;
-    /** WAFFLE-3.5: forwarded to the embedded panel — its MCP Keys button navigates here instead of opening the modal. */
-    bugPanelMcpKeysHref?: string;
     portalSubdomain?: string;
     viewAsClientNav?: (NavSection & {
         type?: string;

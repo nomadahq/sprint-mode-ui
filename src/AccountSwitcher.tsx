@@ -110,21 +110,7 @@ function sectionLabel(text: string, sub?: string) {
   }, text, sub ? React.createElement('span', { style: { fontWeight: 400, textTransform: 'none' as const, letterSpacing: 0 } }, ' \u00b7 ' + sub) : null)
 }
 
-/** portal_manager edit gate for the Manage shortcut (approval amendment) AND
- *  the role Swap control (BUG-2033 item 3 — same permission basis for both):
- *  the leaf key on the resolved permissions map, super_admin bypass. The
- *  materialized section key (BUG-1988) is accepted as a fallback. */
-function canManagePortalManager(session: SessionData | null | undefined): boolean {
-  if (!session) return false
-  var role = (session.role || session.portal_role || '') as string
-  if (role === 'super_admin') return true
-  var perms = session.permissions
-  if (!perms || typeof perms === 'string') return false
-  var leaf = (perms as Record<string, { edit?: boolean }>)['portal_manager.portal_manager']
-  if (leaf && leaf.edit === true) return true
-  var section = (perms as Record<string, { edit?: boolean }>)['portal_manager']
-  return !!(section && section.edit === true)
-}
+
 
 // Module-level cache — survives mount/unmount cycles so the user menu
 // opens instantly after the first fetch. Keyed by apiBase|product so
@@ -327,7 +313,6 @@ export function AccountSwitcher(props: AccountSwitcherProps) {
 
   // ── Section 1: ROLES (UX-1940 §1) ───────────────────────────────────────
   var myRoles = (me && me.my_roles) || []
-  var manageGate = canManagePortalManager(me)
   var rolesSection = myRoles.length > 0 ? React.createElement(React.Fragment, null,
     React.createElement('div', { style: { height: 1, background: 'var(--border)', margin: '4px 0' } }),
     sectionLabel('Roles'),

@@ -859,8 +859,11 @@ function PortalPicker({ open, onClose }: { open: boolean; onClose: () => void })
                 maxWidth: 72, margin: '0 auto',
                 borderRadius: 18,
                 display: 'flex', alignItems: 'center', justifyContent: 'center',
-                background: isSelected ? 'rgba(255,255,255,0.15)' : 'transparent',
-                outline: isSelected ? '2px solid rgba(255,255,255,0.6)' : '2px solid transparent',
+                // BUG-2276 (Aaron spec, 2026-08-19): Apple cmd-tab recipe — every
+                // tile is a solid brand-color square; the logo renders white on top
+                // via the brightness(0)invert(1) filter below. Selection = outline.
+                background: p.brand_color || '#2362ea',
+                outline: isSelected ? '2px solid rgba(255,255,255,0.9)' : '2px solid transparent',
                 outlineOffset: 2,
                 overflow: 'hidden',
                 transition: 'background 0.1s, outline-color 0.1s',

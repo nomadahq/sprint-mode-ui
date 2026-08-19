@@ -1,4 +1,4 @@
-// PageGate.tsx — PORTAL-RBAC-SHELLS (square 1647)
+// PageGate.tsx — PORTAL-RBAC-SHELLS (square 1647) + ROLE-VIEW-CONTRACT-1
 // Shared page-level permission gate: the explicit, per-page declaration layer
 // (Tier B in the approved PORTAL-RBAC-SPEC-1). Wrap every element-rendering,
 // non-user-space routed page:
@@ -21,6 +21,7 @@
 
 import React from 'react'
 import type { SessionData } from './api.js'
+import { getActiveRoleType } from './api.js'
 import {
   useSession,
   useViewAsTeam,
@@ -28,6 +29,8 @@ import {
   canViewSection,
 } from './Layout.tsx'
 import type { Permissions } from './Layout.tsx'
+import { AdminEmptyState } from './AdminEmptyState.tsx'
+import type { AdminEmptyStateProps } from './AdminEmptyState.tsx'
 
 export interface PageGateProps {
   /** Registry permission key for this page, {portal}.{page} (or a grandfathered bare key). */
@@ -37,6 +40,15 @@ export interface PageGateProps {
   /** Rendered when access is denied. Defaults to the standard section-denied panel. */
   fallback?: React.ReactNode
   children?: React.ReactNode
+  /**
+   * ROLE-VIEW-CONTRACT-1: when true and the active role is team-typed, render
+   * AdminEmptyState instead of the page. Pass adminEmptyStateProps to
+   * configure the portal name, role display name, and optional swap button.
+   * No-op for customer-typed and null active roles.
+   */
+  adminEmptyState?: boolean
+  /** Props forwarded to AdminEmptyState when adminEmptyState=true. */
+  adminEmptyStateProps?: Omit<AdminEmptyStateProps, never>
 }
 
 /**
@@ -96,6 +108,16 @@ export function PageGate(props: PageGateProps) {
     ? (viewAsTeam.role || viewAsTeam.portal_role)
     : ((session as any)?.role || (session as any)?.portal_role || null)
   var perms = viewAsTeam ? parsePerms(viewAsTeam) : parsePerms(session)
+
+  // ROLE-VIEW-CONTRACT-1: admin empty state gate.
+  // View-as (VAT/VAU) is exempt — it already flips effective role.
+  if (props.adminEmptyState && !viewAsTeam) {
+    var activeRoleType = getActiveRoleType(session)
+    if (activeRoleType === 'team') {
+      var aeProps = props.adminEmptyStateProps || { portalName: '', roleDisplayName: '' }
+      return React.createElement(AdminEmptyState, aeProps)
+    }
+  }
 
   if (!canViewPage(perms, role, props.permKey)) {
     return React.createElement(React.Fragment, null,

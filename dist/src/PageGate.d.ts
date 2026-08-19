@@ -1,6 +1,7 @@
 import { default as React } from 'react';
 import { SessionData } from './api.js';
 import { Permissions } from './Layout.js';
+import { AdminEmptyStateProps } from './AdminEmptyState.js';
 export interface PageGateProps {
     /** Registry permission key for this page, {portal}.{page} (or a grandfathered bare key). */
     permKey: string;
@@ -9,6 +10,15 @@ export interface PageGateProps {
     /** Rendered when access is denied. Defaults to the standard section-denied panel. */
     fallback?: React.ReactNode;
     children?: React.ReactNode;
+    /**
+     * ROLE-VIEW-CONTRACT-1: when true and the active role is team-typed, render
+     * AdminEmptyState instead of the page. Pass adminEmptyStateProps to
+     * configure the portal name, role display name, and optional swap button.
+     * No-op for customer-typed and null active roles.
+     */
+    adminEmptyState?: boolean;
+    /** Props forwarded to AdminEmptyState when adminEmptyState=true. */
+    adminEmptyStateProps?: Omit<AdminEmptyStateProps, never>;
 }
 /**
  * Page-level access decision — pure canViewSection semantics (single decision
@@ -40,4 +50,4 @@ export declare function SectionDeniedPanel(): React.DetailedReactHTMLElement<{
     };
     'data-testid': string;
 }, HTMLElement>;
-export declare function PageGate(props: PageGateProps): React.FunctionComponentElement<React.FragmentProps>;
+export declare function PageGate(props: PageGateProps): React.FunctionComponentElement<React.FragmentProps> | React.FunctionComponentElement<AdminEmptyStateProps>;

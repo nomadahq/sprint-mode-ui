@@ -23,6 +23,7 @@ export interface SessionData {
         role: string;
     };
     role_display_name?: string;
+    active_role_type?: string | null;
     title?: string | null;
     user_id?: string;
     emails?: {
@@ -77,3 +78,4 @@ export declare function formatCurrency(cents: number | null | undefined): string
 export declare function formatDate(str: string | null | undefined): string;
 export declare function formatRelative(str: string | null | undefined): string;
 export declare function escapeHtml(str: string | null | undefined): string;
+export declare function getActiveRoleType(session: SessionData | null | undefined): string | null;

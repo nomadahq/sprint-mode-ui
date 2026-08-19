@@ -85,6 +85,10 @@ export type { NoAccessScreenProps } from './NoAccessScreen.tsx'
 // path (Layout nav, Layout route guard, and PageGate all resolve through them).
 export { PageGate, canViewPage, SectionDeniedPanel } from './PageGate.tsx'
 export type { PageGateProps } from './PageGate.tsx'
+// ROLE-VIEW-CONTRACT-1: admin empty state + role-type helper
+export { AdminEmptyState } from './AdminEmptyState.tsx'
+export type { AdminEmptyStateProps } from './AdminEmptyState.tsx'
+export { getActiveRoleType } from './api.js'
 export { canViewSection, parsePerms } from './Layout.tsx'
 export type { Permissions } from './Layout.tsx'
 

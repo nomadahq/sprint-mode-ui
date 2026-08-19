@@ -206,12 +206,14 @@ describe('role Swap permission gate (BUG-2033 item 3)', function() {
     expect(screen.queryByText(/Manage in Portal Manager/)).toBeNull()
   })
 
-  it('portal_manager edit -> Swap renders on non-active roles', async function() {
+  it('portal_manager edit -> Swap renders on non-active roles; Manage link absent (PEOPLE-PANEL-1 PR-3)', async function() {
+    // Aaron ruling 2026-08-18: "Manage in Portal Manager" link deleted entirely.
+    // Must be absent even when the caller holds portal_manager edit permission.
     var s = withRoles({ 'portal_manager.portal_manager': { edit: true } })
     stubFetchWithMe(s)
     render(React.createElement(AccountSwitcher, { product: 'admin', session: s }))
     await waitFor(function() { expect(screen.getByText('Swap')).toBeInTheDocument() })
-    expect(screen.getByText(/Manage in Portal Manager/)).toBeInTheDocument()
+    expect(screen.queryByText(/Manage in Portal Manager/)).toBeNull()
   })
 
   it('super_admin bypass -> Swap renders', async function() {

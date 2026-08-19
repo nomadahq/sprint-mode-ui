@@ -104388,7 +104388,20 @@ function B7(t) {
 				fontWeight: 700,
 				flexShrink: 0
 			} }, (t.name || t.subdomain).charAt(0).toUpperCase());
-		})(), e.createElement("span", { style: { fontSize: 13 } }, t.name || t.subdomain));
+		})(), e.createElement("span", { style: {
+			flex: 1,
+			fontSize: 13,
+			overflow: "hidden",
+			textOverflow: "ellipsis",
+			whiteSpace: "nowrap"
+		} }, t.name || t.subdomain), t.role ? e.createElement("span", { style: {
+			fontSize: 11,
+			color: "var(--muted)",
+			flexShrink: 0,
+			marginLeft: 4
+		} }, t.role.split(/[_\s]+/).map(function(e) {
+			return e.charAt(0).toUpperCase() + e.slice(1);
+		}).join(" ")) : null);
 	}) : e.createElement("div", { style: {
 		padding: "8px 10px",
 		fontSize: 12,
@@ -104454,7 +104467,7 @@ function B7(t) {
 		height: 1,
 		background: "var(--border)",
 		margin: "4px 0"
-	} }), R7("Other accounts", "separate sign-ins"), F.map(function(t) {
+	} }), R7("Linked accounts", "separate sign-ins"), F.map(function(t) {
 		var n = (t.display_name || t.email || "?").split(" ").map(function(e) {
 			return e[0] || "";
 		}).join("").slice(0, 2).toUpperCase();
@@ -105711,7 +105724,57 @@ function FMe(t) {
 		cx: 12,
 		cy: 12,
 		r: 3
-	}), e.createElement("path", { d: "M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83-2.83l.06-.06A1.65 1.65 0 0 0 4.68 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 2.83-2.83l.06.06A1.65 1.65 0 0 0 9 4.68a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z" })), "Notification Settings"), c || null, p ? null : e.createElement(B7, {
+	}), e.createElement("path", { d: "M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83-2.83l.06-.06A1.65 1.65 0 0 0 4.68 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 2.83-2.83l.06.06A1.65 1.65 0 0 0 9 4.68a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z" })), "Notification Settings"), t.mcpKeysPath ? e.createElement("a", {
+		href: t.mcpKeysPath,
+		style: {
+			display: "flex",
+			alignItems: "center",
+			gap: 7,
+			padding: "8px 10px",
+			borderRadius: 6,
+			fontSize: 13,
+			color: "var(--foreground)",
+			textDecoration: "none"
+		}
+	}, e.createElement("svg", {
+		width: 14,
+		height: 14,
+		viewBox: "0 0 24 24",
+		fill: "none",
+		stroke: "currentColor",
+		strokeWidth: 2,
+		strokeLinecap: "round",
+		strokeLinejoin: "round",
+		style: {
+			flexShrink: 0,
+			color: "var(--muted)"
+		}
+	}, e.createElement("path", { d: "M16.555 3.843l3.602 3.602a2.877 2.877 0 0 1 0 4.069l-2.643 2.643a2.877 2.877 0 0 1-4.069 0l-.301-.301-6.558 6.558a2 2 0 0 1-1.239.578l-.175.008h-1.172a1 1 0 0 1-.993-.883l-.007-.117v-1.172a2 2 0 0 1 .467-1.284l.119-.13.414-.414h2v-2h2v-2l2.144-2.144-.301-.301a2.877 2.877 0 0 1 0-4.069l2.643-2.643a2.877 2.877 0 0 1 4.069 0z" }), e.createElement("path", { d: "M15 9h.01" })), "MCP Keys") : null, t.apiKeysPath ? e.createElement("a", {
+		href: t.apiKeysPath,
+		style: {
+			display: "flex",
+			alignItems: "center",
+			gap: 7,
+			padding: "8px 10px",
+			borderRadius: 6,
+			fontSize: 13,
+			color: "var(--foreground)",
+			textDecoration: "none"
+		}
+	}, e.createElement("svg", {
+		width: 14,
+		height: 14,
+		viewBox: "0 0 24 24",
+		fill: "none",
+		stroke: "currentColor",
+		strokeWidth: 2,
+		strokeLinecap: "round",
+		strokeLinejoin: "round",
+		style: {
+			flexShrink: 0,
+			color: "var(--muted)"
+		}
+	}, e.createElement("path", { d: "M16.555 3.843l3.602 3.602a2.877 2.877 0 0 1 0 4.069l-2.643 2.643a2.877 2.877 0 0 1-4.069 0l-.301-.301-6.558 6.558a2 2 0 0 1-1.239.578l-.175.008h-1.172a1 1 0 0 1-.993-.883l-.007-.117v-1.172a2 2 0 0 1 .467-1.284l.119-.13.414-.414h2v-2h2v-2l2.144-2.144-.301-.301a2.877 2.877 0 0 1 0-4.069l2.643-2.643a2.877 2.877 0 0 1 4.069 0z" }), e.createElement("path", { d: "M15 9h.01" })), "API Keys") : null, c || null, p ? null : e.createElement(B7, {
 		product: t.portalSubdomain || void 0,
 		session: n,
 		authBase: t.authBase
@@ -107150,7 +107213,9 @@ var WMe = function(t) {
 		logoutHref: Gt,
 		userMenuExtra: N,
 		portalSubdomain: X,
-		authBase: ht
+		authBase: ht,
+		mcpKeysPath: t.mcpKeysPath,
+		apiKeysPath: t.apiKeysPath
 	})) : null;
 	return /* @__PURE__ */ l(K7.Provider, {
 		value: W,

@@ -152,6 +152,12 @@ export interface LayoutProps {
     bugPanelLabel?: string;
     /** WAFFLE-3.5: forwarded to the embedded panel — its MCP Keys button navigates here instead of opening the modal. */
     bugPanelMcpKeysHref?: string;
+    /** When passed, renders an "MCP Keys" link in the user menu between
+     *  Notification Settings and the Roles/Linked-Accounts section. */
+    mcpKeysPath?: string;
+    /** When passed, renders an "API Keys" link in the user menu between
+     *  Notification Settings and the Roles/Linked-Accounts section. */
+    apiKeysPath?: string;
     portalSubdomain?: string;
     viewAsClientNav?: (NavSection & {
         type?: string;

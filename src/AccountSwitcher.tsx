@@ -49,6 +49,8 @@ interface PortalInfo {
   brand_tint: string | null
   logo_mark_url: string | null
   custom_domain: string | null
+  /** Role the linked account holds on this portal (from PR-B /api/auth/linked-accounts) */
+  role?: string | null
 }
 
 interface LinkedAccount {
@@ -313,7 +315,8 @@ export function AccountSwitcher(props: AccountSwitcherProps) {
                   }
                 }, (p.name || p.subdomain).charAt(0).toUpperCase())
               })(),
-              React.createElement('span', { style: { fontSize: 13 } }, p.name || p.subdomain)
+              React.createElement('span', { style: { flex: 1, fontSize: 13, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' as const } }, p.name || p.subdomain),
+              p.role ? React.createElement('span', { style: { fontSize: 11, color: 'var(--muted)', flexShrink: 0, marginLeft: 4 } }, p.role.split(/[_\s]+/).map(function(w) { return w.charAt(0).toUpperCase() + w.slice(1) }).join(' ')) : null
             )
           })
         : React.createElement('div', {
@@ -367,7 +370,7 @@ export function AccountSwitcher(props: AccountSwitcherProps) {
   // ── Section 3: OTHER ACCOUNTS (UX-1940 §3) ──────────────────────────────
   var otherSection = React.createElement(React.Fragment, null,
     React.createElement('div', { style: { height: 1, background: 'var(--border)', margin: '4px 0' } }),
-    sectionLabel('Other accounts', 'separate sign-ins'),
+    sectionLabel('Linked accounts', 'separate sign-ins'),
 
     otherAccounts.map(function(account) {
       var initials = (account.display_name || account.email || '?')

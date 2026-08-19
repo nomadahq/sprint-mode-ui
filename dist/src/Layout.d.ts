@@ -196,5 +196,6 @@ export interface Permissions {
 }
 export declare function parsePerms(session: SessionData | ViewAsUser | null): Permissions | null;
 export declare function canViewSection(perms: Permissions | null, role: string | null | undefined, key: string | undefined): boolean;
+export declare function useDeployRefresh(): boolean;
 declare const Layout: React.FC<LayoutProps>;
 export default Layout;

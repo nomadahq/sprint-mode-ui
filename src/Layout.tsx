@@ -1263,6 +1263,61 @@ interface BuiltSection {
   flat?: boolean
 }
 
+// BUG-2277: fleet-wide stale-tab self-heal.
+// Exported so consumers can use it outside Layout if needed, but the primary
+// path is Layout wiring it automatically — zero per-portal code required.
+// Auto-reloads when safe (tab idle or fresh-focus, no dirty inputs).
+// Shows a banner with a Reload button when reloading might destroy work.
+// Donor: sm-waffle/pages/App.jsx useDeployRefresh (WAFFLE-3.5).
+// Waffle's local copy retires onto this shared one with this release.
+var _BUILT_WITH = typeof __BUILD_ID__ !== 'undefined' ? (__BUILD_ID__ as string) : null
+export function useDeployRefresh(): boolean {
+  var _r = useState(false); var ready = _r[0]; var setReady = _r[1]
+  useEffect(function() {
+    if (!_BUILT_WITH) return
+    var stopped = false
+    function hasDirtyInput(): boolean {
+      // Guard: don't auto-reload if user has text in any input/textarea/contenteditable
+      var inputs = document.querySelectorAll('input[type="text"],input:not([type]),textarea')
+      for (var i = 0; i < inputs.length; i++) {
+        var el = inputs[i] as HTMLInputElement | HTMLTextAreaElement
+        if (el.value && el.value.trim().length > 0) return true
+      }
+      var ce = document.querySelectorAll('[contenteditable="true"]')
+      for (var j = 0; j < ce.length; j++) {
+        if ((ce[j] as HTMLElement).textContent && (ce[j] as HTMLElement).textContent!.trim().length > 0) return true
+      }
+      return false
+    }
+    function check() {
+      fetch('/version.json', { cache: 'no-store' })
+        .then(function(r) { return r.ok ? r.json() : null })
+        .then(function(d: { id?: string } | null) {
+          if (stopped || !d || !d.id || d.id === _BUILT_WITH) return
+          // Stale build detected. Auto-reload only when safe.
+          if (!hasDirtyInput()) {
+            window.location.reload()
+          } else {
+            setReady(true)
+          }
+        })
+        .catch(function() {})
+    }
+    function onVis() { if (document.visibilityState === 'visible') check() }
+    document.addEventListener('visibilitychange', onVis)
+    window.addEventListener('focus', onVis)
+    var t = setInterval(check, 5 * 60 * 1000)
+    check()
+    return function() {
+      stopped = true
+      clearInterval(t)
+      document.removeEventListener('visibilitychange', onVis)
+      window.removeEventListener('focus', onVis)
+    }
+  }, [])
+  return ready
+}
+
 const Layout: React.FC<LayoutProps> = function Layout(props: LayoutProps) {
   var navConfig = props.navConfig
   var navSections = props.navSections
@@ -1335,6 +1390,9 @@ const Layout: React.FC<LayoutProps> = function Layout(props: LayoutProps) {
   function closeRailFlyoutSoon() { flyTimer.current = setTimeout(function() { setRailFlyout(null) }, 200) }
   var _cmdkOpen = useState(false); var cmdkOpen = _cmdkOpen[0]; var setCmdkOpen = _cmdkOpen[1]
   var _portalPicker = useState(false); var portalPickerOpen = _portalPicker[0]; var setPortalPickerOpen = _portalPicker[1]
+  // BUG-2277: shared stale-tab banner. Auto-reload fires inside the hook when
+  // safe; updateReady=true means dirty inputs blocked it, show the banner.
+  var updateReady = useDeployRefresh()
 
   // Count accessible portals for the Cmd+C badge (show only when 2+)
   var portalCount = 0
@@ -2227,6 +2285,33 @@ const Layout: React.FC<LayoutProps> = function Layout(props: LayoutProps) {
         )}
 
         <PortalPicker open={portalPickerOpen} onClose={function() { setPortalPickerOpen(false) }} />
+
+        {updateReady && React.createElement('div', {
+          role: 'status',
+          style: {
+            position: 'fixed', bottom: 20, left: '50%', transform: 'translateX(-50%)',
+            zIndex: 10000, display: 'flex', alignItems: 'center', gap: 12,
+            background: 'var(--bg-card, #fff)',
+            border: '1px solid var(--border)',
+            borderRadius: 10, padding: '10px 16px',
+            boxShadow: '0 6px 24px rgba(0,0,0,0.13)',
+            fontFamily: 'var(--font, system-ui, sans-serif)',
+            whiteSpace: 'nowrap' as const,
+          }
+        },
+          React.createElement('span', { style: { fontSize: 13, color: 'var(--foreground)' } },
+            'A new version is available.'
+          ),
+          React.createElement('button', {
+            onClick: function() { window.location.reload() },
+            style: {
+              background: 'var(--accent, #2362ea)', color: '#fff',
+              border: 'none', borderRadius: 8, padding: '6px 14px',
+              fontSize: 12, fontWeight: 600, cursor: 'pointer',
+              fontFamily: 'var(--font, system-ui, sans-serif)',
+            }
+          }, 'Reload')
+        )}
       </div>
     </ViewAsContext.Provider>
     </ViewAsTeamContext.Provider>

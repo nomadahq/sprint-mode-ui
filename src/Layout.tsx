@@ -1522,11 +1522,48 @@ const Layout: React.FC<LayoutProps> = function Layout(props: LayoutProps) {
   var _vaQ = useState(''); var vaQuery = _vaQ[0]; var setVaQuery = _vaQ[1]
   var _vaErr = useState(''); var vaError = _vaErr[0]; var setVaError = _vaErr[1]
 
+  var _vaFeed = useState<'loading' | 'ready' | 'error'>('loading')
+  var vaFeedState = _vaFeed[0]; var setVaFeedState = _vaFeed[1]
+  var _vaFeedMsg = useState(''); var vaFeedMsg = _vaFeedMsg[0]; var setVaFeedMsg = _vaFeedMsg[1]
   useEffect(function() {
     if (!showViewAs) return
-    fetch(viewAsApi, { credentials: 'include' })
-      .then(function(r) { return r.ok ? r.json() : {} })
-      .then(function(data: any) {
+    // BUG-2357 hardening: the raw on-mount fetch has been observed wedged
+    // in-flight for 32s+ while an identical request from the same page
+    // answers in <1s (browser-ledger evidence on the square). Deadline the
+    // request at 5s and retry once — the SS app-side workaround proved the
+    // pattern. Non-ok responses surface as a visible error instead of a
+    // silent empty list (the SS support-role feed answers 403 today).
+    var cancelled = false
+    function attempt(remaining: number) {
+      var ctl = typeof AbortController !== 'undefined' ? new AbortController() : null
+      var timer = setTimeout(function() { if (ctl) ctl.abort() }, 5000)
+      fetch(viewAsApi, { credentials: 'include', signal: ctl ? ctl.signal : undefined })
+        .then(function(r) {
+          clearTimeout(timer)
+          if (!r.ok) {
+            if (!cancelled) { setVaFeedState('error'); setVaFeedMsg('Couldn\u2019t load people (' + r.status + ')') }
+            return null
+          }
+          return r.json()
+        })
+        .then(function(data: any) {
+          if (cancelled || data === null) return
+          handleViewAsFeed(data)
+          setVaFeedState('ready')
+        })
+        .catch(function() {
+          clearTimeout(timer)
+          if (cancelled) return
+          if (remaining > 0) { attempt(remaining - 1); return }
+          setVaFeedState('error'); setVaFeedMsg('Couldn\u2019t load people \u2014 request timed out')
+        })
+    }
+    setVaFeedState('loading'); setVaFeedMsg('')
+    attempt(1)
+    return function() { cancelled = true }
+  }, [showViewAs, viewAsApi])
+
+  function handleViewAsFeed(data: any) {
         // Detect split { team: [...], customers: [...] } shape for both mode
         var d = (data && data.ok && data.data) ? data.data : data
         if (d && Array.isArray(d.team) && Array.isArray(d.customers)) {
@@ -1546,9 +1583,7 @@ const Layout: React.FC<LayoutProps> = function Layout(props: LayoutProps) {
             setTeamDropUsers([]); setCustomerDropUsers(list)
           }
         }
-      })
-      .catch(function() {})
-  }, [showViewAs, viewAsApi])
+  }
 
   // Legacy notify props — fired with the server-lens values so host apps that
   // still listen (e.g. sm-admin's onViewAsTeamChange) see the active lens.
@@ -1902,7 +1937,8 @@ const Layout: React.FC<LayoutProps> = function Layout(props: LayoutProps) {
       vaError ? React.createElement('div', { className: 'shell-va-error', role: 'alert' }, vaError) : null,
       React.createElement('div', { className: 'shell-va-list' },
         vaActiveTab === 'customer'
-          ? (vaCompanies.length === 0 ? React.createElement('div', { className: 'shell-va-empty' }, 'No matches') : vaCompanies.map(function(co) {
+          ? (vaCompanies.length === 0 ? React.createElement('div', { className: 'shell-va-empty' },
+              vaFeedState === 'loading' ? 'Loading people\u2026' : vaFeedState === 'error' ? vaFeedMsg : 'No matches') : vaCompanies.map(function(co) {
               return React.createElement(React.Fragment, { key: co.key },
                 React.createElement('button', { className: 'shell-va-co', onClick: function() { selectCustomerCompany(co.members) }, disabled: vaBusy }, co.name),
                 co.members.map(function(u) {
@@ -1911,7 +1947,8 @@ const Layout: React.FC<LayoutProps> = function Layout(props: LayoutProps) {
                     React.createElement('span', { className: 'shell-va-person-role' }, vaRoleLabel(u)))
                 }))
             }))
-          : (vaTeamList.length === 0 ? React.createElement('div', { className: 'shell-va-empty' }, 'No matches') : vaTeamList.map(function(u) {
+          : (vaTeamList.length === 0 ? React.createElement('div', { className: 'shell-va-empty' },
+              vaFeedState === 'loading' ? 'Loading people\u2026' : vaFeedState === 'error' ? vaFeedMsg : 'No matches') : vaTeamList.map(function(u) {
               return React.createElement('button', { key: u.email || u.id, className: 'shell-va-person shell-va-person-team', onClick: function() { selectTeamMember(u) }, disabled: vaBusy },
                 React.createElement('span', { className: 'shell-va-person-name' }, u.name || (u.email ? u.email.split('@')[0] : '?')),
                 React.createElement('span', { className: 'shell-va-person-role' }, vaRoleLabel(u)))

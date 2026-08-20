@@ -2,7 +2,6 @@ import React, { useState, useEffect, useRef, createContext, useContext } from 'r
 import { NavLink, useLocation, useNavigate, Outlet } from 'react-router-dom'
 import { getSession, SessionData, ACCESS_DENIED } from './api.js'
 import { IconSearch, IconMoon, IconSun, IconDeviceDesktop } from './Icons.jsx'
-import { NotificationBellNav } from './NotificationBellNav.tsx'
 import { AccountSwitcher } from './AccountSwitcher.tsx'
 import { ActingRoleChip } from './ActingRoleChip.tsx'
 import { NoAccessScreen } from './NoAccessScreen.tsx'
@@ -870,14 +869,9 @@ function PortalPicker({ open, onClose }: { open: boolean; onClose: () => void })
                 boxSizing: 'border-box' as const,
               }
             },
-              // UI-POLISH-2: icon rendering fix.
-              // Root cause: all logo_mark_inverted.png files in R2 are dark-on-transparent
-              // (identical colour space to logo_mark.png, not white versions). They are
-              // invisible against the dark dock background (rgba(30,30,36,0.90)).
-              // Fix: use logo_mark.png + CSS filter:brightness(0)invert(1) which reliably
-              // renders any logo white without depending on separate R2 assets.
-              // onError fallback: if the image fails to load for any reason, show initials
-              // instead of a broken-image glyph.
+              // Icon rendering: portals with a distinct logo_mark render it white
+              // via brightness(0)invert(1) over the solid brand tile.
+              // onError reveals the default SM mark sibling (not initials).
               p.logo_mark_url
                 ? React.createElement('img', {
                     src: p.logo_mark_url,
@@ -896,17 +890,30 @@ function PortalPicker({ open, onClose }: { open: boolean; onClose: () => void })
                     },
                   })
                 : null,
-              // Initials: shown when logo_mark_url is absent; also revealed by onError
+              // BUG-2276 (CHROME-2): default SM boxed-chevron mark. Shown when a
+              // portal has no distinct logo_mark_url (e.g. Website, whose
+              // portal_configs.logo_mark_url is null and has no R2 asset) or when
+              // the image fails to load. Replaces the old two-letter initials
+              // fallback so markless SM-family portals render the Sprint Mode brand
+              // mark white on the brand tile — matching Portal Manager and the
+              // Aaron-approved portal switcher spec (2026-08-19).
               React.createElement('span', {
                 style: {
                   display: p.logo_mark_url ? 'none' : 'flex',
                   width: '100%', height: '100%',
                   alignItems: 'center', justifyContent: 'center',
-                  fontFamily: 'Geist, system-ui, -apple-system, sans-serif',
-                  fontSize: 'clamp(14px, 2vw, 22px)', fontWeight: 700,
-                  color: '#fff', letterSpacing: '-0.5px',
                 }
-              }, (p.name || p.portal).slice(0, 2).toUpperCase())
+              },
+                React.createElement('svg', {
+                  width: '100%', height: '100%',
+                  viewBox: '0 0 24 24', fill: 'none', stroke: '#fff',
+                  strokeWidth: 2, strokeLinecap: 'round' as const, strokeLinejoin: 'round' as const,
+                  'aria-hidden': true,
+                },
+                  React.createElement('rect', { x: 3, y: 3, width: 18, height: 18, rx: 4 }),
+                  React.createElement('polyline', { points: '10 8 14 12 10 16' })
+                )
+              )
             ),
             // Label inside the pill
             React.createElement('div', {
@@ -1345,7 +1352,7 @@ const Layout: React.FC<LayoutProps> = function Layout(props: LayoutProps) {
   var byLine = props.byLine
   var userMenuExtra = props.userMenuExtra
   var notificationApiBase = props.notificationApiBase !== undefined ? props.notificationApiBase : ''
-  var notificationHref = props.notificationHref
+
   var headerCta = props.headerCta
   var viewAsAnyRole = props.viewAsAnyRole
   var portalCfg = usePortalConfig()
@@ -1365,7 +1372,6 @@ const Layout: React.FC<LayoutProps> = function Layout(props: LayoutProps) {
   var _bugsAccess = session ? (session as any).bugs_access : undefined
   var _bugPerms = session && (session as any).permissions && (session as any).permissions.bugs
   var bugPanelAdmin = (_bugsAccess !== undefined ? _bugsAccess >= 2 : !!(_bugPerms && _bugPerms.edit))
-  var notificationBellEnabled = portalCfg.config ? (portalCfg.config as any).notification_bell !== 0 : true
   var _m = useState(false); var mobileOpen = _m[0]; var setMobileOpen = _m[1]
   var _d = useState(false); var dropdownOpen = _d[0]; var setDropdownOpen = _d[1]
   // Sidebar rail collapse (desktop): narrow to icons; sections reveal a flyout on
@@ -1411,12 +1417,7 @@ const Layout: React.FC<LayoutProps> = function Layout(props: LayoutProps) {
   useEffect(function() {
     var handler = function(e: KeyboardEvent) {
       if ((e.metaKey || e.ctrlKey) && e.key === 'k') { e.preventDefault(); setCmdkOpen(true) }
-      if ((e.metaKey || e.ctrlKey) && e.key === 'i') {
-        var tag = (document.activeElement?.tagName || '').toLowerCase()
-        if (tag !== 'input' && tag !== 'textarea' && !(document.activeElement as HTMLElement)?.isContentEditable) {
-          e.preventDefault(); var inboxDest = notificationHref || 'https://sprintmode.ai/updates'; inboxDest.startsWith('http') ? (window.location.href = inboxDest) : navigate(inboxDest)
-        }
-      }
+
       if ((e.metaKey || e.ctrlKey) && e.key === 'c') {
         // Only open dock if user has 2+ accessible portals, no text selected,
         // and not on the marketing website (sprintmode.ai root — not a portal)
@@ -1958,7 +1959,9 @@ const Layout: React.FC<LayoutProps> = function Layout(props: LayoutProps) {
         theme.mode === 'auto' ? 'Auto' : theme.mode === 'dark' ? 'Dark' : 'Light'
       )
     ),
-    notificationBellEnabled ? React.createElement(NotificationBellNav, { apiBase: notificationApiBase, href: notificationHref, onNavigate: function(href: string) { navigate(href) } }) : null,
+    // TASK-2282: header inbox envelope and Cmd/Ctrl+I shortcut removed across
+    // all portals. API surface (notificationHref prop, NotificationBellNav
+    // export, /user/updates route) left in place intentionally.
     React.createElement(HeaderUserMenu, { session: session, profilePath: profilePath, logoutHref: logoutHref, userMenuExtra: userMenuExtra, portalSubdomain: portalSubdomain, authBase: vaAuthBase, mcpKeysPath: props.mcpKeysPath, apiKeysPath: props.apiKeysPath })
   ) : null
 

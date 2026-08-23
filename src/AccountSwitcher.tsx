@@ -1,26 +1,13 @@
-// AccountSwitcher.tsx — UX-1940 (I-32, Identity Core L8)
-// The SWITCH ACCOUNT section becomes three sections (v3 mock, approved
-// 2026-08-12 with the permission-gated Manage-in-Portal-Manager amendment):
+// AccountSwitcher.tsx — USER-MENU-IDENTITY-1 P2
+// Rewrites the user menu to show:
+//   1. "Roles on {Portal}"   — portal-scoped roles, star-set default, kind label
+//   2. "Portal access"       — other portals the current identity can access
+//   3. "Linked accounts"     — separate sign-ins (unchanged logic, collapse-by-default)
 //
-//   1. ROLES — read-only list of the caller's OWN roles on this portal
-//      (my_roles from /auth/me): Active marker on the resolving row, Swap on
-//      the rest (POST /auth/swap-role). NO self-service role add — grants
-//      live in Portal Manager (FEAT-1798 rule 1). The "Manage in Portal
-//      Manager" shortcut renders ONLY when the viewer's resolved permissions
-//      include portal_manager edit (no dead links).
-//   2. SIGN-IN EMAILS · all open this account — plain text rows, no avatars,
-//      no chevrons, nothing clickable except "Link an email" (verified magic
-//      link to the NEW address via /api/identity/link-email-request; the
-//      user_emails row attaches on the CURRENT user_id at verify).
-//   3. OTHER ACCOUNTS · separate sign-ins — genuinely-linked personal
-//      identities only (avatar + chevron because clicking switches
-//      identity); consolidated-away records (no email / no portals) are
-//      hidden; Add Account retained for the gmail class.
-//
-// The two-step portal drill-in for other accounts is unchanged
-// (ACCOUNT-SWITCHER-5 mechanics): linked-accounts + switch-account stay on
-// the SAME-ORIGIN portal proxy; the new identity endpoints ride authBase
-// (api.sprintmode.ai, cookie Domain=.sprintmode.ai — the view-as contract).
+// All three sections collapse by default; click header to expand.
+// Fetch routing fix (B0): when not on *.sprintmode.ai, identity calls route
+// through the same-origin proxy (idBase = '' = relative) so the portal's own
+// session cookie is used, not the SM/admin one.
 
 import React, { useState, useEffect, useCallback } from 'react'
 import { themedMarkFromLogoUrl } from './dark-mode'
@@ -49,8 +36,13 @@ interface PortalInfo {
   brand_tint: string | null
   logo_mark_url: string | null
   custom_domain: string | null
-  /** Role the linked account holds on this portal (from PR-B /api/auth/linked-accounts) */
+  /** portal_url: user-facing URL from portal_configs (NULL = fallback to subdomain.sprintmode.ai).
+   *  HARD RULE: safeshepherd custom_domain is the Access-gated staging door — never link it. */
+  portal_url?: string | null
+  /** Role the linked account holds on this portal (from /api/auth/linked-accounts) */
   role?: string | null
+  /** Whether this is the default role for this portal entry */
+  is_default?: boolean
 }
 
 interface LinkedAccount {
@@ -75,12 +67,16 @@ function PlusIcon() {
   )
 }
 
-function ArrowIcon() {
+function ArrowIcon({ rotated }: { rotated?: boolean }) {
   return React.createElement('svg', {
     width: 12, height: 12, viewBox: '0 0 24 24',
     fill: 'none', stroke: 'currentColor', strokeWidth: 2,
     strokeLinecap: 'round', strokeLinejoin: 'round',
-    style: { flexShrink: 0, color: 'var(--muted)' },
+    style: {
+      flexShrink: 0, color: 'var(--muted)',
+      transform: rotated ? 'rotate(90deg)' : 'rotate(-90deg)',
+      transition: 'transform .12s',
+    },
     'aria-hidden': 'true',
   },
     React.createElement('path', { d: 'M9 18l6-6-6-6' })
@@ -99,18 +95,23 @@ function BackIcon() {
   )
 }
 
+/** Resolve the user-facing URL for a portal.
+ *  Prefers portal_url (explicit override from portal_configs).
+ *  HARD RULE: safeshepherd custom_domain is the Access-gated staging
+ *  login door — never use it as a navigation target.
+ */
 function portalUrl(p: PortalInfo): string {
-  if (p.custom_domain) return 'https://' + p.custom_domain
+  if (p.portal_url) return p.portal_url
+  // Belt+braces: if portal_url is somehow missing for SS, hard-code the pages.dev URL
+  if (p.subdomain === 'safeshepherd') return 'https://safeshepherd.pages.dev'
+  // custom_domain is safe for non-SS portals
+  if (p.custom_domain && p.subdomain !== 'safeshepherd') return 'https://' + p.custom_domain
   return 'https://' + p.subdomain + '.sprintmode.ai'
 }
 
-function sectionLabel(text: string, sub?: string) {
-  return React.createElement('div', {
-    style: { padding: '6px 10px 2px', fontSize: 10, fontWeight: 700, color: 'var(--muted)', textTransform: 'uppercase' as const, letterSpacing: '0.5px' }
-  }, text, sub ? React.createElement('span', { style: { fontWeight: 400, textTransform: 'none' as const, letterSpacing: 0 } }, ' \u00b7 ' + sub) : null)
+function titleCase(s: string): string {
+  return s.split(/[_\s]+/).map(function(w) { return w.charAt(0).toUpperCase() + w.slice(1) }).join(' ')
 }
-
-
 
 // Module-level cache — survives mount/unmount cycles so the user menu
 // opens instantly after the first fetch. Keyed by apiBase|product so
@@ -124,18 +125,35 @@ export function AccountSwitcher(props: AccountSwitcherProps) {
   var authBase = props.authBase || 'https://api.sprintmode.ai'
   var cacheKey = apiBase + '|' + product
 
+  // B0 fetch-routing fix: when NOT on *.sprintmode.ai, route identity calls
+  // through the same-origin proxy so the portal's own session cookie is used.
+  var onSmHost = typeof window !== 'undefined' &&
+    /\.sprintmode\.ai$/.test(window.location.hostname)
+  // idBase for /auth/me, /auth/swap-role, /auth/default-role:
+  //   - on *.sprintmode.ai: use authBase (direct to api.sprintmode.ai)
+  //   - elsewhere (e.g. safeshepherd.pages.dev): use '' (same-origin proxy)
+  var idBase = onSmHost ? authBase : ''
+  // Path convention: same-origin proxy exposes /api/auth/*, direct uses /auth/*
+  var idMePath = onSmHost ? '/auth/me' : '/api/auth/me'
+  var idSwapPath = onSmHost ? '/auth/swap-role' : '/api/auth/swap-role'
+  var idDefaultRolePath = onSmHost ? '/auth/default-role' : '/api/auth/default-role'
+
   var cached = _linkedCache[cacheKey]
   var _accounts = useState<LinkedAccount[]>(cached ? cached.accounts : []); var accounts = _accounts[0]; var setAccounts = _accounts[1]
   var _loaded = useState(!!cached); var loaded = _loaded[0]; var setLoaded = _loaded[1]
   var _expanded = useState<string | null>(null); var expanded = _expanded[0]; var setExpanded = _expanded[1]
+  var _expandedSection = useState<string | null>(null); var expandedSection = _expandedSection[0]; var setExpandedSection = _expandedSection[1]
   var _meUserId = useState(cached ? cached.meUserId : ''); var meUserId = _meUserId[0]; var setMeUserId = _meUserId[1]
-  // Fresh /auth/me for Roles + Sign-in emails (shell session as initial data).
   var _me = useState<SessionData | null>(props.session || null); var me = _me[0]; var setMe = _me[1]
   var _swapBusy = useState<string | null>(null); var swapBusy = _swapBusy[0]; var setSwapBusy = _swapBusy[1]
-  // Link-an-email inline flow
-  // Sign-in email display rule (BUG-2033 addendum): Primary + addresses used
-  // to sign in within the last 90 days render by default; the rest collapse
-  // behind "Show all (N)". The data stays — only the default render changes.
+  var _defaultMsg = useState<string | null>(null); var defaultMsg = _defaultMsg[0]; var setDefaultMsg = _defaultMsg[1]
+  var _defaultMsgOk = useState(true); var defaultMsgOk = _defaultMsgOk[0]; var setDefaultMsgOk = _defaultMsgOk[1]
+  var _starHover = useState<string | null>(null); var starHover = _starHover[0]; var setStarHover = _starHover[1]
+
+  // Clear defaultMsg on unmount
+  useEffect(function() {
+    return function() { setDefaultMsg(null) }
+  }, [])
 
   var authHeaders = useCallback(function(extra?: Record<string, string>): Record<string, string> {
     var h: Record<string, string> = extra ? { ...extra } : {}
@@ -144,26 +162,23 @@ export function AccountSwitcher(props: AccountSwitcherProps) {
   }, [product])
 
   var fetchMe = useCallback(function() {
-    fetch(authBase + '/auth/me', { credentials: 'include', headers: authHeaders() })
+    fetch(idBase + idMePath, { credentials: 'include', headers: authHeaders() })
       .then(function(r) { return r.json() })
       .then(function(d: SessionData) { if (d && d.ok) setMe(d) })
       .catch(function() {})
-  }, [authBase, authHeaders])
+  }, [idBase, idMePath, authHeaders])
 
   var fetchAccounts = useCallback(function() {
-    // Dedupe each account's portal list by subdomain: linked-accounts
-    // returns one entry per portal_members row, so a portal reachable by
-    // two paths (customer Owner row + team role) renders twice without
-    // this (Aaron, gmail-account drill-in, 2026-08-16).
+    // Dedupe each account's portal list by subdomain, preferring is_default row
     function dedupePortals(accs: LinkedAccount[]): LinkedAccount[] {
       return accs.map(function(a) {
-        var seen: Record<string, boolean> = {}
-        var portals = (a.portals || []).filter(function(p) {
-          if (seen[p.subdomain]) return false
-          seen[p.subdomain] = true
-          return true
+        var seen: Record<string, PortalInfo> = {}
+        ;(a.portals || []).forEach(function(p) {
+          if (!seen[p.subdomain] || p.is_default) {
+            seen[p.subdomain] = p
+          }
         })
-        return { ...a, portals: portals }
+        return { ...a, portals: Object.values(seen) }
       })
     }
     fetch(apiBase + '/api/auth/linked-accounts', { credentials: 'include', headers: authHeaders() })
@@ -184,13 +199,11 @@ export function AccountSwitcher(props: AccountSwitcherProps) {
   }, [apiBase, authHeaders, cacheKey])
 
   useEffect(function() {
-    fetchMe() // Roles/emails always fresh — a stale role list misleads
+    fetchMe()
     if (cached && Date.now() - cached.ts < CACHE_TTL) return
     fetchAccounts()
   }, [fetchAccounts, fetchMe])
 
-  // POST through the portal proxy (same-origin), not directly to api.sprintmode.ai.
-  // The proxy forwards cookies + X-SM-Product correctly and passes Set-Cookie back.
   function handlePortalClick(userId: string, targetUrl: string, portalSubdomain: string) {
     fetch('/api/auth/switch-account', {
       method: 'POST',
@@ -212,7 +225,7 @@ export function AccountSwitcher(props: AccountSwitcherProps) {
   function swapTo(role: string) {
     if (swapBusy) return
     setSwapBusy(role)
-    fetch(authBase + '/auth/swap-role', {
+    fetch(idBase + idSwapPath, {
       method: 'POST',
       credentials: 'include',
       headers: authHeaders({ 'Content-Type': 'application/json' }),
@@ -226,6 +239,36 @@ export function AccountSwitcher(props: AccountSwitcherProps) {
       .catch(function() { setSwapBusy(null) })
   }
 
+  function setDefaultRole(role: string, displayName: string) {
+    fetch(idBase + idDefaultRolePath, {
+      method: 'POST',
+      credentials: 'include',
+      headers: authHeaders({ 'Content-Type': 'application/json' }),
+      body: JSON.stringify({ portal: product, role: role }),
+    })
+      .then(function(r) { return r.json() })
+      .then(function(d: { ok: boolean; error?: string }) {
+        if (d.ok) {
+          // Optimistically update local me state
+          if (me && me.my_roles) {
+            var updated = me.my_roles.map(function(r2: any) {
+              return { ...r2, is_default: r2.role === role ? 1 : 0 }
+            })
+            setMe({ ...me, my_roles: updated } as SessionData)
+          }
+          setDefaultMsgOk(true)
+          setDefaultMsg('Default updated \u2014 next sign-in resolves as ' + displayName)
+        } else {
+          setDefaultMsgOk(false)
+          setDefaultMsg(d.error || 'Could not update')
+        }
+      })
+      .catch(function() {
+        setDefaultMsgOk(false)
+        setDefaultMsg('Could not update')
+      })
+  }
+
   var currentUrl = typeof window !== 'undefined' ? window.location.href : '/'
   var addAccountHref = meUserId
     ? '/auth/link-account?link_to=' + encodeURIComponent(meUserId) + '&redirect=' + encodeURIComponent(currentUrl)
@@ -233,24 +276,211 @@ export function AccountSwitcher(props: AccountSwitcherProps) {
 
   if (!loaded && !me) return null
 
-  // BUG-2033: the operator's roles, sign-in emails, and Other Accounts never
-  // render inside a lensed shell. Guard on BOTH the shell session and the
-  // fresh /auth/me (which echoes viewing_as while a lens is active) so a
-  // lensed menu can never leak operator credentials even if the host forgot
-  // to gate the mount.
+  // BUG-2033: never render operator data inside a lensed shell
   var lensed = !!(props.session && (props.session as any).viewing_as) || !!(me && (me as any).viewing_as)
   if (lensed) return null
 
-  // OTHER ACCOUNTS: genuinely-linked personal identities only. Records the
-  // consolidation emptied (no email, nothing to open) are dead weight in
-  // linked_accounts until I-29/I-30 deletes them — hide, don't render.
+  // Section toggle helper
+  function toggleSection(key: string) {
+    setExpandedSection(expandedSection === key ? null : key)
+  }
+
+  function sectionHeader(key: string, label: string, count: number, subtitle?: string) {
+    var isOpen = expandedSection === key
+    return React.createElement('button', {
+      onClick: function() { toggleSection(key) },
+      style: {
+        display: 'flex', alignItems: 'center', gap: 0,
+        padding: '6px 10px', width: '100%', border: 'none',
+        background: 'transparent', cursor: 'pointer', textAlign: 'left' as const,
+      },
+    },
+      React.createElement('span', {
+        style: { fontSize: 10, fontWeight: 700, color: 'var(--muted)', textTransform: 'uppercase' as const, letterSpacing: '0.5px', flex: 1 }
+      },
+        label,
+        React.createElement('span', {
+          style: { fontWeight: 600, textTransform: 'none' as const, letterSpacing: 0, marginLeft: 4 }
+        }, '(' + count + ')'),
+        subtitle ? React.createElement('span', {
+          style: { fontWeight: 400, textTransform: 'none' as const, letterSpacing: 0 }
+        }, ' \u00b7 ' + subtitle) : null
+      ),
+      React.createElement(ArrowIcon, { rotated: isOpen })
+    )
+  }
+
+  // ── Portal icon helper (reused across sections) ───────────────────────────
+  function portalIcon(p: PortalInfo) {
+    return (function() {
+      var _themed = themedMarkFromLogoUrl(p.logo_mark_url || null)
+      if (_themed) {
+        return React.createElement('img', { src: _themed, alt: '', style: { width: 18, height: 18, display: 'block', flexShrink: 0 } })
+      }
+      if (p.logo_mark_url) {
+        return React.createElement('img', { src: p.logo_mark_url, alt: '', style: { width: 18, height: 18, borderRadius: 4, objectFit: 'contain' as const, display: 'block', flexShrink: 0 } })
+      }
+      var bc = p.brand_color || 'var(--accent)'
+      return React.createElement('div', {
+        style: {
+          width: 18, height: 18, borderRadius: 4,
+          background: p.brand_tint || 'var(--accent-10)',
+          color: bc,
+          display: 'flex', alignItems: 'center', justifyContent: 'center',
+          fontSize: 8, fontWeight: 700, flexShrink: 0,
+        }
+      }, (p.name || p.subdomain).charAt(0).toUpperCase())
+    })()
+  }
+
+  // ── Star glyph for default-role ────────────────────────────────────────────
+  function StarGlyph({ isDefault, role, onClick, disabled }: { isDefault: boolean; role: string; onClick?: () => void; disabled?: boolean }) {
+    var filled = isDefault
+    var isHover = starHover === role
+    var color = filled ? '#ba7517' : (isHover ? 'var(--muted)' : 'var(--border)')
+    // inline SVG star
+    return React.createElement('button', {
+      onClick: onClick,
+      disabled: disabled || !onClick,
+      onMouseEnter: onClick ? function() { setStarHover(role) } : undefined,
+      onMouseLeave: onClick ? function() { setStarHover(null) } : undefined,
+      title: filled ? 'Default role' : 'Set as default',
+      style: {
+        padding: 0, background: 'transparent', border: 'none',
+        lineHeight: 1, cursor: onClick && !disabled ? 'pointer' : 'default',
+        flexShrink: 0, display: 'inline-flex', alignItems: 'center',
+      },
+      'aria-label': filled ? 'Default role' : 'Set as default role',
+    },
+      React.createElement('svg', {
+        width: 11, height: 11, viewBox: '0 0 24 24',
+        fill: filled ? color : 'none',
+        stroke: color,
+        strokeWidth: 2,
+        strokeLinecap: 'round', strokeLinejoin: 'round',
+        'aria-hidden': 'true',
+      },
+        React.createElement('polygon', { points: '12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2' })
+      )
+    )
+  }
+
+  // ── Section 1: Roles on {Portal} ─────────────────────────────────────────
+  var myRoles = (me && (me as any).my_roles) || []
+
+  // Portal display name from linked-accounts current account
+  var currentAccount = accounts.find(function(a) { return a.is_current })
+  var currentPortalInfo = currentAccount && product
+    ? (currentAccount.portals || []).find(function(p) { return p.subdomain === product })
+    : null
+  var portalDisplayName = (currentPortalInfo && currentPortalInfo.name) ||
+    (product ? (product.charAt(0).toUpperCase() + product.slice(1)) : 'this portal')
+
+  var rolesSection = myRoles.length > 0 ? React.createElement(React.Fragment, null,
+    React.createElement('div', { style: { height: 1, background: 'var(--border)', margin: '4px 0' } }),
+    sectionHeader('roles', 'Roles on ' + portalDisplayName, myRoles.length),
+    expandedSection === 'roles' ? React.createElement('div', null,
+      myRoles.map(function(r: any) {
+        var kindText = r.role_type === 'customer' ? 'User' : (r.role_type ? 'Admin' : null)
+        var isSingleRole = myRoles.length === 1
+        return React.createElement('div', {
+          key: r.role,
+          style: {
+            display: 'flex', alignItems: 'center', gap: 6, padding: '6px 10px',
+            fontSize: 13, color: 'var(--foreground)',
+          },
+        },
+          React.createElement('span', {
+            style: {
+              flex: 1, minWidth: 0, overflow: 'hidden', textOverflow: 'ellipsis',
+              whiteSpace: 'nowrap' as const, fontWeight: r.is_active ? 600 : 400,
+              display: 'inline-flex', alignItems: 'center', gap: 5,
+            }
+          },
+            r.display_name,
+            // Star immediately after role name
+            React.createElement(StarGlyph, {
+              isDefault: !!r.is_default,
+              role: r.role,
+              onClick: isSingleRole ? undefined : function() { setDefaultRole(r.role, r.display_name) },
+              disabled: !!r.is_default,
+            }),
+            kindText ? React.createElement('span', {
+              style: { fontSize: 10, color: 'var(--muted)', marginLeft: 5 }
+            }, kindText) : null
+          ),
+          r.is_active
+            ? React.createElement('span', {
+                style: {
+                  fontSize: 10, fontWeight: 700, textTransform: 'uppercase' as const,
+                  letterSpacing: '0.4px', color: 'var(--accent)', background: 'var(--accent-10)',
+                  padding: '2px 8px', borderRadius: 9, flexShrink: 0,
+                }
+              }, 'Active')
+            : React.createElement('button', {
+                onClick: function() { swapTo(r.role) },
+                disabled: swapBusy !== null,
+                style: {
+                  fontSize: 11, fontWeight: 600, color: 'var(--accent)',
+                  background: 'transparent', border: '1px solid var(--border)',
+                  borderRadius: 6, padding: '3px 10px',
+                  cursor: swapBusy ? 'wait' : 'pointer', flexShrink: 0,
+                },
+              }, swapBusy === r.role ? '\u2026' : 'Swap')
+        )
+      }),
+      // Default-role confirmation/error message
+      defaultMsg ? React.createElement('div', {
+        style: {
+          fontSize: 11, padding: '2px 10px 6px',
+          color: defaultMsgOk ? 'hsl(142,71%,30%)' : 'hsl(0,84%,40%)',
+        }
+      }, defaultMsg) : null
+    ) : null
+  ) : null
+
+  // ── Section 2: Portal access ──────────────────────────────────────────────
+  // Other portals this identity can access (excluding the current portal)
+  var accessPortals = currentAccount
+    ? (currentAccount.portals || []).filter(function(p) { return p.subdomain !== product })
+    : []
+
+  var accessSection = accessPortals.length > 0 ? React.createElement(React.Fragment, null,
+    React.createElement('div', { style: { height: 1, background: 'var(--border)', margin: '4px 0' } }),
+    sectionHeader('access', 'Portal access', accessPortals.length),
+    expandedSection === 'access' ? React.createElement('div', null,
+      accessPortals.map(function(p) {
+        return React.createElement('button', {
+          key: p.subdomain,
+          onClick: function() { handlePortalClick(currentAccount!.user_id, portalUrl(p), p.subdomain) },
+          style: {
+            display: 'flex', alignItems: 'center', gap: 8, padding: '7px 10px',
+            borderRadius: 6, border: 'none', background: 'transparent', cursor: 'pointer',
+            width: '100%', textAlign: 'left' as const, fontSize: 13, color: 'var(--foreground)',
+            transition: 'background .15s',
+          },
+          onMouseEnter: function(e: React.MouseEvent<HTMLButtonElement>) { (e.currentTarget as HTMLButtonElement).style.background = 'var(--bg-subtle)' },
+          onMouseLeave: function(e: React.MouseEvent<HTMLButtonElement>) { (e.currentTarget as HTMLButtonElement).style.background = 'transparent' },
+        },
+          portalIcon(p),
+          React.createElement('span', { style: { flex: 1, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' as const } },
+            p.name || titleCase(p.subdomain)
+          ),
+          p.role ? React.createElement('span', { style: { fontSize: 11, color: 'var(--muted)', flexShrink: 0, marginLeft: 4 } }, titleCase(p.role)) : null,
+          React.createElement(ArrowIcon, { rotated: false })
+        )
+      })
+    ) : null
+  ) : null
+
+  // ── Section 3: Linked accounts ────────────────────────────────────────────
   var otherAccounts = accounts.filter(function(a) {
     if (a.is_current) return false
     if (!a.email || a.email === 'unknown') return false
     return (a.portals || []).length > 0
   })
 
-  // If an account is expanded, show its portal list instead of the sections
+  // Expanded drill-in for a specific linked account (nested inside section 3)
   var expandedAccount = expanded ? otherAccounts.find(function(a) { return a.user_id === expanded }) : null
 
   if (expandedAccount) {
@@ -282,27 +512,9 @@ export function AccountSwitcher(props: AccountSwitcherProps) {
               onMouseEnter: function(e: React.MouseEvent<HTMLButtonElement>) { (e.currentTarget as HTMLButtonElement).style.background = 'var(--bg-subtle)' },
               onMouseLeave: function(e: React.MouseEvent<HTMLButtonElement>) { (e.currentTarget as HTMLButtonElement).style.background = 'transparent' },
             },
-              (function() {
-                var _themed = themedMarkFromLogoUrl(p.logo_mark_url)
-                if (_themed) {
-                  return React.createElement('img', { src: _themed, alt: '', style: { width: 18, height: 18, display: 'block' } })
-                }
-                if (p.logo_mark_url) {
-                  return React.createElement('img', { src: p.logo_mark_url, alt: '', style: { width: 18, height: 18, borderRadius: 4, objectFit: 'contain' as const, display: 'block', flexShrink: 0 } })
-                }
-                var bc = p.brand_color || 'var(--accent)'
-                return React.createElement('div', {
-                  style: {
-                    width: 18, height: 18, borderRadius: 4,
-                    background: p.brand_tint || 'var(--accent-10)',
-                    color: bc,
-                    display: 'flex', alignItems: 'center', justifyContent: 'center',
-                    fontSize: 8, fontWeight: 700, flexShrink: 0,
-                  }
-                }, (p.name || p.subdomain).charAt(0).toUpperCase())
-              })(),
+              portalIcon(p),
               React.createElement('span', { style: { flex: 1, fontSize: 13, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' as const } }, p.name || p.subdomain),
-              p.role ? React.createElement('span', { style: { fontSize: 11, color: 'var(--muted)', flexShrink: 0, marginLeft: 4 } }, p.role.split(/[_\s]+/).map(function(w) { return w.charAt(0).toUpperCase() + w.slice(1) }).join(' ')) : null
+              p.role ? React.createElement('span', { style: { fontSize: 11, color: 'var(--muted)', flexShrink: 0, marginLeft: 4 } }, titleCase(p.role)) : null
             )
           })
         : React.createElement('div', {
@@ -311,113 +523,73 @@ export function AccountSwitcher(props: AccountSwitcherProps) {
     )
   }
 
-  // ── Section 1: ROLES (UX-1940 §1) ───────────────────────────────────────
-  var myRoles = (me && me.my_roles) || []
-  var rolesSection = myRoles.length > 0 ? React.createElement(React.Fragment, null,
+  var linkedSection = React.createElement(React.Fragment, null,
     React.createElement('div', { style: { height: 1, background: 'var(--border)', margin: '4px 0' } }),
-    sectionLabel('Roles'),
-    myRoles.map(function(r) {
-      return React.createElement('div', {
-        key: r.role,
-        style: {
-          display: 'flex', alignItems: 'center', gap: 8, padding: '6px 10px',
-          fontSize: 13, color: 'var(--foreground)',
+    sectionHeader('linked', 'Linked accounts', otherAccounts.length, 'separate sign-ins'),
+    expandedSection === 'linked' ? React.createElement('div', null,
+      otherAccounts.map(function(account) {
+        var initials = (account.display_name || account.email || '?')
+          .split(' ').map(function(w) { return w[0] || '' }).join('').slice(0, 2).toUpperCase()
+
+        return React.createElement('button', {
+          key: account.user_id,
+          onClick: function() { setExpanded(account.user_id) },
+          style: {
+            display: 'flex', alignItems: 'center', gap: 8,
+            padding: '7px 10px', borderRadius: 6,
+            border: 'none', background: 'transparent',
+            cursor: 'pointer', width: '100%', textAlign: 'left' as const,
+            fontSize: 13, color: 'var(--foreground)',
+            transition: 'background .15s',
+          },
+          onMouseEnter: function(e: React.MouseEvent<HTMLButtonElement>) { (e.currentTarget as HTMLButtonElement).style.background = 'var(--bg-subtle)' },
+          onMouseLeave: function(e: React.MouseEvent<HTMLButtonElement>) { (e.currentTarget as HTMLButtonElement).style.background = 'transparent' },
         },
-      },
-        React.createElement('span', { style: { flex: 1, minWidth: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' as const, fontWeight: r.is_active ? 600 : 400 } },
-          r.display_name,
-          r.is_default ? React.createElement('span', { title: 'Your default role on this portal', style: { fontSize: 10, color: 'var(--muted)', marginLeft: 6 } }, 'default') : null
-        ),
-        r.is_active
-          ? React.createElement('span', { style: { fontSize: 10, fontWeight: 700, textTransform: 'uppercase' as const, letterSpacing: '0.4px', color: 'var(--accent)', background: 'var(--accent-10)', padding: '2px 8px', borderRadius: 9, flexShrink: 0 } }, 'Active')
-          : React.createElement('button', {
-              onClick: function() { swapTo(r.role) },
-              disabled: swapBusy !== null,
-              style: { fontSize: 11, fontWeight: 600, color: 'var(--accent)', background: 'transparent', border: '1px solid var(--border)', borderRadius: 6, padding: '3px 10px', cursor: swapBusy ? 'wait' : 'pointer', flexShrink: 0 },
-            }, swapBusy === r.role ? '\u2026' : 'Swap')
-      )
-    }),
-    // PEOPLE-PANEL-1 PR-3 (Aaron ruling 2026-08-18): "Manage in Portal Manager"
-    // link deleted entirely — no gating, unconditional removal.
-    null
-  ) : null
+          account.photo_url
+            ? React.createElement('img', {
+                src: account.photo_url, alt: '',
+                style: { width: 22, height: 22, borderRadius: 5, objectFit: 'cover' as const, flexShrink: 0 }
+              })
+            : React.createElement('div', {
+                style: {
+                  width: 22, height: 22, borderRadius: 5,
+                  background: 'var(--accent-10)', color: 'var(--accent)',
+                  display: 'flex', alignItems: 'center', justifyContent: 'center',
+                  fontSize: 9, fontWeight: 600, flexShrink: 0,
+                }
+              }, initials),
+          React.createElement('div', { style: { flex: 1, minWidth: 0, overflow: 'hidden' } },
+            React.createElement('div', {
+              style: { fontSize: 13, fontWeight: 500, whiteSpace: 'nowrap' as const, overflow: 'hidden', textOverflow: 'ellipsis' }
+            }, account.display_name || account.email),
+            React.createElement('div', {
+              style: { fontSize: 11, color: 'var(--muted)', whiteSpace: 'nowrap' as const, overflow: 'hidden', textOverflow: 'ellipsis' }
+            }, account.email)
+          ),
+          React.createElement(ArrowIcon, { rotated: false })
+        )
+      }),
 
-  // ── Section 2: SIGN-IN EMAILS (UX-1940 §2 + BUG-2033 display rule) ──────
-  // Recent = signed in within the last 90 days (last_sign_in_at from
-  // /auth/me, derived server-side from the magic-token trail). A missing or
-  // unparsable stamp counts as NOT recent — it collapses.
-  // I-29 menu cleanup (Aaron ruling 2026-08-18): the Sign-in emails section
-  // and the Link-an-email affordance are OUT of the user menu fleet-wide.
-  // The mechanism and the address list live on the profile page's managed
-  // Sign-in emails card (ProfileCard, UX-1943) — capability kept, menu real
-  // estate reclaimed. Aliases nobody signs in with have no business here.
-
-  // ── Section 3: OTHER ACCOUNTS (UX-1940 §3) ──────────────────────────────
-  var otherSection = React.createElement(React.Fragment, null,
-    React.createElement('div', { style: { height: 1, background: 'var(--border)', margin: '4px 0' } }),
-    sectionLabel('Linked accounts', 'separate sign-ins'),
-
-    otherAccounts.map(function(account) {
-      var initials = (account.display_name || account.email || '?')
-        .split(' ').map(function(w) { return w[0] || '' }).join('').slice(0, 2).toUpperCase()
-
-      return React.createElement('button', {
-        key: account.user_id,
-        onClick: function() { setExpanded(account.user_id) },
+      React.createElement('a', {
+        href: addAccountHref,
         style: {
-          display: 'flex', alignItems: 'center', gap: 8,
-          padding: '7px 10px', borderRadius: 6,
-          border: 'none', background: 'transparent',
-          cursor: 'pointer', width: '100%', textAlign: 'left' as const,
+          display: 'flex', alignItems: 'center', gap: 7,
+          padding: '8px 10px', borderRadius: 6,
           fontSize: 13, color: 'var(--foreground)',
-          transition: 'background .15s',
+          textDecoration: 'none', transition: 'background .15s',
         },
-        onMouseEnter: function(e: React.MouseEvent<HTMLButtonElement>) { (e.currentTarget as HTMLButtonElement).style.background = 'var(--bg-subtle)' },
-        onMouseLeave: function(e: React.MouseEvent<HTMLButtonElement>) { (e.currentTarget as HTMLButtonElement).style.background = 'transparent' },
+        onMouseEnter: function(e: React.MouseEvent<HTMLAnchorElement>) { (e.currentTarget as HTMLAnchorElement).style.background = 'var(--bg-subtle)' },
+        onMouseLeave: function(e: React.MouseEvent<HTMLAnchorElement>) { (e.currentTarget as HTMLAnchorElement).style.background = 'transparent' },
       },
-        account.photo_url
-          ? React.createElement('img', {
-              src: account.photo_url, alt: '',
-              style: { width: 22, height: 22, borderRadius: 5, objectFit: 'cover' as const, flexShrink: 0 }
-            })
-          : React.createElement('div', {
-              style: {
-                width: 22, height: 22, borderRadius: 5,
-                background: 'var(--accent-10)', color: 'var(--accent)',
-                display: 'flex', alignItems: 'center', justifyContent: 'center',
-                fontSize: 9, fontWeight: 600, flexShrink: 0,
-              }
-            }, initials),
-        React.createElement('div', { style: { flex: 1, minWidth: 0, overflow: 'hidden' } },
-          React.createElement('div', {
-            style: { fontSize: 13, fontWeight: 500, whiteSpace: 'nowrap' as const, overflow: 'hidden', textOverflow: 'ellipsis' }
-          }, account.display_name || account.email),
-          React.createElement('div', {
-            style: { fontSize: 11, color: 'var(--muted)', whiteSpace: 'nowrap' as const, overflow: 'hidden', textOverflow: 'ellipsis' }
-          }, account.email)
-        ),
-        React.createElement(ArrowIcon, null)
+        React.createElement(PlusIcon, null),
+        'Add Account'
       )
-    }),
-
-    React.createElement('a', {
-      href: addAccountHref,
-      style: {
-        display: 'flex', alignItems: 'center', gap: 7,
-        padding: '8px 10px', borderRadius: 6,
-        fontSize: 13, color: 'var(--foreground)',
-        textDecoration: 'none', transition: 'background .15s',
-      },
-      onMouseEnter: function(e: React.MouseEvent<HTMLAnchorElement>) { (e.currentTarget as HTMLAnchorElement).style.background = 'var(--bg-subtle)' },
-      onMouseLeave: function(e: React.MouseEvent<HTMLAnchorElement>) { (e.currentTarget as HTMLAnchorElement).style.background = 'transparent' },
-    },
-      React.createElement(PlusIcon, null),
-      'Add Account'
-    )
+    ) : null
   )
 
   return React.createElement(React.Fragment, null,
     rolesSection,
-    otherSection
+    accessSection,
+    linkedSection
   )
 }

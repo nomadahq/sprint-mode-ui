@@ -319,7 +319,7 @@ const Login: React.FC<LoginProps> = function Login({ productName, _logoSrc: _ls,
                 onChange={function(e) { setCode(e.target.value.replace(/\D/g, '').slice(0, 6)) }}
                 onKeyDown={function(e) { if (e.key === 'Enter') handleVerifyCode(e) }}
                 autoFocus
-                placeholder="000000"
+                placeholder="------"
                 style={{
                   display: 'block', margin: '0 auto 12px', width: 180,
                   padding: '11px 0', fontSize: 26, letterSpacing: '0.12em',

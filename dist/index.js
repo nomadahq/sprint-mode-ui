@@ -108123,7 +108123,7 @@ var zMe = function(t) {
 								e.key === "Enter" && ve(e);
 							},
 							autoFocus: !0,
-							placeholder: "000000",
+							placeholder: "------",
 							style: {
 								display: "block",
 								margin: "0 auto 12px",

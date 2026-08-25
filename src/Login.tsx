@@ -320,13 +320,16 @@ const Login: React.FC<LoginProps> = function Login({ productName, _logoSrc: _ls,
                 onKeyDown={function(e) { if (e.key === 'Enter') handleVerifyCode(e) }}
                 autoFocus
                 placeholder="------"
+                data-1p-ignore
+                data-lpignore="true"
                 style={{
-                  display: 'block', margin: '0 auto 12px', width: 180,
-                  padding: '11px 0', fontSize: 26, letterSpacing: '0.12em',
+                  display: 'block', margin: '0 auto 12px', width: 220,
+                  padding: '11px 40px', fontSize: 26, letterSpacing: '0.12em',
                   textAlign: 'center', fontFamily: 'var(--font-mono)',
                   border: '1px solid ' + (codeError ? 'var(--red)' : 'var(--border)'),
                   borderRadius: 'var(--radius-sm)', background: 'var(--bg)',
-                  color: 'var(--foreground)', outline: 'none', boxSizing: 'border-box' as const,
+                  color: 'var(--foreground)', caretColor: 'var(--accent)',
+                  outline: 'none', boxSizing: 'border-box' as const,
                 }}
               />
               <button

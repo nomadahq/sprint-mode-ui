@@ -108124,11 +108124,13 @@ var zMe = function(t) {
 							},
 							autoFocus: !0,
 							placeholder: "------",
+							"data-1p-ignore": !0,
+							"data-lpignore": "true",
 							style: {
 								display: "block",
 								margin: "0 auto 12px",
-								width: 180,
-								padding: "11px 0",
+								width: 220,
+								padding: "11px 40px",
 								fontSize: 26,
 								letterSpacing: "0.12em",
 								textAlign: "center",
@@ -108137,6 +108139,7 @@ var zMe = function(t) {
 								borderRadius: "var(--radius-sm)",
 								background: "var(--bg)",
 								color: "var(--foreground)",
+								caretColor: "var(--accent)",
 								outline: "none",
 								boxSizing: "border-box"
 							}

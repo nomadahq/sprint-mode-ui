@@ -119,6 +119,12 @@ export interface LayoutProps {
     sidebarBottom?: React.ReactNode;
     viewAsEnabled?: boolean;
     viewAsApi?: string;
+    /** FEAT-2560: when true, the View As picker re-queries viewAsApi with ?q=
+     *  as the operator types (300ms debounce), so search reaches the full user
+     *  base instead of filtering only the first feed page client-side. The feed
+     *  endpoint must accept a q param. Off by default — existing consumers keep
+     *  the fetch-once behavior. */
+    viewAsApiSearch?: boolean;
     /** Deprecated (PORTAL-RBAC-VIEWAS-3): the server lens needs no client detail
      *  fetch. Accepted for backward compatibility, ignored. */
     viewAsDetailApi?: string;

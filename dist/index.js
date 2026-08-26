@@ -106854,8 +106854,9 @@ var zMe = function(t) {
 	}, [qe]), i(function() {
 		J(!1);
 	}, [Ne.pathname]), i(function() {
-		function e() {
-			fe(!1), $e(!1);
+		function e(e) {
+			var t = e.target;
+			t && t.closest && (t.closest(".shell-va") || t.closest(".portal-sidebar-user") || t.closest(".portal-dropdown")) || (fe(!1), $e(!1));
 		}
 		return document.addEventListener("click", e), function() {
 			document.removeEventListener("click", e);

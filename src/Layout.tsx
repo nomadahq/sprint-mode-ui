@@ -1681,7 +1681,20 @@ const Layout: React.FC<LayoutProps> = function Layout(props: LayoutProps) {
   useEffect(function() { setMobileOpen(false) }, [location.pathname])
 
   useEffect(function() {
-    function handler() { setDropdownOpen(false); setVaPickerOpen(false) }
+    // BUG-2551: containment check, NOT stopPropagation, decides whether this
+    // outside-click handler fires. On Next App Router surfaces (SS site, SS
+    // admin) React hydrates the document, so React's delegated listener and
+    // this one sit on the SAME node — same-node listeners run in registration
+    // order and stopPropagation in the toggles cannot cancel this handler for
+    // the very click that opened the popover. Result was open->unmount in one
+    // frame ("View as does nothing"). Ignoring clicks that originate inside
+    // either popover's own wrapper fixes Next surfaces without changing Vite
+    // portal behavior.
+    function handler(e: MouseEvent) {
+      var t = e.target as Element | null
+      if (t && (t as any).closest && ((t as any).closest('.shell-va') || (t as any).closest('.portal-sidebar-user') || (t as any).closest('.portal-dropdown'))) return
+      setDropdownOpen(false); setVaPickerOpen(false)
+    }
     document.addEventListener('click', handler)
     return function() { document.removeEventListener('click', handler) }
   }, [])

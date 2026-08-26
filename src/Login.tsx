@@ -7,6 +7,10 @@ import {
 import { usePortalConfig } from "./usePortalConfig.jsx";
 
 export interface LoginProps {
+  /** Explicit portal/product slug for code verification (BUG-2622). Highest
+   *  precedence — survives config-load latency and unwrapped mounts.
+   *  Chain: this prop -> PortalConfigProvider config.subdomain -> hostname. */
+  portal?: string;
   productName?: string;
   /** @deprecated Use icon+title props instead */
   _logoSrc?: string;
@@ -46,6 +50,7 @@ const Login: React.FC<LoginProps> = function Login({
   companyField,
   linkTo,
   cancelHref,
+  portal: portalProp,
 }: LoginProps) {
   var _portalCfg = usePortalConfig();
   var _email = useState("");
@@ -202,6 +207,7 @@ const Login: React.FC<LoginProps> = function Login({
     // will guess "admin" at cutover). Hostname stays only as the last-resort
     // fallback for portals mounted without a PortalConfigProvider.
     var portal =
+      portalProp ||
       (_portalCfg.config && _portalCfg.config.subdomain) ||
       (typeof window !== "undefined"
         ? window.location.hostname.split(".")[0] || "admin"

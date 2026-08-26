@@ -1,5 +1,9 @@
 import { default as React, ReactNode } from 'react';
 export interface LoginProps {
+    /** Explicit portal/product slug for code verification (BUG-2622). Highest
+     *  precedence — survives config-load latency and unwrapped mounts.
+     *  Chain: this prop -> PortalConfigProvider config.subdomain -> hostname. */
+    portal?: string;
     productName?: string;
     /** @deprecated Use icon+title props instead */
     _logoSrc?: string;

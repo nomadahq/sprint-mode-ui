@@ -16,7 +16,7 @@ export interface LoginProps {
      *  'required' (default) — shown and required (B2B portals).
      *  'optional' — shown but can be left blank; user can add company later.
      *  'hidden' — not rendered; no company record created on signup. */
-    companyField?: 'required' | 'optional' | 'hidden';
+    companyField?: "required" | "optional" | "hidden";
     /** When set, the Login component operates in "Link Account" mode.
      *  The value is the current user_id to link to. Magic link requests will
      *  include link_to={linkTo}. Heading changes to "Link Another Account".

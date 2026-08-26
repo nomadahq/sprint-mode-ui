@@ -107791,7 +107791,7 @@ var zMe = function(t) {
 			return;
 		}
 		ae(!0), G(null);
-		var n = typeof window < "u" && window.location.hostname.split(".")[0] || "admin";
+		var n = g.config && g.config.subdomain || typeof window < "u" && window.location.hostname.split(".")[0] || "admin";
 		fetch(de + "/auth/verify-code", {
 			method: "POST",
 			headers: { "Content-Type": "application/json" },

@@ -106765,7 +106765,42 @@ var zMe = function(t) {
 		return dt("loading"), mt(""), t(1), function() {
 			e = !0;
 		};
-	}, [Le, C]);
+	}, [Le, C]), i(function() {
+		if (!(!t.viewAsApiSearch || !Le)) {
+			var e = !1, n = it.trim(), r = n ? C + (C.indexOf("?") === -1 ? "?" : "&") + "q=" + encodeURIComponent(n) : C, i = setTimeout(function() {
+				function t(n) {
+					var i = typeof AbortController < "u" ? new AbortController() : null, a = setTimeout(function() {
+						i && i.abort();
+					}, 5e3);
+					fetch(r, {
+						credentials: "include",
+						signal: i ? i.signal : void 0
+					}).then(function(t) {
+						return clearTimeout(a), t.ok ? t.json() : (e || (dt("error"), mt("Couldn’t load people (" + t.status + ")")), null);
+					}).then(function(t) {
+						e || t === null || (ht(t), dt("ready"));
+					}).catch(function() {
+						if (clearTimeout(a), !e) {
+							if (n > 0) {
+								t(n - 1);
+								return;
+							}
+							dt("error"), mt("Couldn’t load people — request timed out");
+						}
+					});
+				}
+				dt("loading"), mt(""), t(1);
+			}, 300);
+			return function() {
+				e = !0, clearTimeout(i);
+			};
+		}
+	}, [
+		it,
+		t.viewAsApiSearch,
+		Le,
+		C
+	]);
 	function ht(e) {
 		var t = e && e.ok && e.data ? e.data : e;
 		if (t && Array.isArray(t.team) && Array.isArray(t.customers)) Ue(t.team.map(function(e) {

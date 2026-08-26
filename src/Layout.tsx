@@ -143,6 +143,12 @@ export interface LayoutProps {
   sidebarBottom?: React.ReactNode
   viewAsEnabled?: boolean
   viewAsApi?: string
+  /** FEAT-2560: when true, the View As picker re-queries viewAsApi with ?q=
+   *  as the operator types (300ms debounce), so search reaches the full user
+   *  base instead of filtering only the first feed page client-side. The feed
+   *  endpoint must accept a q param. Off by default — existing consumers keep
+   *  the fetch-once behavior. */
+  viewAsApiSearch?: boolean
   /** Deprecated (PORTAL-RBAC-VIEWAS-3): the server lens needs no client detail
    *  fetch. Accepted for backward compatibility, ignored. */
   viewAsDetailApi?: string
@@ -1562,6 +1568,52 @@ const Layout: React.FC<LayoutProps> = function Layout(props: LayoutProps) {
     attempt(1)
     return function() { cancelled = true }
   }, [showViewAs, viewAsApi])
+
+  // FEAT-2560: server-backed picker search. Consumers with more people than
+  // one feed page (SS admin: 224k+ users, feed caps at 100) opt in with
+  // viewAsApiSearch; as the operator types, the feed is re-queried with ?q=
+  // after a 300ms debounce so search reaches the FULL base instead of
+  // filtering the first page client-side. Clearing the query restores the
+  // base feed. Same 5s deadline + one retry as the mount fetch; results
+  // replace the lists through the same parser, and the client-side filter
+  // still applies on top (harmless). Off by default — fetch-once consumers
+  // (Signal etc.) are untouched.
+  useEffect(function() {
+    if (!props.viewAsApiSearch || !showViewAs) return
+    var cancelled = false
+    var q = vaQuery.trim()
+    var url = q ? viewAsApi + (viewAsApi.indexOf('?') !== -1 ? '&' : '?') + 'q=' + encodeURIComponent(q) : viewAsApi
+    var debounce = setTimeout(function() {
+      function attempt(remaining: number) {
+        var ctl = typeof AbortController !== 'undefined' ? new AbortController() : null
+        var timer = setTimeout(function() { if (ctl) ctl.abort() }, 5000)
+        fetch(url, { credentials: 'include', signal: ctl ? ctl.signal : undefined })
+          .then(function(r) {
+            clearTimeout(timer)
+            if (!r.ok) {
+              if (!cancelled) { setVaFeedState('error'); setVaFeedMsg('Couldn\u2019t load people (' + r.status + ')') }
+              return null
+            }
+            return r.json()
+          })
+          .then(function(data: any) {
+            if (cancelled || data === null) return
+            handleViewAsFeed(data)
+            setVaFeedState('ready')
+          })
+          .catch(function() {
+            clearTimeout(timer)
+            if (cancelled) return
+            if (remaining > 0) { attempt(remaining - 1); return }
+            setVaFeedState('error'); setVaFeedMsg('Couldn\u2019t load people \u2014 request timed out')
+          })
+      }
+      setVaFeedState('loading'); setVaFeedMsg('')
+      attempt(1)
+    }, 300)
+    return function() { cancelled = true; clearTimeout(debounce) }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [vaQuery, props.viewAsApiSearch, showViewAs, viewAsApi])
 
   function handleViewAsFeed(data: any) {
         // Detect split { team: [...], customers: [...] } shape for both mode

@@ -459,6 +459,9 @@ const Login: React.FC<LoginProps> = function Login({
                       setFirstName(e.target.value);
                     }}
                     placeholder="Jane"
+                    autoComplete="given-name"
+                    data-1p-ignore
+                    data-lpignore="true"
                     style={inputStyle}
                     onFocus={handleInputFocus}
                     onBlur={handleInputBlur}
@@ -483,6 +486,9 @@ const Login: React.FC<LoginProps> = function Login({
                       setLastName(e.target.value);
                     }}
                     placeholder="Smith"
+                    autoComplete="family-name"
+                    data-1p-ignore
+                    data-lpignore="true"
                     style={inputStyle}
                     onFocus={handleInputFocus}
                     onBlur={handleInputBlur}
@@ -510,6 +516,9 @@ const Login: React.FC<LoginProps> = function Login({
                       setCompanyName(e.target.value);
                     }}
                     placeholder="Acme Corp"
+                    autoComplete="organization"
+                    data-1p-ignore
+                    data-lpignore="true"
                     style={inputStyle}
                     onFocus={handleInputFocus}
                     onBlur={handleInputBlur}
@@ -542,6 +551,7 @@ const Login: React.FC<LoginProps> = function Login({
                 }}
                 placeholder="you@company.com"
                 autoFocus
+                autoComplete="email"
                 style={inputStyle}
                 onFocus={handleInputFocus}
                 onBlur={handleInputBlur}

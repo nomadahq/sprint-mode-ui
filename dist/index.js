@@ -683,6 +683,9 @@ function P(t) {
 			m(e.target.value);
 		},
 		placeholder: s,
+		autoComplete: "off",
+		"data-1p-ignore": !0,
+		"data-lpignore": "true",
 		style: {
 			width: "100%",
 			fontSize: 12,
@@ -107999,6 +108002,9 @@ var zMe = function(t) {
 									F(e.target.value);
 								},
 								placeholder: "Jane",
+								autoComplete: "given-name",
+								"data-1p-ignore": !0,
+								"data-lpignore": "true",
 								style: xe,
 								onFocus: Se,
 								onBlur: Ce
@@ -108021,6 +108027,9 @@ var zMe = function(t) {
 									R(e.target.value);
 								},
 								placeholder: "Smith",
+								autoComplete: "family-name",
+								"data-1p-ignore": !0,
+								"data-lpignore": "true",
 								style: xe,
 								onFocus: Se,
 								onBlur: Ce
@@ -108042,6 +108051,9 @@ var zMe = function(t) {
 							V(e.target.value);
 						},
 						placeholder: "Acme Corp",
+						autoComplete: "organization",
+						"data-1p-ignore": !0,
+						"data-lpignore": "true",
 						style: xe,
 						onFocus: Se,
 						onBlur: Ce
@@ -108067,6 +108079,7 @@ var zMe = function(t) {
 							},
 							placeholder: "you@company.com",
 							autoFocus: !0,
+							autoComplete: "email",
 							style: xe,
 							onFocus: Se,
 							onBlur: Ce,
@@ -108950,6 +108963,9 @@ function XMe({ photoUrl: e, initials: t, size: n, editable: r, onSave: i, apiBas
 								e.key === "Enter" && _(), e.key === "Escape" && p(null);
 							},
 							placeholder: "https://...",
+							autoComplete: "off",
+							"data-1p-ignore": !0,
+							"data-lpignore": "true",
 							style: {
 								flex: 1,
 								fontSize: 12,
@@ -109042,6 +109058,9 @@ function g9({ label: e, value: t, onSave: n, type: r, placeholder: a, disabled: 
 					e.key === "Enter" && g(), e.key === "Escape" && d(!1);
 				},
 				placeholder: a,
+				autoComplete: "off",
+				"data-1p-ignore": !0,
+				"data-lpignore": "true",
 				style: {
 					flex: 1,
 					fontSize: 13,
@@ -109722,6 +109741,9 @@ function tNe({ base: e, emails: t, fallbackEmail: n, onChanged: r, productHeader
 					onKeyDown: function(e) {
 						e.key === "Enter" && v(), e.key === "Escape" && p(!1);
 					},
+					autoComplete: "off",
+					"data-1p-ignore": !0,
+					"data-lpignore": "true",
 					style: {
 						flex: 1,
 						minWidth: 0,
@@ -112232,6 +112254,9 @@ function zNe({ items: e, api: t, onNavigate: n, isTeam: r, subdomain: i, rowActi
 								},
 								placeholder: "Reply to this thread...",
 								disabled: S,
+								autoComplete: "off",
+								"data-1p-ignore": !0,
+								"data-lpignore": "true",
 								style: {
 									flex: 1,
 									fontSize: 13,
@@ -114655,6 +114680,9 @@ function oPe({ proposal: e, sections: t, comments: n = [], onTrackSection: r, on
 					children: /* @__PURE__ */ l("textarea", {
 						id: "sp-decline-reason",
 						placeholder: "Please share why you're declining...",
+						autoComplete: "off",
+						"data-1p-ignore": !0,
+						"data-lpignore": "true",
 						style: {
 							width: "100%",
 							padding: "10px 14px",
@@ -114756,6 +114784,9 @@ function oPe({ proposal: e, sections: t, comments: n = [], onTrackSection: r, on
 							},
 							placeholder: "Add a comment...",
 							rows: 2,
+							autoComplete: "off",
+							"data-1p-ignore": !0,
+							"data-lpignore": "true",
 							style: {
 								flex: 1,
 								padding: "8px 12px",

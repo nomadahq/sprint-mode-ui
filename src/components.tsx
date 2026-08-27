@@ -778,6 +778,7 @@ export function MultiSelect(props: MultiSelectProps) {
     },
       React.createElement('input', {
         autoFocus: true, value: q, onChange: function(e: React.ChangeEvent<HTMLInputElement>) { setQ(e.target.value) }, placeholder: placeholder,
+        autoComplete: 'off', 'data-1p-ignore': true, 'data-lpignore': 'true',
         style: { width: '100%', fontSize: 12, padding: '5px 8px', marginBottom: 6, border: '1px solid var(--border)', borderRadius: 6, background: 'var(--bg-subtle)', color: 'var(--foreground)', boxSizing: 'border-box' }
       }),
       selected.length > 0 && React.createElement('div', {

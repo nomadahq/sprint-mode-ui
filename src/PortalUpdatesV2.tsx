@@ -530,6 +530,9 @@ function FeedSection({ items, api, onNavigate, isTeam, subdomain, rowAction }: {
                           <input type="text" value={replyText} onChange={function(e) { setReplyText(e.target.value) }}
                             onKeyDown={function(e) { if (e.key === 'Enter' && !e.shiftKey && item.thread_id) sendSupportReply(item.thread_id) }}
                             placeholder="Reply to this thread..." disabled={sending}
+                            autoComplete="off"
+                            data-1p-ignore
+                            data-lpignore="true"
                             style={{ flex: 1, fontSize: 13, padding: '8px 10px', border: '1px solid var(--border, #e5e7eb)', borderRadius: 6, background: 'var(--bg-0, transparent)', color: 'var(--foreground, #111)', fontFamily: 'inherit' }}
                           />
                           <button onClick={function() { if (item.thread_id) sendSupportReply(item.thread_id) }} disabled={sending || !replyText.trim()} style={{

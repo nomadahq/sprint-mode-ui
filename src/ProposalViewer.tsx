@@ -236,7 +236,7 @@ export function ProposalViewer({
           </div>
           {declineStep === 1 && (
             <div style={{ marginTop: 12 }}>
-              <textarea id="sp-decline-reason" placeholder="Please share why you're declining..." style={{ width: '100%', padding: '10px 14px', border: '1px solid var(--border)', borderRadius: 8, fontSize: 13, fontFamily: 'inherit', resize: 'vertical' as any, minHeight: 60, background: 'var(--bg-card, #fff)', color: 'var(--foreground)', boxSizing: 'border-box' as any }}></textarea>
+              <textarea id="sp-decline-reason" placeholder="Please share why you're declining..." autoComplete="off" data-1p-ignore data-lpignore="true" style={{ width: '100%', padding: '10px 14px', border: '1px solid var(--border)', borderRadius: 8, fontSize: 13, fontFamily: 'inherit', resize: 'vertical' as any, minHeight: 60, background: 'var(--bg-card, #fff)', color: 'var(--foreground)', boxSizing: 'border-box' as any }}></textarea>
             </div>
           )}
         </div>
@@ -266,6 +266,9 @@ export function ProposalViewer({
               onChange={function (e: any) { setCommentBody((e.target as any).value) }}
               placeholder="Add a comment..."
               rows={2}
+              autoComplete="off"
+              data-1p-ignore
+              data-lpignore="true"
               style={{ flex: 1, padding: '8px 12px', border: '1px solid var(--border)', borderRadius: 8, fontSize: 13, fontFamily: 'inherit', resize: 'vertical' as any, background: 'var(--bg-card, #fff)', color: 'var(--foreground)', boxSizing: 'border-box' as any }}
             ></textarea>
             <button

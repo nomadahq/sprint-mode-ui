@@ -167,6 +167,9 @@ function Avatar({ photoUrl, initials, size, editable, onSave, apiBase, productHe
             <input autoFocus type="url" value={urlVal} onChange={function(e) { setUrlVal(e.target.value) }}
               onKeyDown={function(e) { if (e.key === 'Enter') saveUrl(); if (e.key === 'Escape') setMode(null) }}
               placeholder="https://..."
+              autoComplete="off"
+              data-1p-ignore
+              data-lpignore="true"
               style={{ flex: 1, fontSize: 12, padding: '5px 8px', border: '1px solid var(--border, #e5e7eb)', borderRadius: 6, outline: 'none' }} />
             <button onClick={saveUrl} disabled={!urlVal.trim()}
               style={{ fontSize: 12, padding: '5px 12px', borderRadius: 6, background: 'var(--accent, #2362ea)', color: '#fff', border: 'none', cursor: 'pointer', opacity: urlVal.trim() ? 1 : 0.5 }}>
@@ -227,6 +230,9 @@ function EditField({ label, value, onSave, type, placeholder, disabled }: {
           onChange={function(e) { setVal(e.target.value) }}
           onKeyDown={function(e) { if (e.key === 'Enter') save(); if (e.key === 'Escape') setEditing(false) }}
           placeholder={placeholder}
+          autoComplete="off"
+          data-1p-ignore
+          data-lpignore="true"
           style={{ flex: 1, fontSize: 13, padding: '4px 8px', border: '1px solid var(--border, #e5e7eb)', borderRadius: 6, outline: 'none' }} />
         <button onClick={save} disabled={saving}
           style={{ fontSize: 12, padding: '4px 12px', borderRadius: 6, background: 'var(--accent, #2362ea)', color: '#fff', border: 'none', cursor: 'pointer' }}>
@@ -567,6 +573,9 @@ function SignInEmailsCard({ base, emails, fallbackEmail, onChanged, productHeade
           <input autoFocus type="email" value={linkVal} placeholder="name@example.com"
             onChange={function(e) { setLinkVal(e.target.value) }}
             onKeyDown={function(e) { if (e.key === 'Enter') sendLink(); if (e.key === 'Escape') setLinkOpen(false) }}
+            autoComplete="off"
+            data-1p-ignore
+            data-lpignore="true"
             style={{ flex: 1, minWidth: 0, fontSize: 13, padding: '5px 9px', border: '1px solid var(--border, #e5e7eb)', borderRadius: 6, outline: 'none' }} />
           <button onClick={sendLink} disabled={!linkVal.trim()}
             style={{ fontSize: 12, fontWeight: 600, padding: '5px 12px', borderRadius: 6, background: 'var(--accent, #2362ea)', color: '#fff', border: 'none', cursor: 'pointer', opacity: linkVal.trim() ? 1 : 0.5 }}>

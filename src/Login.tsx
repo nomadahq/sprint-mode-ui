@@ -740,7 +740,7 @@ const Login: React.FC<LoginProps> = function Login({
                 padding: "12px 0",
               }}
             >
-              Signing you in\u2026
+              Signing you in{"\u2026"}
             </div>
           )}
 

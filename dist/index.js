@@ -108240,14 +108240,14 @@ var zMe = function(t) {
 							children: "Use a different email"
 						})
 					] }),
-					O && Y && /* @__PURE__ */ l("div", {
+					O && Y && /* @__PURE__ */ u("div", {
 						style: {
 							fontSize: 14,
 							color: "var(--muted)",
 							textAlign: "center",
 							padding: "12px 0"
 						},
-						children: "Signing you in\\u2026"
+						children: ["Signing you in", "…"]
 					}),
 					f && !ge && !O && /* @__PURE__ */ l("div", {
 						style: {

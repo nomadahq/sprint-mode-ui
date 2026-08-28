@@ -170,6 +170,10 @@ export interface LayoutProps {
   notificationHref?: string
   headerCta?: HeaderCta
   viewAsAnyRole?: boolean
+  /** BUG-2537 (split-surface portals — separate admin + customer apps): after a
+   *  CUSTOMER lens activates, navigate here instead of reloading in place. Team
+   *  lenses and portals that omit this keep the reload. */
+  viewAsCustomerHref?: string
   onViewAsChange?: (viewAs: ViewAsUser | null) => void
   onViewAsTeamChange?: (viewAs: ViewAsUser | null) => void
   portalSubdomain?: string
@@ -1656,7 +1660,7 @@ const Layout: React.FC<LayoutProps> = function Layout(props: LayoutProps) {
   // portals can override via viewAsAuthBase to a same-origin proxy.
   var vaAuthBase = (props as { viewAsAuthBase?: string }).viewAsAuthBase || 'https://api.sprintmode.ai'
 
-  function applyServerLens(body: Record<string, unknown>) {
+  function applyServerLens(body: Record<string, unknown>, opts?: { customer?: boolean }) {
     if (vaBusy) return
     setVaBusy(true)
     var headers: Record<string, string> = { 'Content-Type': 'application/json' }
@@ -1669,7 +1673,13 @@ const Layout: React.FC<LayoutProps> = function Layout(props: LayoutProps) {
     })
       .then(function(r) {
         return r.json().catch(function() { return null }).then(function(d: any) {
-          if (d && d.ok) { window.location.reload(); return }
+          if (d && d.ok) {
+            // BUG-2537: split-surface portals send customer lenses to the
+            // customer app; everything else reloads in place as before.
+            var vaHref = opts && opts.customer ? (props as { viewAsCustomerHref?: string }).viewAsCustomerHref : undefined
+            if (vaHref) { window.location.href = vaHref; return }
+            window.location.reload(); return
+          }
           // Surface the failure -- a silent catch here cost two blind QA runs
           setVaError('View as failed (HTTP ' + r.status + (d && d.error ? ': ' + d.error : '') + ')')
           setVaBusy(false)
@@ -1699,7 +1709,7 @@ const Layout: React.FC<LayoutProps> = function Layout(props: LayoutProps) {
   function selectCustomerPerson(u: ViewAsUser) {
     var body: Record<string, unknown> = u.email ? { email: u.email } : { contact_id: u.contact_id || u.id }
     if (u.user_id) body.member_user_id = u.user_id
-    applyServerLens(body)
+    applyServerLens(body, { customer: true })
   }
 
   function selectCustomerCompany(members: ViewAsUser[]) {
@@ -1707,7 +1717,7 @@ const Layout: React.FC<LayoutProps> = function Layout(props: LayoutProps) {
     // resolves the effective role (owner-member first, then portal default).
     var first = members[0]
     if (!first) return
-    applyServerLens(first.email ? { email: first.email } : { contact_id: first.contact_id || first.id })
+    applyServerLens(first.email ? { email: first.email } : { contact_id: first.contact_id || first.id }, { customer: true })
   }
 
   // effectiveRole/Perms come straight from the session — /auth/me already
@@ -1723,7 +1733,7 @@ const Layout: React.FC<LayoutProps> = function Layout(props: LayoutProps) {
       var match = allUsers.find(function(u: any) {
         return u.id === detail.companyId || u.company_id === detail.companyId || u.name === detail.companyName || u.company_name === detail.companyName
       })
-      if (match && match.email) applyServerLens({ email: match.email })
+      if (match && match.email) applyServerLens({ email: match.email }, { customer: true })
     }
     window.addEventListener('portal-view-as', onPortalViewAs)
     return function() { window.removeEventListener('portal-view-as', onPortalViewAs) }

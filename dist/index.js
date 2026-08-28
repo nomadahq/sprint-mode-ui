@@ -106866,6 +106866,11 @@ var zMe = function(t) {
 				credentials: "include",
 				headers: e
 			}).then(function() {
+				var e = t.viewAsExitHref;
+				if (e) {
+					window.location.href = e;
+					return;
+				}
 				window.location.reload();
 			}).catch(function() {
 				Xe(!1);

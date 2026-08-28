@@ -174,6 +174,12 @@ export interface LayoutProps {
    *  CUSTOMER lens activates, navigate here instead of reloading in place. Team
    *  lenses and portals that omit this keep the reload. */
   viewAsCustomerHref?: string
+  /** BUG-2537 follow-on (split-surface portals): after Exit succeeds, navigate
+   *  here instead of reloading in place. Lets the customer app return the
+   *  operator to the admin origin, since the two origins share no cookies and
+   *  Exit leaves the operator's own session behind on the customer site.
+   *  Portals that omit this keep the reload. */
+  viewAsExitHref?: string
   onViewAsChange?: (viewAs: ViewAsUser | null) => void
   onViewAsTeamChange?: (viewAs: ViewAsUser | null) => void
   portalSubdomain?: string
@@ -1697,7 +1703,14 @@ const Layout: React.FC<LayoutProps> = function Layout(props: LayoutProps) {
     var headers: Record<string, string> = {}
     if (portalSubdomain) headers['X-SM-Product'] = portalSubdomain
     fetch(vaAuthBase + '/auth/exit-view-as', { method: 'POST', credentials: 'include', headers: headers })
-      .then(function() { window.location.reload() })
+      .then(function() {
+        // BUG-2537 follow-on: split-surface portals send the operator back to
+        // the admin origin after the lens clears (their own session is what
+        // remains on this origin). Everything else keeps the in-place reload.
+        var exitHref = (props as { viewAsExitHref?: string }).viewAsExitHref
+        if (exitHref) { window.location.href = exitHref; return }
+        window.location.reload()
+      })
       .catch(function() { setVaBusy(false) })
   }
 

@@ -155,6 +155,12 @@ export interface LayoutProps {
      *  CUSTOMER lens activates, navigate here instead of reloading in place. Team
      *  lenses and portals that omit this keep the reload. */
     viewAsCustomerHref?: string;
+    /** BUG-2537 follow-on (split-surface portals): after Exit succeeds, navigate
+     *  here instead of reloading in place. Lets the customer app return the
+     *  operator to the admin origin, since the two origins share no cookies and
+     *  Exit leaves the operator's own session behind on the customer site.
+     *  Portals that omit this keep the reload. */
+    viewAsExitHref?: string;
     onViewAsChange?: (viewAs: ViewAsUser | null) => void;
     onViewAsTeamChange?: (viewAs: ViewAsUser | null) => void;
     portalSubdomain?: string;

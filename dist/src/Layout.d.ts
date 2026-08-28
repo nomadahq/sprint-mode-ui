@@ -151,6 +151,10 @@ export interface LayoutProps {
     notificationHref?: string;
     headerCta?: HeaderCta;
     viewAsAnyRole?: boolean;
+    /** BUG-2537 (split-surface portals — separate admin + customer apps): after a
+     *  CUSTOMER lens activates, navigate here instead of reloading in place. Team
+     *  lenses and portals that omit this keep the reload. */
+    viewAsCustomerHref?: string;
     onViewAsChange?: (viewAs: ViewAsUser | null) => void;
     onViewAsTeamChange?: (viewAs: ViewAsUser | null) => void;
     portalSubdomain?: string;

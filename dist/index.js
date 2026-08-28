@@ -106828,24 +106828,29 @@ var zMe = function(t) {
 		t.onViewAsTeamChange && t.onViewAsTeamChange(ze), t.onViewAsChange && t.onViewAsChange(Be);
 	}, [H]);
 	var gt = t.viewAsAuthBase || "https://api.sprintmode.ai";
-	function _t(e) {
+	function _t(e, n) {
 		if (!Ye) {
 			Xe(!0);
-			var t = { "Content-Type": "application/json" };
-			Pe && (t["X-SM-Product"] = Pe), fetch(gt + "/auth/view-as", {
+			var r = { "Content-Type": "application/json" };
+			Pe && (r["X-SM-Product"] = Pe), fetch(gt + "/auth/view-as", {
 				method: "POST",
 				credentials: "include",
-				headers: t,
+				headers: r,
 				body: JSON.stringify(e)
 			}).then(function(e) {
 				return e.json().catch(function() {
 					return null;
-				}).then(function(t) {
-					if (t && t.ok) {
+				}).then(function(r) {
+					if (r && r.ok) {
+						var i = n && n.customer ? t.viewAsCustomerHref : void 0;
+						if (i) {
+							window.location.href = i;
+							return;
+						}
 						window.location.reload();
 						return;
 					}
-					ct("View as failed (HTTP " + e.status + (t && t.error ? ": " + t.error : "") + ")"), Xe(!1);
+					ct("View as failed (HTTP " + e.status + (r && r.error ? ": " + r.error : "") + ")"), Xe(!1);
 				});
 			}).catch(function(e) {
 				ct("View as failed (network: " + String(e).slice(0, 120) + ")"), Xe(!1);
@@ -106872,11 +106877,11 @@ var zMe = function(t) {
 	}
 	function bt(e) {
 		var t = e.email ? { email: e.email } : { contact_id: e.contact_id || e.id };
-		e.user_id && (t.member_user_id = e.user_id), _t(t);
+		e.user_id && (t.member_user_id = e.user_id), _t(t, { customer: !0 });
 	}
 	function xt(e) {
 		var t = e[0];
-		t && _t(t.email ? { email: t.email } : { contact_id: t.contact_id || t.id });
+		t && _t(t.email ? { email: t.email } : { contact_id: t.contact_id || t.id }, { customer: !0 });
 	}
 	var St = H?.role || null, Ct = o9(H);
 	i(function() {
@@ -106884,7 +106889,7 @@ var zMe = function(t) {
 			var t = e.detail || {}, n = qe.find(function(e) {
 				return e.id === t.companyId || e.company_id === t.companyId || e.name === t.companyName || e.company_name === t.companyName;
 			});
-			n && n.email && _t({ email: n.email });
+			n && n.email && _t({ email: n.email }, { customer: !0 });
 		}
 		return window.addEventListener("portal-view-as", e), function() {
 			window.removeEventListener("portal-view-as", e);

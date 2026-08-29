@@ -117,6 +117,11 @@ export interface LayoutProps {
     title?: string;
     headerRight?: React.ReactNode;
     sidebarBottom?: React.ReactNode;
+    /** Slot rendered at the TOP of the sidebar, directly under the logo/wordmark
+     *  and ABOVE the nav rail. For a per-workspace switcher (e.g. Waffle's kitchen
+     *  switcher) that must sit above navigation per its frame. Hidden in the
+     *  collapsed rail (like the logo), where the flyout carries context. */
+    sidebarTop?: React.ReactNode;
     viewAsEnabled?: boolean;
     viewAsApi?: string;
     /** FEAT-2560: when true, the View As picker re-queries viewAsApi with ?q=

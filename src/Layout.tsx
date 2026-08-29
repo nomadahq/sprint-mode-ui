@@ -141,6 +141,11 @@ export interface LayoutProps {
   title?: string
   headerRight?: React.ReactNode
   sidebarBottom?: React.ReactNode
+  /** Slot rendered at the TOP of the sidebar, directly under the logo/wordmark
+   *  and ABOVE the nav rail. For a per-workspace switcher (e.g. Waffle's kitchen
+   *  switcher) that must sit above navigation per its frame. Hidden in the
+   *  collapsed rail (like the logo), where the flyout carries context. */
+  sidebarTop?: React.ReactNode
   viewAsEnabled?: boolean
   viewAsApi?: string
   /** FEAT-2560: when true, the View As picker re-queries viewAsApi with ?q=
@@ -1355,6 +1360,7 @@ const Layout: React.FC<LayoutProps> = function Layout(props: LayoutProps) {
   var title = props.title
   var headerRight = props.headerRight
   var sidebarBottom = props.sidebarBottom
+  var sidebarTop = props.sidebarTop
   var viewAsEnabled = props.viewAsEnabled
   var viewAsApi = props.viewAsApi || '/api/db/admin-users'
   var headerIcon = props.headerIcon
@@ -2169,6 +2175,9 @@ const Layout: React.FC<LayoutProps> = function Layout(props: LayoutProps) {
                 onMouseLeave: function(e: React.MouseEvent<HTMLElement>) { (e.currentTarget as HTMLElement).style.borderColor = ''; (e.currentTarget as HTMLElement).style.color = 'var(--muted)' },
               }, (typeof navigator !== 'undefined' && navigator.platform && navigator.platform.indexOf('Mac') !== -1 ? '\u2318C' : 'Ctrl+C')) : null}
             </div>
+          )}
+          {sidebarTop && !railCollapsed && (
+            <div className="portal-sidebar-top">{sidebarTop}</div>
           )}
           <nav className="portal-sidebar-nav">
             {sections.map(function(section) {

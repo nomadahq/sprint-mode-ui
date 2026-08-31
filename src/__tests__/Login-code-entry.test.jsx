@@ -20,6 +20,13 @@ vi.mock('../dark-mode', function() {
   }
 })
 
+vi.mock('@simplewebauthn/browser', function() {
+  return {
+    startAuthentication: vi.fn().mockResolvedValue({ id: 'cred_id', response: {} }),
+    startRegistration: vi.fn().mockResolvedValue({ id: 'cred_id', response: {} }),
+  }
+})
+
 var VERIFY_URL = 'https://api.sprintmode.ai/auth/verify-code'
 
 function renderLogin(props) {
@@ -32,6 +39,8 @@ beforeEach(function() {
 
 afterEach(function() {
   vi.restoreAllMocks()
+  // FEAT-2156 Half 2 tests stub PublicKeyCredential; never let it leak.
+  vi.unstubAllGlobals()
 })
 
 // helper: get the component into code-entry state
@@ -57,9 +66,45 @@ describe('Login — state A (email entry)', function() {
     expect(screen.getByRole('button', { name: /send code/i })).toBeTruthy()
   })
 
-  it('shows passkey coming-soon label in signin mode', function() {
+  // FEAT-2156 Half 2: the coming-soon label is gone; the passkey button is
+  // feature-detected on window.PublicKeyCredential.
+  it('hides the passkey button when the browser lacks WebAuthn', function() {
     renderLogin()
-    expect(screen.getByText(/passkey sign-in coming soon/i)).toBeTruthy()
+    expect(screen.queryByText(/use a passkey/i)).toBeNull()
+    expect(screen.queryByText(/coming soon/i)).toBeNull()
+  })
+
+  it('shows "Use a passkey" when WebAuthn is available, in signin mode only', async function() {
+    vi.stubGlobal('PublicKeyCredential', function() {})
+    renderLogin()
+    await waitFor(function() {
+      expect(screen.getByText(/use a passkey/i)).toBeTruthy()
+    })
+  })
+
+  it('passkey button asks for the email first when it is empty', async function() {
+    vi.stubGlobal('PublicKeyCredential', function() {})
+    renderLogin()
+    var btn = await screen.findByText(/use a passkey/i)
+    fireEvent.click(btn)
+    expect(screen.getByText(/enter your email address first/i)).toBeTruthy()
+    expect(fetch).not.toHaveBeenCalled()
+  })
+
+  it('passkey button posts login/options for the email and shows the waiting state', async function() {
+    vi.stubGlobal('PublicKeyCredential', function() {})
+    // options call resolves; startAuthentication never resolves in jsdom (no authenticator) -- we assert the waiting state
+    fetch.mockResolvedValueOnce({ json: function() { return Promise.resolve({ ok: true, options: { challenge: 'x', rpId: 'sprintmode.ai', allowCredentials: [] } }) } })
+    renderLogin()
+    fireEvent.change(screen.getByPlaceholderText('you@company.com'), { target: { value: 'aaron@sprintmode.ai' } })
+    fireEvent.click(await screen.findByText(/use a passkey/i))
+    await waitFor(function() {
+      expect(screen.getByText(/waiting for your passkey/i)).toBeTruthy()
+    })
+    expect(fetch).toHaveBeenCalledWith(
+      'https://api.sprintmode.ai/auth/webauthn/login/options',
+      expect.objectContaining({ method: 'POST', credentials: 'include' }),
+    )
   })
 })
 

@@ -592,93 +592,72 @@ function SignInEmailsCard({ base, emails, fallbackEmail, onChanged, productHeade
   )
 }
 
-// ─── UX-1943: Passkeys (feature-detected) ───────────────────────────────────
-// The passkey backend is L2's lane. This block feature-detects
-// GET /api/identity/passkeys: renders register/remove when the API answers,
-// a muted "Not yet enabled" otherwise -- the section ships dark and lights
-// up the day L2 lands, no sm-ui release needed.
+// ─── FEAT-2156 Half 2: Passkeys (live contract) ─────────────────────────────
+// Rewritten from the UX-1943 dark block to the shipped /auth/webauthn/*
+// service. Feature-detects: renders the credential list + Create when the
+// service answers, a muted "Not available" when it does not or the browser
+// lacks WebAuthn. Uses @simplewebauthn/browser so excludeCredentials and all
+// binary fields are encoded correctly (the hand-rolled block skipped them).
 
 function PasskeysBlock({ base }: { base: string }) {
-  var [state, setState] = useState<'checking' | 'unavailable' | 'ready'>('checking')
-  var [keys, setKeys] = useState<{ id: string; name?: string; created_at?: string }[]>([])
+  var [state, setState] = useState<'checking' | 'unavailable' | 'unsupported' | 'ready'>('checking')
+  var [keys, setKeys] = useState<{ id: string; device_label?: string | null; created_at?: string; last_used_at?: string | null; backed_up?: number }[]>([])
   var [busy, setBusy] = useState(false)
   var [err, setErr] = useState<string | null>(null)
 
-  useEffect(function() {
-    fetch(base + '/api/identity/passkeys', { credentials: 'include' })
-      .then(function(r) {
-        if (!r.ok) { setState('unavailable'); return null }
-        return r.json()
-      })
-      .then(function(d: { ok: boolean; data?: { passkeys?: { id: string; name?: string; created_at?: string }[] } } | null) {
+  function load() {
+    return fetch(base + '/auth/webauthn/credentials', { credentials: 'include' })
+      .then(function(r) { if (!r.ok) { setState('unavailable'); return null } return r.json() })
+      .then(function(d: { ok: boolean; credentials?: typeof keys } | null) {
         if (!d) return
-        if (d.ok) { setState('ready'); setKeys((d.data && d.data.passkeys) || []) }
-        else setState('unavailable')
+        if (d.ok) { setState('ready'); setKeys(d.credentials || []) } else setState('unavailable')
       })
       .catch(function() { setState('unavailable') })
+  }
+
+  useEffect(function() {
+    if (typeof window === 'undefined' || !('PublicKeyCredential' in window)) { setState('unsupported'); return }
+    load()
   }, [base])
 
-  function registerPasskey() {
+  function createPasskey() {
     if (busy) return
-    setBusy(true)
-    setErr(null)
-    // Standard WebAuthn dance: options from the API, navigator.credentials,
-    // attestation back. Shapes are L2's contract; errors degrade to a message.
-    fetch(base + '/api/identity/passkeys/register-options', { method: 'POST', credentials: 'include' })
-      .then(function(r) { return r.json() })
-      .then(function(d: { ok: boolean; data?: { publicKey?: Record<string, unknown> } }) {
-        if (!d.ok || !d.data || !d.data.publicKey) throw new Error('unavailable')
-        var pk = d.data.publicKey as unknown as PublicKeyCredentialCreationOptions & { challenge: unknown; user: { id: unknown } }
-        var b64ToBuf = function(v: unknown) {
-          var str = String(v).replace(/-/g, '+').replace(/_/g, '/')
-          var bin = atob(str)
-          var buf = new Uint8Array(bin.length)
-          for (var i = 0; i < bin.length; i++) buf[i] = bin.charCodeAt(i)
-          return buf.buffer
-        }
-        pk.challenge = b64ToBuf(pk.challenge) as BufferSource
-        if (pk.user && pk.user.id) pk.user.id = b64ToBuf(pk.user.id) as BufferSource
-        return navigator.credentials.create({ publicKey: pk as PublicKeyCredentialCreationOptions })
+    setBusy(true); setErr(null)
+    import('@simplewebauthn/browser')
+      .then(function(wa) {
+        return fetch(base + '/auth/webauthn/register/options', { method: 'POST', credentials: 'include' })
+          .then(function(r) { return r.json() })
+          .then(function(d: { ok: boolean; options?: unknown }) {
+            if (!d.ok || !d.options) throw new Error('unavailable')
+            return wa.startRegistration({ optionsJSON: d.options as never })
+          })
       })
-      .then(function(cred) {
-        if (!cred) throw new Error('cancelled')
-        var c = cred as PublicKeyCredential
-        var bufToB64 = function(b: ArrayBuffer) {
-          var bytes = new Uint8Array(b)
-          var bin = ''
-          for (var i = 0; i < bytes.length; i++) bin += String.fromCharCode(bytes[i])
-          return btoa(bin).replace(/\+/g, '-').replace(/\//g, '_').replace(/=/g, '')
-        }
-        var resp = c.response as AuthenticatorAttestationResponse
-        return fetch(base + '/api/identity/passkeys/register', {
+      .then(function(response) {
+        return fetch(base + '/auth/webauthn/register/verify', {
           method: 'POST', credentials: 'include',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            id: c.id,
-            raw_id: bufToB64(c.rawId),
-            type: c.type,
-            attestation_object: bufToB64(resp.attestationObject),
-            client_data_json: bufToB64(resp.clientDataJSON),
-          }),
+          body: JSON.stringify({ response: response }),
         })
       })
       .then(function(r) { return r.json() })
-      .then(function(d: { ok: boolean; data?: { passkeys?: { id: string; name?: string; created_at?: string }[] } }) {
+      .then(function(d: { ok: boolean }) {
         setBusy(false)
-        if (d.ok) setKeys((d.data && d.data.passkeys) || keys)
-        else setErr('Could not register the passkey.')
+        if (d.ok) load()
+        else setErr("Couldn't create the passkey. Try again.")
       })
       .catch(function(e: unknown) {
         setBusy(false)
         var m = String(e)
-        if (m.indexOf('cancelled') === -1 && m.indexOf('NotAllowed') === -1) setErr('Could not register the passkey.')
+        // User cancelled the OS sheet: not an error worth showing.
+        if (m.indexOf('NotAllowed') === -1 && m.indexOf('AbortError') === -1) setErr("Couldn't create the passkey. Try again.")
       })
   }
 
   function removePasskey(id: string) {
     if (busy) return
+    if (typeof window !== 'undefined' && !window.confirm('Remove this passkey? You can still sign in with an email code.')) return
     setBusy(true)
-    fetch(base + '/api/identity/passkeys/' + encodeURIComponent(id), { method: 'DELETE', credentials: 'include' })
+    fetch(base + '/auth/webauthn/credentials/' + encodeURIComponent(id), { method: 'DELETE', credentials: 'include' })
       .then(function(r) { return r.json() })
       .then(function(d: { ok: boolean }) {
         setBusy(false)
@@ -687,31 +666,41 @@ function PasskeysBlock({ base }: { base: string }) {
       .catch(function() { setBusy(false) })
   }
 
+  var subtitle =
+    state === 'ready' ? 'Sign in with Touch ID, Face ID, or a security key instead of an email code. One passkey works on every Sprint Mode portal.'
+    : state === 'unsupported' ? 'Not available on this browser or device.'
+    : state === 'checking' ? 'Checking...' : 'Not available right now.'
+
   return (
     <div style={{ paddingTop: 12 }}>
-      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+      <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: 12 }}>
         <div>
           <div style={{ fontSize: 13, fontWeight: 500 }}>Passkeys</div>
-          <div style={{ fontSize: 12, color: 'var(--muted, #6b7280)' }}>
-            {state === 'ready' ? 'Sign in with your device instead of a link.' : 'Not yet enabled'}
-          </div>
+          <div style={{ fontSize: 12, color: 'var(--muted, #6b7280)', maxWidth: 420, lineHeight: 1.5 }}>{subtitle}</div>
         </div>
         {state === 'ready' && (
-          <button onClick={registerPasskey} disabled={busy}
-            style={{ fontSize: 12, fontWeight: 600, padding: '4px 12px', borderRadius: 6, border: '1px solid var(--border, #e5e7eb)', background: 'transparent', color: 'var(--accent, #2362ea)', cursor: 'pointer' }}>
-            {busy ? '...' : 'Register passkey'}
+          <button onClick={createPasskey} disabled={busy}
+            style={{ fontSize: 12, fontWeight: 600, padding: '6px 14px', borderRadius: 6, border: '1px solid var(--border, #e5e7eb)', background: 'transparent', color: 'var(--accent, #2362ea)', cursor: busy ? 'not-allowed' : 'pointer', whiteSpace: 'nowrap' }}>
+            {busy ? 'Waiting...' : 'Create a passkey'}
           </button>
         )}
       </div>
       {state === 'ready' && keys.length > 0 && (
-        <div style={{ display: 'flex', flexDirection: 'column', gap: 6, marginTop: 10 }}>
+        <div style={{ display: 'flex', flexDirection: 'column', marginTop: 10 }}>
           {keys.map(function(k) {
+            var meta = [
+              k.backed_up ? 'Synced across your devices' : 'This device only',
+              k.created_at ? 'Added ' + fmtDate(k.created_at) : null,
+              k.last_used_at ? 'Last used ' + fmtDate(k.last_used_at) : 'Never used',
+            ].filter(Boolean).join(' \u00b7 ')
             return (
-              <div key={k.id} style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-                <span style={{ fontSize: 12, color: 'var(--foreground, #111)', flex: 1 }}>{k.name || 'Passkey'}</span>
-                {k.created_at && <span style={{ fontSize: 11, color: 'var(--muted, #9ca3af)' }}>{fmtDate(k.created_at)}</span>}
+              <div key={k.id} style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '10px 0', borderTop: '1px solid var(--border, #e5e7eb)' }}>
+                <div style={{ flex: 1 }}>
+                  <div style={{ fontSize: 13, fontWeight: 600, color: 'var(--foreground, #111)' }}>{k.device_label || 'Passkey'}</div>
+                  <div style={{ fontSize: 11, color: 'var(--muted, #9ca3af)' }}>{meta}</div>
+                </div>
                 <button onClick={function() { removePasskey(k.id) }} disabled={busy}
-                  style={{ fontSize: 11, color: 'var(--muted, #6b7280)', background: 'transparent', border: '1px solid var(--border, #e5e7eb)', borderRadius: 6, padding: '2px 8px', cursor: 'pointer' }}>
+                  style={{ fontSize: 11, color: 'var(--muted, #6b7280)', background: 'transparent', border: 'none', cursor: 'pointer' }}>
                   Remove
                 </button>
               </div>
@@ -719,7 +708,10 @@ function PasskeysBlock({ base }: { base: string }) {
           })}
         </div>
       )}
-      {err && <div style={{ marginTop: 8, fontSize: 12, color: '#dc2626' }}>{err}</div>}
+      {state === 'ready' && keys.length === 0 && (
+        <div style={{ marginTop: 10, fontSize: 12, color: 'var(--muted, #6b7280)' }}>No passkeys yet. Create one to skip the email code next time.</div>
+      )}
+      {err && <div style={{ marginTop: 8, fontSize: 12, color: 'var(--red, #dc2626)' }}>{err}</div>}
     </div>
   )
 }

@@ -82,13 +82,18 @@ describe('Login — state A (email entry)', function() {
     })
   })
 
-  it('passkey button asks for the email first when it is empty', async function() {
+  it('passkey button works with no email (usernameless): posts login/options without an email', async function() {
     vi.stubGlobal('PublicKeyCredential', function() {})
+    fetch.mockResolvedValueOnce({ json: function() { return Promise.resolve({ ok: true, options: { challenge: 'x', rpId: 'sprintmode.ai', allowCredentials: [] } }) } })
     renderLogin()
-    var btn = await screen.findByText(/use a passkey/i)
-    fireEvent.click(btn)
-    expect(screen.getByText(/enter your email address first/i)).toBeTruthy()
-    expect(fetch).not.toHaveBeenCalled()
+    fireEvent.click(await screen.findByText(/use a passkey/i))
+    await waitFor(function() {
+      expect(screen.getByText(/waiting for your passkey/i)).toBeTruthy()
+    })
+    var call = fetch.mock.calls.find(function(c) { return String(c[0]).indexOf('/auth/webauthn/login/options') !== -1 })
+    expect(call).toBeTruthy()
+    expect(JSON.parse(call[1].body)).not.toHaveProperty('email')
+    expect(screen.queryByText(/enter your email address first/i)).toBeNull()
   })
 
   it('passkey button posts login/options for the email and shows the waiting state', async function() {

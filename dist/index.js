@@ -107824,21 +107824,19 @@ var zMe = function(t) {
 		return g || _.config && _.config.subdomain || typeof window < "u" && window.location.hostname.split(".")[0] || "admin";
 	}
 	function Le(e) {
-		if (e.preventDefault(), !y || !y.includes("@")) {
-			E("Enter your email address first.");
-			return;
-		}
+		e.preventDefault();
+		var t = y && y.includes("@") ? y : void 0;
 		E(null), ue("waiting");
-		var t = Ie();
+		var n = Ie();
 		import("./esm-Blv-p25D.js").then(function(e) {
 			return fetch(Se + "/auth/webauthn/login/options", {
 				method: "POST",
 				headers: { "Content-Type": "application/json" },
 				credentials: "include",
-				body: JSON.stringify({
-					email: y,
-					portal: t
-				})
+				body: JSON.stringify(t ? {
+					email: t,
+					portal: n
+				} : { portal: n })
 			}).then(function(e) {
 				return e.json();
 			}).then(function(t) {
@@ -107852,7 +107850,7 @@ var zMe = function(t) {
 				credentials: "include",
 				body: JSON.stringify({
 					response: e,
-					portal: t,
+					portal: n,
 					redirect_url: we
 				})
 			});
@@ -108315,16 +108313,12 @@ var zMe = function(t) {
 								},
 								children: "Waiting for your passkey"
 							}),
-							/* @__PURE__ */ u("div", {
+							/* @__PURE__ */ l("div", {
 								style: {
 									fontSize: 13,
 									color: "var(--muted)"
 								},
-								children: [
-									"Use Touch ID, Face ID, or your security key to continue as ",
-									y,
-									"."
-								]
+								children: "Use Touch ID, Face ID, or your security key to continue."
 							})
 						]
 					}), /* @__PURE__ */ l("button", {

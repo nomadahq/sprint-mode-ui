@@ -249,10 +249,11 @@ const Login: React.FC<LoginProps> = function Login({
   // per-door session mint as code login. Every miss lands on one screen.
   function handlePasskeyLogin(e: React.MouseEvent) {
     e.preventDefault();
-    if (!email || !email.includes("@")) {
-      setError("Enter your email address first.");
-      return;
-    }
+    // Usernameless (Aaron ruling 2026-08-31): no email required. If one is
+    // typed it only narrows the browser's list; otherwise every sprintmode.ai
+    // passkey on the device is offered and the server resolves identity from
+    // the asserted credential.
+    var narrowTo = email && email.includes("@") ? email : undefined;
     setError(null);
     setPkPhase("waiting");
     var portal = resolvePortal();
@@ -262,7 +263,7 @@ const Login: React.FC<LoginProps> = function Login({
           method: "POST",
           headers: { "Content-Type": "application/json" },
           credentials: "include",
-          body: JSON.stringify({ email: email, portal: portal }),
+          body: JSON.stringify(narrowTo ? { email: narrowTo, portal: portal } : { portal: portal }),
         })
           .then(function (r) {
             return r.json();
@@ -844,7 +845,7 @@ const Login: React.FC<LoginProps> = function Login({
                   Waiting for your passkey
                 </div>
                 <div style={{ fontSize: 13, color: "var(--muted)" }}>
-                  Use Touch ID, Face ID, or your security key to continue as {email}.
+                  Use Touch ID, Face ID, or your security key to continue.
                 </div>
               </div>
               <button

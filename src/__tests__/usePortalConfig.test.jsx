@@ -94,4 +94,45 @@ describe('PortalConfigProvider', function() {
     })
     expect(globalThis.fetch).not.toHaveBeenCalled()
   })
+
+  // BUG-2883 regression guard: brand tokens must be applied to :root on every
+  // route — including /auth/login — not only inside the authed AppShell.
+  it('sets --accent and --accent-10 on documentElement when config has brand fields', async function() {
+    globalThis.fetch.mockResolvedValue({
+      json: function() {
+        return Promise.resolve({
+          ok: true,
+          config: { name: 'Capital', brand_color: '#1fac6a', brand_tint: '#e8f6f0' },
+        })
+      },
+    })
+    render(
+      <PortalConfigProvider subdomain="capital">
+        <Consumer />
+      </PortalConfigProvider>
+    )
+    await waitFor(function() {
+      expect(screen.getByText('config: Capital')).toBeInTheDocument()
+    })
+    expect(document.documentElement.style.getPropertyValue('--accent')).toBe('#1fac6a')
+    expect(document.documentElement.style.getPropertyValue('--accent-10')).toBe('#e8f6f0')
+  })
+
+  it('does not set --accent when config has no brand_color', async function() {
+    document.documentElement.style.removeProperty('--accent')
+    globalThis.fetch.mockResolvedValue({
+      json: function() {
+        return Promise.resolve({ ok: true, config: { name: 'NoBrand' } })
+      },
+    })
+    render(
+      <PortalConfigProvider subdomain="nobrand">
+        <Consumer />
+      </PortalConfigProvider>
+    )
+    await waitFor(function() {
+      expect(screen.getByText('config: NoBrand')).toBeInTheDocument()
+    })
+    expect(document.documentElement.style.getPropertyValue('--accent')).toBe('')
+  })
 })

@@ -105144,7 +105144,7 @@ function DMe({ subdomain: e, apiBase: t, children: n }) {
 		fetch((t ?? "https://api.sprintmode.ai") + "/api/portal/config?subdomain=" + encodeURIComponent(e), { credentials: "include" }).then(function(e) {
 			return e.json();
 		}).then(function(e) {
-			e.ok && e.config ? a(e.config) : d(e.error || "Failed to load portal config"), c(!1);
+			e.ok && e.config ? (a(e.config), e.config.brand_color && document.documentElement.style.setProperty("--accent", e.config.brand_color), e.config.brand_tint && document.documentElement.style.setProperty("--accent-10", e.config.brand_tint)) : d(e.error || "Failed to load portal config"), c(!1);
 		}).catch(function(e) {
 			d(e.message), c(!1);
 		});

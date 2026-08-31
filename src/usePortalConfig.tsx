@@ -53,6 +53,15 @@ export function PortalConfigProvider({ subdomain, apiBase, children }: PortalCon
       .then(function(d: { ok: boolean; config?: PortalConfig; error?: string }) {
         if (d.ok && d.config) {
           setConfig(d.config)
+          // Apply brand tokens to :root on every route, including /auth/login
+          // (BUG-2883). Portal AppShell effects that also call setProperty are
+          // harmless no-ops once this runs first.
+          if (d.config.brand_color) {
+            document.documentElement.style.setProperty('--accent', d.config.brand_color as string)
+          }
+          if (d.config.brand_tint) {
+            document.documentElement.style.setProperty('--accent-10', d.config.brand_tint as string)
+          }
         } else {
           setError(d.error || 'Failed to load portal config')
         }

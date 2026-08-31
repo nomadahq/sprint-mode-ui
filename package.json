@@ -1,7 +1,7 @@
 {
   "name": "@sprint-mode/sm-ui",
-  "version": "1.0.193",
-  "description": "Sprint Mode shared platform UI \u2014 components, design tokens, auth helpers, login",
+  "version": "1.1.0",
+  "description": "Sprint Mode shared platform UI — components, design tokens, auth helpers, login",
   "repository": {
     "type": "git",
     "url": "https://github.com/sprint-mode/sm-ui"
@@ -73,5 +73,8 @@
   "publishConfig": {
     "registry": "https://npm.pkg.github.com",
     "access": "restricted"
+  },
+  "dependencies": {
+    "@simplewebauthn/browser": "^13.3.0"
   }
 }

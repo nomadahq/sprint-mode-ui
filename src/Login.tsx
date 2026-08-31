@@ -94,6 +94,19 @@ const Login: React.FC<LoginProps> = function Login({
   var verified = _verified[0];
   var setVerified = _verified[1];
   var _redirectUrl = useState("");
+  // FEAT-2156 Half 2: passkey ceremony + post-code interstitial state.
+  var _pkPhase = useState<"idle" | "waiting" | "failed" | "offer" | "saved">("idle");
+  var pkPhase = _pkPhase[0];
+  var setPkPhase = _pkPhase[1];
+  var _pkSupported = useState(false);
+  var pkSupported = _pkSupported[0];
+  var setPkSupported = _pkSupported[1];
+  var _pendingRedirect = useState("");
+  var pendingRedirect = _pendingRedirect[0];
+  var setPendingRedirect = _pendingRedirect[1];
+  var _pkBusy = useState(false);
+  var pkBusy = _pkBusy[0];
+  var setPkBusy = _pkBusy[1];
   var redirectUrl = _redirectUrl[0];
   var setRedirectUrl = _redirectUrl[1];
 
@@ -103,6 +116,12 @@ const Login: React.FC<LoginProps> = function Login({
   // on portals whose index.html bootstrap skips auto-resolution.
   useEffect(function () {
     applyResolvedThemeAttr();
+  }, []);
+
+  useEffect(function () {
+    setPkSupported(
+      typeof window !== "undefined" && "PublicKeyCredential" in window,
+    );
   }, []);
 
   var cfMode = companyField || "required";
@@ -191,6 +210,140 @@ const Login: React.FC<LoginProps> = function Login({
     setSent(false);
   }
 
+  var PK_SNOOZE_KEY = "sm_passkey_offer_snooze";
+  var PK_NEVER_KEY = "sm_passkey_offer_never";
+  function passkeyOfferSnoozed(): boolean {
+    try {
+      if (window.localStorage.getItem(PK_NEVER_KEY) === "1") return true;
+      var until = Number(window.localStorage.getItem(PK_SNOOZE_KEY) || 0);
+      return until > Date.now();
+    } catch {
+      return false;
+    }
+  }
+  function snoozePasskeyOffer(days: number) {
+    try {
+      window.localStorage.setItem(PK_SNOOZE_KEY, String(Date.now() + days * 86400000));
+    } catch {
+      /* storage unavailable: offer again next time */
+    }
+  }
+  function neverOfferPasskey() {
+    try {
+      window.localStorage.setItem(PK_NEVER_KEY, "1");
+    } catch {
+      /* storage unavailable */
+    }
+  }
+  function resolvePortal(): string {
+    return (
+      portalProp ||
+      (_portalCfg.config && _portalCfg.config.subdomain) ||
+      (typeof window !== "undefined"
+        ? window.location.hostname.split(".")[0] || "admin"
+        : "admin")
+    );
+  }
+
+  // FEAT-2156 Half 2: "Use a passkey" -- email-first assertion, then the same
+  // per-door session mint as code login. Every miss lands on one screen.
+  function handlePasskeyLogin(e: React.MouseEvent) {
+    e.preventDefault();
+    if (!email || !email.includes("@")) {
+      setError("Enter your email address first.");
+      return;
+    }
+    setError(null);
+    setPkPhase("waiting");
+    var portal = resolvePortal();
+    import("@simplewebauthn/browser")
+      .then(function (wa) {
+        return fetch(base + "/auth/webauthn/login/options", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          credentials: "include",
+          body: JSON.stringify({ email: email, portal: portal }),
+        })
+          .then(function (r) {
+            return r.json();
+          })
+          .then(function (d: { ok: boolean; options?: unknown }) {
+            if (!d.ok || !d.options) throw new Error("unavailable");
+            return wa.startAuthentication({ optionsJSON: d.options as never });
+          });
+      })
+      .then(function (assertion) {
+        return fetch(base + "/auth/webauthn/login/verify", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          credentials: "include",
+          body: JSON.stringify({ response: assertion, portal: portal, redirect_url: redirect }),
+        });
+      })
+      .then(function (r) {
+        return r.json();
+      })
+      .then(function (d: { ok: boolean; redirect_url?: string }) {
+        if (d.ok) {
+          setVerified(true);
+          window.location.href = d.redirect_url || redirect || "/";
+        } else {
+          setPkPhase("failed");
+        }
+      })
+      .catch(function () {
+        setPkPhase("failed");
+      });
+  }
+
+  // FEAT-2156 Half 2: "Create a passkey" from the post-code interstitial.
+  function handlePasskeyCreate(e: React.MouseEvent) {
+    e.preventDefault();
+    if (pkBusy) return;
+    setPkBusy(true);
+    import("@simplewebauthn/browser")
+      .then(function (wa) {
+        return fetch(base + "/auth/webauthn/register/options", {
+          method: "POST",
+          credentials: "include",
+        })
+          .then(function (r) {
+            return r.json();
+          })
+          .then(function (d: { ok: boolean; options?: unknown }) {
+            if (!d.ok || !d.options) throw new Error("unavailable");
+            return wa.startRegistration({ optionsJSON: d.options as never });
+          });
+      })
+      .then(function (response) {
+        return fetch(base + "/auth/webauthn/register/verify", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          credentials: "include",
+          body: JSON.stringify({ response: response }),
+        });
+      })
+      .then(function (r) {
+        return r.json();
+      })
+      .then(function (d: { ok: boolean }) {
+        setPkBusy(false);
+        if (d.ok) setPkPhase("saved");
+        else setError("Couldn't create the passkey. You can add one later from your profile.");
+      })
+      .catch(function () {
+        setPkBusy(false);
+        // Cancelled or unsupported: continue in, no drama.
+        window.location.href = pendingRedirect || "/";
+      });
+  }
+
+  function continueToPortal(e: React.MouseEvent) {
+    e.preventDefault();
+    if (pkPhase === "offer") snoozePasskeyOffer(30);
+    window.location.href = pendingRedirect || "/";
+  }
+
   function handleVerifyCode(e: React.MouseEvent | React.KeyboardEvent) {
     e.preventDefault();
     var clean = code.replace(/\D/g, "").slice(0, 6);
@@ -229,9 +382,38 @@ const Login: React.FC<LoginProps> = function Login({
         setVerifying(false);
         if (data.ok) {
           setVerified(true);
-          setTimeout(function () {
-            window.location.href = data.redirect_url || redirectUrl || "/";
-          }, 400);
+          var target = data.redirect_url || redirectUrl || "/";
+          // FEAT-2156 Half 2: offer a passkey once, right here, before the
+          // app loads -- shared surface, no per-portal work, no popup
+          // collisions. Only on WebAuthn-capable browsers, only when this
+          // door minted the session directly (a custom-domain handoff URL
+          // means the cookie lives elsewhere -- redirect as before), only
+          // when the identity has no passkey, and not while snoozed.
+          var sameOrigin =
+            typeof window !== "undefined" &&
+            target.indexOf("http") === 0 &&
+            target.indexOf(window.location.origin) === 0;
+          if (pkSupported && (sameOrigin || target.indexOf("http") !== 0) && !passkeyOfferSnoozed()) {
+            fetch(base + "/auth/webauthn/credentials", { credentials: "include" })
+              .then(function (r) {
+                return r.ok ? r.json() : null;
+              })
+              .then(function (d: { ok: boolean; credentials?: unknown[] } | null) {
+                if (d && d.ok && (d.credentials || []).length === 0) {
+                  setPendingRedirect(target);
+                  setPkPhase("offer");
+                } else {
+                  window.location.href = target;
+                }
+              })
+              .catch(function () {
+                window.location.href = target;
+              });
+          } else {
+            setTimeout(function () {
+              window.location.href = target;
+            }, 400);
+          }
         } else {
           var attempts = codeAttempts + 1;
           setCodeAttempts(attempts);
@@ -400,11 +582,15 @@ const Login: React.FC<LoginProps> = function Login({
               color: "var(--foreground)",
             }}
           >
-            {isLinkMode
-              ? "Link Another Account"
-              : isSignup
-                ? "Create an account"
-                : "Sign in"}
+            {pkPhase === "offer"
+              ? "You're signed in"
+              : pkPhase === "saved"
+                ? "Passkey saved"
+                : isLinkMode
+                  ? "Link Another Account"
+                  : isSignup
+                    ? "Create an account"
+                    : "Sign in"}
           </h2>
           {isLinkMode && (
             <p
@@ -528,8 +714,13 @@ const Login: React.FC<LoginProps> = function Login({
             </div>
           )}
 
-          {!sent && (
+          {!sent && pkPhase !== "waiting" && pkPhase !== "offer" && pkPhase !== "saved" && (
             <div>
+              {pkPhase === "failed" && (
+                <div style={{ fontSize: 13, color: "var(--red)", textAlign: "center", margin: "0 0 14px", lineHeight: 1.5 }}>
+                  We couldn't find a passkey for this device.
+                </div>
+              )}
               <label
                 style={{
                   fontSize: 12,
@@ -579,22 +770,34 @@ const Login: React.FC<LoginProps> = function Login({
               >
                 {loading ? "Sending..." : "Send code"}
               </button>
-              {!isSignup && !isLinkMode && (
-                <div
+              {!isSignup && !isLinkMode && pkSupported && (
+                <button
+                  onClick={handlePasskeyLogin}
+                  disabled={loading}
                   style={{
+                    width: "100%",
+                    marginTop: 10,
+                    padding: "12px 20px",
+                    borderRadius: "var(--radius-sm)",
+                    border: "1px solid var(--border)",
+                    background: "var(--bg-card)",
+                    color: "var(--foreground)",
+                    fontSize: 14,
+                    fontWeight: 600,
+                    fontFamily: "var(--font)",
+                    cursor: "pointer",
                     display: "flex",
                     alignItems: "center",
                     justifyContent: "center",
                     gap: 8,
-                    marginTop: 14,
                   }}
                 >
                   <svg
-                    width="14"
-                    height="14"
+                    width="16"
+                    height="16"
                     viewBox="0 0 24 24"
                     fill="none"
-                    stroke="var(--muted)"
+                    stroke="currentColor"
                     strokeWidth="2"
                     strokeLinecap="round"
                     strokeLinejoin="round"
@@ -602,21 +805,114 @@ const Login: React.FC<LoginProps> = function Login({
                     <path d="M2 18v3c0 .6.4 1 1 1h4v-3h3v-3h2l1.4-1.4a6.5 6.5 0 1 0-4-4Z" />
                     <circle cx="16.5" cy="7.5" r=".5" />
                   </svg>
-                  <span
-                    style={{
-                      fontSize: 12,
-                      color: "var(--muted)",
-                      fontWeight: 500,
-                    }}
-                  >
-                    Passkey sign-in coming soon
-                  </span>
-                </div>
+                  Use a passkey
+                </button>
               )}
             </div>
           )}
 
-          {sent && !verified && (
+          {pkPhase === "waiting" && (
+            <div>
+              <div
+                style={{
+                  border: "1px dashed var(--border)",
+                  borderRadius: "var(--radius-sm)",
+                  padding: "22px 16px",
+                  textAlign: "center",
+                  margin: "8px 0 12px",
+                }}
+              >
+                <div
+                  style={{
+                    width: 44,
+                    height: 44,
+                    borderRadius: "50%",
+                    background: "var(--accent-10)",
+                    display: "inline-flex",
+                    alignItems: "center",
+                    justifyContent: "center",
+                    marginBottom: 10,
+                    color: "var(--accent)",
+                  }}
+                >
+                  <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                    <path d="M2 18v3c0 .6.4 1 1 1h4v-3h3v-3h2l1.4-1.4a6.5 6.5 0 1 0-4-4Z" />
+                    <circle cx="16.5" cy="7.5" r=".5" />
+                  </svg>
+                </div>
+                <div style={{ fontSize: 14, fontWeight: 600, color: "var(--foreground)", marginBottom: 2 }}>
+                  Waiting for your passkey
+                </div>
+                <div style={{ fontSize: 13, color: "var(--muted)" }}>
+                  Use Touch ID, Face ID, or your security key to continue as {email}.
+                </div>
+              </div>
+              <button
+                onClick={function (e) {
+                  e.preventDefault();
+                  setPkPhase("idle");
+                }}
+                style={{ display: "block", width: "100%", background: "none", border: "none", fontSize: 12, color: "var(--muted)", cursor: "pointer", fontFamily: "var(--font)" }}
+              >
+                Use an email code instead
+              </button>
+            </div>
+          )}
+
+          {pkPhase === "offer" && (
+            <div>
+              <div style={{ fontSize: 13, color: "var(--muted)", textAlign: "center", margin: "0 0 20px", lineHeight: 1.5 }}>
+                You're signed in. Skip the code next time: create a passkey and sign in with Touch ID or Face ID on any Sprint Mode portal.
+              </div>
+              <button
+                onClick={handlePasskeyCreate}
+                disabled={pkBusy}
+                style={{ width: "100%", padding: "12px 20px", borderRadius: "var(--radius-sm)", border: "none", background: "var(--accent)", color: "#fff", fontSize: 14, fontWeight: 600, fontFamily: "var(--font)", cursor: pkBusy ? "not-allowed" : "pointer", opacity: pkBusy ? 0.6 : 1 }}
+              >
+                {pkBusy ? "Waiting for your passkey..." : "Create a passkey"}
+              </button>
+              <button
+                onClick={continueToPortal}
+                style={{ width: "100%", marginTop: 10, padding: "12px 20px", borderRadius: "var(--radius-sm)", border: "1px solid var(--border)", background: "var(--bg-card)", color: "var(--foreground)", fontSize: 14, fontWeight: 600, fontFamily: "var(--font)", cursor: "pointer" }}
+              >
+                Continue to {displayTitle}
+              </button>
+              <button
+                onClick={function (e) {
+                  e.preventDefault();
+                  neverOfferPasskey();
+                  window.location.href = pendingRedirect || "/";
+                }}
+                style={{ display: "block", width: "100%", marginTop: 14, background: "none", border: "none", fontSize: 12, color: "var(--muted)", cursor: "pointer", fontFamily: "var(--font)" }}
+              >
+                Don't ask again on this device
+              </button>
+              {error && (
+                <div style={{ fontSize: 13, color: "var(--red)", textAlign: "center", marginTop: 8 }}>{error}</div>
+              )}
+            </div>
+          )}
+
+          {pkPhase === "saved" && (
+            <div>
+              <div
+                style={{ border: "1px solid var(--green-light)", background: "var(--green-light)", borderRadius: "var(--radius-sm)", padding: "22px 16px", textAlign: "center", margin: "8px 0 12px" }}
+              >
+                <div style={{ width: 44, height: 44, borderRadius: "50%", background: "#fff", display: "inline-flex", alignItems: "center", justifyContent: "center", marginBottom: 10, color: "var(--green)" }}>
+                  <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="M20 6 9 17l-5-5" /></svg>
+                </div>
+                <div style={{ fontSize: 13, color: "var(--foreground)" }}>Next time, choose Use a passkey and confirm with Touch ID or Face ID.</div>
+              </div>
+              <button
+                onClick={continueToPortal}
+                style={{ width: "100%", padding: "12px 20px", borderRadius: "var(--radius-sm)", border: "none", background: "var(--accent)", color: "#fff", fontSize: 14, fontWeight: 600, fontFamily: "var(--font)", cursor: "pointer" }}
+              >
+                Continue to {displayTitle}
+              </button>
+            </div>
+          )}
+
+          {sent && !verified && pkPhase !== "offer" && pkPhase !== "saved" && (
             <div>
               <div
                 style={{

@@ -107784,8 +107784,8 @@ var zMe = function(t) {
 		var t = {
 			email: y,
 			redirect: we
-		};
-		m && (t.link_to = m), De && f && (new URLSearchParams(f).forEach(function(e, n) {
+		}, n = Ie();
+		n && (t.product = n), m && (t.link_to = m), De && f && (new URLSearchParams(f).forEach(function(e, n) {
 			t[n] = e;
 		}), t.first_name = P, t.last_name = L, t.company_field = xe, Oe && B && (t.company_name = B)), fetch(Se + "/auth/magic", {
 			method: "POST",

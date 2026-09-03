@@ -226,3 +226,56 @@ describe('Login — state B (code entry)', function() {
     })
   })
 })
+
+// ─── BUG-3091: product field in /auth/magic POST ──────────────────────────────
+// When the portal prop is set, handleMagicLink must include product in the
+// magic-link POST body. Without it, /auth/magic falls back to Origin
+// derivation, which fails on non-*.sprintmode.ai origins (e.g. a pages.dev
+// preview URL), stamping product=null and making verify-code always fail.
+
+describe('Login — BUG-3091 product field in /auth/magic', function() {
+  beforeEach(function() {
+    vi.stubGlobal('fetch', vi.fn())
+  })
+  afterEach(function() {
+    vi.restoreAllMocks()
+    vi.unstubAllGlobals()
+  })
+
+  it('sends product in /auth/magic body when portal prop is set', async function() {
+    fetch.mockResolvedValueOnce({
+      json: function() { return Promise.resolve({ ok: true, redirect_url: '/dashboard' }) },
+    })
+    render(<Login authBase="https://api.sprintmode.ai" portal="safeshepherd" />)
+    fireEvent.change(screen.getByPlaceholderText('you@company.com'), { target: { value: 'admin@safeshepherd.com' } })
+    fireEvent.click(screen.getByRole('button', { name: /send code/i }))
+    await waitFor(function() {
+      expect(fetch).toHaveBeenCalledWith(
+        'https://api.sprintmode.ai/auth/magic',
+        expect.objectContaining({ method: 'POST' }),
+      )
+    })
+    var call = fetch.mock.calls.find(function(c) { return String(c[0]).indexOf('/auth/magic') !== -1 })
+    expect(call).toBeTruthy()
+    var body = JSON.parse(call[1].body)
+    expect(body.product).toBe('safeshepherd')
+    expect(body.email).toBe('admin@safeshepherd.com')
+  })
+
+  it('does not include portal-specific product when portal prop is omitted', async function() {
+    fetch.mockResolvedValueOnce({
+      json: function() { return Promise.resolve({ ok: true, redirect_url: '/dashboard' }) },
+    })
+    render(<Login authBase="https://api.sprintmode.ai" />)
+    fireEvent.change(screen.getByPlaceholderText('you@company.com'), { target: { value: 'user@example.com' } })
+    fireEvent.click(screen.getByRole('button', { name: /send code/i }))
+    await waitFor(function() {
+      expect(fetch).toHaveBeenCalled()
+    })
+    var call = fetch.mock.calls.find(function(c) { return String(c[0]).indexOf('/auth/magic') !== -1 })
+    expect(call).toBeTruthy()
+    var body = JSON.parse(call[1].body)
+    // product may be derived from jsdom hostname, but must not be 'safeshepherd'
+    expect(body.product).not.toBe('safeshepherd')
+  })
+})

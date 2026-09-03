@@ -41,6 +41,11 @@ interface PortalInfo {
   portal_url?: string | null
   /** Role the linked account holds on this portal (from /api/auth/linked-accounts) */
   role?: string | null
+  // BUG-3087: the configured portal_roles.display_name. titleCase(role) only
+  // guesses from the key -- 'leadership' reads "Leadership" when the portal
+  // calls it "Management", 'super_admin' reads "Super Admin" when it is "CAIO".
+  // Always prefer this; titleCase is the fallback for rows with no definition.
+  role_display_name?: string | null
   /** Whether this is the default role for this portal entry */
   is_default?: boolean
 }
@@ -111,6 +116,12 @@ function portalUrl(p: PortalInfo): string {
 
 function titleCase(s: string): string {
   return s.split(/[_\s]+/).map(function(w) { return w.charAt(0).toUpperCase() + w.slice(1) }).join(' ')
+}
+
+// BUG-3087: one place that decides how a role is shown to a person. The
+// configured name wins; titleCase(key) is only a fallback.
+function roleLabel(p: { role?: string | null; role_display_name?: string | null }): string {
+  return p.role_display_name || (p.role ? titleCase(p.role) : '')
 }
 
 // Module-level cache — survives mount/unmount cycles so the user menu
@@ -466,7 +477,7 @@ export function AccountSwitcher(props: AccountSwitcherProps) {
           React.createElement('span', { style: { flex: 1, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' as const } },
             p.name || titleCase(p.subdomain)
           ),
-          p.role ? React.createElement('span', { style: { fontSize: 11, color: 'var(--muted)', flexShrink: 0, marginLeft: 4 } }, titleCase(p.role)) : null,
+          p.role ? React.createElement('span', { style: { fontSize: 11, color: 'var(--muted)', flexShrink: 0, marginLeft: 4 } }, roleLabel(p)) : null,
           React.createElement(ArrowIcon, { rotated: false })
         )
       })
@@ -514,7 +525,7 @@ export function AccountSwitcher(props: AccountSwitcherProps) {
             },
               portalIcon(p),
               React.createElement('span', { style: { flex: 1, fontSize: 13, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' as const } }, p.name || p.subdomain),
-              p.role ? React.createElement('span', { style: { fontSize: 11, color: 'var(--muted)', flexShrink: 0, marginLeft: 4 } }, titleCase(p.role)) : null
+              p.role ? React.createElement('span', { style: { fontSize: 11, color: 'var(--muted)', flexShrink: 0, marginLeft: 4 } }, roleLabel(p)) : null
             )
           })
         : React.createElement('div', {

@@ -16,6 +16,22 @@
 # yesterday", so the directory is the unit. Narrowing this back to per-file
 # globs re-opens that hole; the coverage test pins it with a workflow filename
 # matching none of the old globs.
+#
+# THE ENTRY BELOW IS CONDITIONAL (TASK-2854), and it is the only conditional
+# line in this block. `wf sync` drops it when `.sm-workflow.conf` carries
+# `workflow_paths_ruleset=on` — meaning BUG-2217's push ruleset restricts
+# `.github/workflows/**/*` here. That ruleset holds the SAME property this
+# directory gate was written for, including for files that do not exist yet,
+# and it holds it structurally rather than by spending a human review on every
+# workflow edit. Where the ruleset cannot exist the entry stays: GitHub push
+# rules require a private or internal repository, so a public one keeps this as
+# its only control (the fleet has one, sm-ui).
+#
+# The key is not self-asserted. `wf adopt --server` sets it only when it has
+# applied the ruleset, and clears it on the public-repo skip; `wf doctor` reads
+# the live ruleset and FAILS when the two disagree, so the flag cannot go stale
+# and silently un-gate a repository whose ruleset was deleted. Removing that
+# cross-check turns this line into an unverified claim.
 /.github/CODEOWNERS                    @sprint-mode/reviewers
 /.github/workflows/                    @sprint-mode/reviewers
 /.githooks/                            @sprint-mode/reviewers
@@ -33,6 +49,9 @@
 /scripts/guard-git.sh                  @sprint-mode/reviewers
 /scripts/hook-env.sh                   @sprint-mode/reviewers
 /scripts/pr-sweep.py                   @sprint-mode/reviewers
+/scripts/sm-deploy-result.py            @sprint-mode/reviewers
+/scripts/sm-deploy-http.py              @sprint-mode/reviewers
+/scripts/sm-deploy-incident.py          @sprint-mode/reviewers
 /scripts/check-migration-numbers.sh    @sprint-mode/reviewers
 /scripts/migration-dupe-allowlist.txt  @sprint-mode/reviewers
 wrangler.toml                          @sprint-mode/reviewers

@@ -22,6 +22,13 @@ permissions:
   contents: read
   pull-requests: write
   checks: read
+  # The classifier's `gh pr view --json statusCheckRollup` resolves
+  # checkSuite.workflowRun in GraphQL, which needs actions:read. Without it
+  # GitHub returns partial errors, gh exits non-zero, and the sweep SKIPS the
+  # PR - proven blind for ~40h over eight stalled PRs (BUG-2314, sm-buck run
+  # 32283766783). Read-only, and this workflow has no PR-event trigger, so the
+  # scope is never live on a PR branch's own copy.
+  actions: read
 
 concurrency:
   group: sm-pr-sweep-${{ github.repository }}

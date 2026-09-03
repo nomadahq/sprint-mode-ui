@@ -126,10 +126,11 @@ def resolve_owner(pr):
 
 
 def recipient(pr, cls):
-    """A gated PR needs a codeowner, and the owner is precisely who cannot
-    clear it — so gated routes to the reviewers team (spec 5)."""
-    if cls == "gated":
-        return REVIEWERS
+    """Route every stalled PR to its landing owner.
+
+    A red codeowner gate is an ordinary gate failure for that owner to diagnose,
+    not a human-review queue routed to the reviewers team.
+    """
     return resolve_owner(pr)
 
 
@@ -177,9 +178,10 @@ def should_escalate(cls, labels, last, now_ts):
 ADVICE = {
     "broken":  "CI is red or the branch conflicts. Fix or rebase; the queue "
                "cannot take it.",
-    "gated":   "Everything is green except the codeowner gate. It needs an "
-               "approving review from a non-author org member, then it lands "
-               "hands-free.",
+    "gated":   "Everything is green except the codeowner gate. Diagnose the "
+               "current-head AI review publication, stale failed suites, and "
+               "workflow inputs; repair or re-request the failed gate before "
+               "queueing.",
     "unarmed": "This PR is mergeable but auto-merge was never armed, so nothing "
                "will ever pick it up. Run: `gh pr merge --auto --squash`",
     "behind":  "Green but behind the base branch. Rebase and push "
@@ -228,12 +230,14 @@ def fetch_open_prs(repo):
     numbers = json.loads(_gh(["pr", "list", "--repo", repo, "--state", "open",
                               "--limit", "100", "--json", "number"]))
     out = []
+    skipped = 0
     for entry in numbers:
         try:
             pr = json.loads(_gh(["pr", "view", str(entry["number"]), "--repo", repo,
                                  "--json", PR_FIELDS]))
         except (RuntimeError, ValueError) as exc:
             print("::warning::skipping PR %s: %s" % (entry["number"], exc))
+            skipped += 1
             continue
         commits = pr.pop("commits", None) or []
         pr["headCommittedAt"] = commits[-1]["committedDate"] if commits else None
@@ -247,6 +251,15 @@ def fetch_open_prs(repo):
             # arming, and lands in stuck rather than being dropped silently.
             print("::warning::compare failed for #%s: %s" % (pr["number"], exc))
         out.append(pr)
+    if skipped:
+        # One loud line, because a guard that skips silently is
+        # indistinguishable from a healthy one: BUG-2314 ran blind for ~40h
+        # over eight stalled PRs this way. Never a failing exit - the sweep
+        # must stay unable to block anything.
+        print("::warning::%d of %d open PRs could not be read and were "
+              "SKIPPED - the sweep is blind to them. If the error above names "
+              "checkSuite.workflowRun, the workflow is missing actions: read."
+              % (skipped, len(numbers)))
     return out
 
 

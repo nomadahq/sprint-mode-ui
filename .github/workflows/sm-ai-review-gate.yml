@@ -1,0 +1,391 @@
+name: ai review gate
+
+# /merge has required a fresh AI review before enqueue since it was written, but
+# only in prose, inside a skill. Nothing verified it. A person running
+# `gh pr merge --auto --squash` by hand, or any agent that never invokes /merge,
+# landed unreviewed code with CI fully green. This check is the verification.
+#
+# It does NOT review anything. /review-pr owns the fresh provider-native agent,
+# the read-only isolation, the bounded controls and the provenance validation,
+# and publishes its verbatim AI_PR_REVIEW_RESULT block as a PR comment. This job
+# only asks: is there such a block whose live binding matches this PR right now,
+# carrying verdict APPROVE and no Critical finding. The published AI result is
+# the approval; publisher
+# repository permission is deliberately not part of selection. A normal
+# block may use FEAT-2644's head-or-tree/base rule; a block naming `supersedes`
+# must match the current head, tree and base_sha itself. Anything else is red,
+# including no block at all. A PR with no review never passes.
+#
+# WHICH REF SUPPLIES THIS FILE (BUG-2216, learned the hard way on the codeowner
+# gate). GitHub resolves the workflow FILE from refs/pull/N/merge for
+# `pull_request` and `pull_request_review`, and from the queue branch for
+# `merge_group` - all of which the PR contributes to. It resolves from the
+# default branch for `pull_request_target`. A gate on a PR-supplied trigger can
+# be rewritten to `exit 0` by the PR it gates, so this file triggers on
+# `pull_request_target` and never on `pull_request`.
+#
+# Unlike the codeowner gate, no migration leg is needed: this file is new, so on
+# the `wf sync` PR that introduces it neither trigger fires. That is harmless
+# only because the check must not be made required until the file is on the
+# default branch - see the ordering note in the item, and the refusal `wf adopt
+# --server` already carries for dup-claim.
+#
+# WHY THE RE-TRIGGER IS A SEPARATE FILE. When /review-pr publishes its verdict,
+# something must re-run this gate or its pre-review red stands forever. The
+# obvious trigger, `issue_comment`, IS base-supplied - but its run carries no
+# pull-request association, so its check attaches to the default branch commit
+# and never satisfies a required check bound to the PR head. sm-ai-review-rerun.yml
+# therefore re-requests THIS workflow's run instead of reporting in its place.
+# Keeping it out of this file also keeps this file at exactly one job with no
+# job-level `if:`: a required job that is skipped reports as satisfied, so a
+# condition here would be a way to pass having decided nothing.
+#
+# NOT A DEFENCE AGAINST A DETERMINED AUTHOR, and nothing here should be read as
+# one. Required checks are matched by NAME and job names are author-controlled,
+# so a PR that can add a workflow can emit a green `ai-review-gate` of its own
+# (BUG-2217). What stops that is the protection on .github/workflows/, not this
+# file.
+
+on:
+  pull_request_target:
+    # `edited` is here for one reason: it is the only event a base RETARGET
+    # fires. Check runs bind to the head SHA and survive a retarget, so without
+    # it an APPROVE gated against `base: main` would leave a green check on that
+    # SHA after the PR was pointed at a different landing branch, and nothing
+    # would re-evaluate the base binding this gate advertises.
+    types: [opened, reopened, synchronize, ready_for_review, edited]
+  merge_group:
+
+permissions:
+  contents: read
+  pull-requests: read
+
+jobs:
+  ai-review-gate:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Gate
+        env:
+          GH_TOKEN: ${{ github.token }}
+          REPO: ${{ github.repository }}
+          EVENT: ${{ github.event_name }}
+          PR: ${{ github.event.pull_request.number }}
+        run: |
+          if [ "$EVENT" = "merge_group" ]; then
+            echo "merge_group build: the gate already passed on the PR itself."
+            exit 0
+          fi
+          # Per-run scratch, exported for the python below. Fixed /tmp names are
+          # shared state: two gate jobs on one runner would read each other's PR
+          # comments and decide one PR's question from another PR's evidence.
+          WORK="$(mktemp -d)" || {
+            echo "::error::No scratch directory available - the gate reached no decision."
+            exit 1
+          }
+          export WORK
+          trap 'rm -rf "$WORK"' EXIT
+
+          if [ -z "${PR:-}" ]; then
+            echo "::error::No pull request number on this $EVENT event - the gate reached no decision."
+            exit 1
+          fi
+
+          # Live values, not the event payload. The payload is a snapshot from
+          # when the run was queued; a push during the queue would leave this
+          # gate approving a head that is no longer the head.
+          rc=0
+          gh api "repos/$REPO/pulls/$PR" \
+            --jq '{base: .base.ref, head: .head.sha}' \
+            > "$WORK/pr.json" 2>"$WORK/pr.err" || rc=$?
+          if [ "$rc" -ne 0 ]; then
+            echo "::error::Could not read PR $PR from GitHub (gh exit $rc) - failing closed rather than passing an unchecked gate."
+            cat "$WORK/pr.err" >&2
+            exit 1
+          fi
+
+          # WHAT WAS REVIEWED, not merely which commit carried it (FEAT-2644).
+          # A rebase or an amend rewrites the head SHA while the merged product
+          # is byte-identical, and head equality alone cannot tell that from a
+          # real push - so every content-free force-push bought a fresh review
+          # round, about 62 of 126 rounds in one measured session (TASK-2482).
+          #
+          # A TREE hash is the right identity and a diff-derived one is not.
+          # `git patch-id --stable` ignores all whitespace by documented design
+          # and ignores hunk positions, so an approval could carry onto code
+          # that runs under a different condition; a tree hash normalises
+          # nothing and covers mode bits, symlinks, submodule pointers and
+          # binary content. The MERGE BASE is carried with it because a tree
+          # that matches over a base that moved is a different merged product.
+          #
+          # Both are API reads. This job still never checks out the PR head.
+          BASE=$(python3 -c 'import json,os;print(json.load(open(os.environ["WORK"]+"/pr.json"))["base"])')
+          HEAD=$(python3 -c 'import json,os;print(json.load(open(os.environ["WORK"]+"/pr.json"))["head"])')
+
+          rc=0
+          LIVE_TREE=$(gh api "repos/$REPO/commits/$HEAD" \
+            --jq '.commit.tree.sha' 2>"$WORK/tree.err") || rc=$?
+          if [ "$rc" -ne 0 ] || [ -z "$LIVE_TREE" ]; then
+            echo "::error::Could not read the tree of head $HEAD (gh exit $rc) - failing closed rather than deciding on an unknown tree."
+            cat "$WORK/tree.err" >&2
+            exit 1
+          fi
+
+          rc=0
+          LIVE_MERGE_BASE=$(gh api "repos/$REPO/compare/$BASE...$HEAD" \
+            --jq '.merge_base_commit.sha' 2>"$WORK/mb.err") || rc=$?
+          if [ "$rc" -ne 0 ] || [ -z "$LIVE_MERGE_BASE" ]; then
+            echo "::error::Could not read the merge base of $BASE...$HEAD (gh exit $rc) - failing closed rather than deciding on an unknown base."
+            cat "$WORK/mb.err" >&2
+            exit 1
+          fi
+
+          python3 - "$WORK/pr.json" "$LIVE_TREE" "$LIVE_MERGE_BASE" <<'MERGE'
+          import json, sys
+          path = sys.argv[1]
+          live = json.load(open(path, encoding="utf-8"))
+          live["tree"], live["base_sha"] = sys.argv[2], sys.argv[3]
+          json.dump(live, open(path, "w", encoding="utf-8"))
+          MERGE
+
+          rc=0
+          gh api "repos/$REPO/issues/$PR/comments" --paginate \
+            > "$WORK/comments.json" 2>"$WORK/comments.err" || rc=$?
+          if [ "$rc" -ne 0 ]; then
+            echo "::error::Could not read PR $PR comments (gh exit $rc) - failing closed."
+            cat "$WORK/comments.err" >&2
+            exit 1
+          fi
+
+          # FEAT-2692 deliberately makes the newest block-carrying comment the
+          # selection without resolving publisher permission. That lets any
+          # commenter supply a valid approval and also lets any commenter put
+          # the gate red with a newer BLOCK or malformed carrier. The startup
+          # accepted that symmetric exposure to make the AI review itself the
+          # approval; exact live binding and fail-closed parsing remain.
+          cat > "$WORK/blocks.py" <<'PY'
+          import json, os, re, sys
+
+          MARKER = "AI_PR_REVIEW_RESULT"
+          # A field-shaped key outside this tuple is SKIPPED rather than ending
+          # the block (BUG-2753), so a block written to a newer contract still
+          # reaches `reviewer` and `verdict` on a gate that predates its fields —
+          # the shipped template puts `checks:`, deliberately absent here,
+          # directly after `verdict:`. Two things still bound the block:
+          # `findings:` ends it, so every field must precede it, and a key that is
+          # NOT field-shaped ends it too, which is what keeps the loop out of the
+          # prose below and stops a later `verdict:` line overwriting the parsed
+          # one. A single legacy `escalation:` field is accepted only immediately
+          # after `verdict:` and ignored. `tree`, `base_sha`, and optional
+          # `supersedes` sit between `head` and `reviewer` in the templates
+          # (FEAT-2644, FEAT-2645).
+          FIELDS = ("pr", "base", "head", "tree", "base_sha", "supersedes", "reviewer",
+                    "verdict", "escalation", "findings")
+
+
+          def load(path):
+              """gh --paginate concatenates one JSON array per page."""
+              raw = open(path, encoding="utf-8").read()
+              out, decoder, at = [], json.JSONDecoder(), 0
+              while at < len(raw):
+                  while at < len(raw) and raw[at].isspace():
+                      at += 1
+                  if at >= len(raw):
+                      break
+                  page, at = decoder.raw_decode(raw, at)
+                  out.extend(page)
+              return out
+
+
+          def parse(body):
+              """Fields of the one result block in a body, or None, or ambiguous.
+
+              Tolerant of a fenced block: /review-pr publishes raw text, but a
+              reviewer that wrapped it in ``` would otherwise be silently
+              ignored, and silently ignoring evidence is how a gate stops gating.
+
+              NOT tolerant of a block a human reading the thread cannot see, nor
+              of a comment carrying more than one. GitHub hides an HTML comment
+              whether or not it is closed — an unterminated `<!--` runs to the
+              end of the document — so the strip has to reach the end of the body
+              when no closer appears, and accept `--!>` as a closer too. A block
+              only a parser can see would authorise a head while the visible text
+              said something else, which destroys the one thing the write-access
+              trust boundary buys: a person can read the comment and see what it
+              decided.
+              """
+              visible = re.sub(r"<!--.*?(?:-->|--!>|\Z)", "", body, flags=re.S)
+              lines = [l.strip().strip("`").strip() for l in visible.splitlines()]
+              hits = [i for i, l in enumerate(lines) if l == MARKER]
+              if not hits:
+                  return None
+              if len(hits) > 1:
+                  return {"ambiguous": len(hits)}
+              out = {}
+              result_lines = lines[hits[0] + 1:]
+              out["_critical"] = any(
+                  re.fullmatch(r"[-*+]\s+severity:\s*Critical", line, flags=re.I)
+                  for line in result_lines
+              )
+              previous_key = None
+              for l in result_lines:
+                  if not l or l.startswith("#"):
+                      continue
+                  if ":" not in l:
+                      break
+                  k, v = l.split(":", 1)
+                  k = k.strip()
+                  if k not in FIELDS:
+                      # Skip only a key shaped like a field of some contract
+                      # version. Anything else ends the block, which is what a
+                      # `findings` list item does: it reads as the key
+                      # `- severity`.
+                      if re.fullmatch(r"[a-z_][a-z0-9_]*", k):
+                          continue
+                      break
+                  if k == "escalation":
+                      if previous_key != "verdict" or "escalation" in out:
+                          out["_legacy_shape_invalid"] = True
+                  if k in out:
+                      # Reaching further into the comment means a field could be
+                      # stated twice. Neither value is the block's answer, so the
+                      # gate refuses instead of taking one of them.
+                      out["_duplicate_key"] = k
+                      break
+                  out[k] = v.strip()
+                  previous_key = k
+                  if k == "findings":
+                      break
+              return out
+
+
+          work = os.environ["WORK"]
+          carriers = [(c, parse(c.get("body") or ""))
+                      for c in load(work + "/comments.json")]
+          carriers = [(c, b) for c, b in carriers if b is not None]
+
+          # FEAT-2692: selection is author-neutral. The last block-carrying
+          # comment wins even when its publisher has repository permission
+          # none. This accepted exposure applies in both directions: a newest
+          # malformed or BLOCK carrier stays red instead of falling back.
+          chosen = carriers[-1] if carriers else None
+
+          if chosen is None:
+              print("::error::No %s comment on this PR. /merge publishes one via "
+                    "/review-pr; a PR "
+                    "with no fresh AI review does not pass this gate." % MARKER,
+                    file=sys.stderr)
+              raise SystemExit(1)
+
+          comment, block = chosen
+          url = comment.get("html_url") or "no url"
+          author = (comment.get("user") or {}).get("login") or ""
+
+          if "ambiguous" in block:
+              print("::error::The newest %s comment (%s) carries %d "
+                    "result blocks. /review-pr publishes exactly one per run, so "
+                    "which verdict it means cannot be established - the gate "
+                    "reached no decision." % (MARKER, url, block["ambiguous"]),
+                    file=sys.stderr)
+              raise SystemExit(1)
+
+          live = json.load(open(work + "/pr.json", encoding="utf-8"))
+          problems = []
+          if block.get("pr") != str(os.environ["PR"]):
+              problems.append("names pr %r, this is PR %s"
+                              % (block.get("pr"), os.environ["PR"]))
+          if block.get("base") != live["base"]:
+              problems.append("names base %r, this PR targets %r"
+                              % (block.get("base"), live["base"]))
+          # WHAT the review read, not WHICH commit carried it (FEAT-2644).
+          #
+          # Three shapes, and the first two exist so that landing this changes
+          # nothing for work already in flight:
+          #
+          #   neither key -> a block published before the pair existed. Decide
+          #     on head equality, byte for byte as before. Every open PR in
+          #     every adopted repository is in this shape on the day this
+          #     lands, so anything else would redden the fleet at once.
+          #   one key     -> an emitter bug. Fail closed and say so. Falling
+          #     back to head-only here would judge a block that DID name a tree
+          #     as though it had not, which is the one reading that turns a
+          #     stricter block into a weaker one.
+          #   both keys   -> the head may move as long as the merged product
+          #     does not. The tree covers the content; the merge base covers
+          #     what it sits on. A tree that matches over a base that moved is
+          #     a different merged product, and the branch's own diff cannot
+          #     see the difference at all - which is precisely why a
+          #     diff-derived identity was rejected for this.
+          block_tree = block.get("tree")
+          block_base_sha = block.get("base_sha")
+          block_supersedes = block.get("supersedes")
+
+          if (block_tree is None) != (block_base_sha is None):
+              problems.append("names a tree but no base_sha, or the reverse, so what "
+                              "it reviewed cannot be established - /review-pr "
+                              "publishes both or neither")
+          elif block_supersedes is not None:
+              # FEAT-2645. This is a NEW review of the delta from an approved
+              # merged product, not permission inherited from that history.
+              # Therefore its own current triple must match in full. The
+              # predecessor is provenance for the selected surface only.
+              if not re.fullmatch(r"[0-9a-f]{40}", block_supersedes):
+                  problems.append("supersedes is not a full SHA, so the prior "
+                                  "approved head cannot be identified")
+              if block_supersedes == block.get("head"):
+                  problems.append("supersedes names the current head, not a prior "
+                                  "approved head")
+              if block_tree is None:
+                  problems.append("a superseding review carries no tree and base_sha, "
+                                  "so its current merged product is unbound")
+              else:
+                  if block.get("head") != live["head"]:
+                      problems.append("superseding review names head %r, the current "
+                                      "head is %r - history cannot authorise it"
+                                      % (block.get("head"), live["head"]))
+                  if block_tree != live["tree"]:
+                      problems.append("superseding review names tree %r, the current "
+                                      "head's tree is %r - history cannot authorise it"
+                                      % (block_tree, live["tree"]))
+                  if block_base_sha != live["base_sha"]:
+                      problems.append("superseding review names merge base %r, the "
+                                      "current merge base is %r - history cannot "
+                                      "authorise it"
+                                      % (block_base_sha, live["base_sha"]))
+          elif block_tree is None:
+              if block.get("head") != live["head"]:
+                  problems.append("names head %r, the current head is %r - the review "
+                                  "is stale, push a new one"
+                                  % (block.get("head"), live["head"]))
+          else:
+              if block_tree != live["tree"]:
+                  problems.append("names tree %r, the current head's tree is %r - the "
+                                  "reviewed content changed, so the review is stale"
+                                  % (block_tree, live["tree"]))
+              if block_base_sha != live["base_sha"]:
+                  problems.append("names merge base %r, the current merge base is %r - "
+                                  "the branch moved onto different code, so the review "
+                                  "is stale" % (block_base_sha, live["base_sha"]))
+          if not block.get("reviewer"):
+              problems.append("carries no reviewer/run identifier, so its "
+                              "provenance cannot be established")
+          if block.get("verdict") != "APPROVE":
+              problems.append("carries verdict %r, not APPROVE" % block.get("verdict"))
+          if block.get("_duplicate_key"):
+              problems.append("names %s more than once, so which value it means "
+                              "cannot be established" % block["_duplicate_key"])
+          if block.get("_legacy_shape_invalid"):
+              problems.append("carries legacy escalation outside its documented position")
+          if block.get("_critical"):
+              problems.append("carries verdict APPROVE with a Critical finding; every Critical must BLOCK")
+
+          if problems:
+              print("::error::The newest %s comment (%s, by %s) does not "
+                    "authorise this head: %s"
+                    % (MARKER, url, author, "; ".join(problems)), file=sys.stderr)
+              raise SystemExit(1)
+
+          print("Fresh AI review by %s approves the current head (%s). Gate passes."
+                % (author, url))
+          PY
+
+          python3 "$WORK/blocks.py"

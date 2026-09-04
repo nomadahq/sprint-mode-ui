@@ -58,13 +58,25 @@ def idle_seconds(pr, now_ts):
     return max(0.0, now_ts - max(marks))
 
 
-def _failing(pr, include_gate=False):
+def _failing(pr, include_gate=False, required=None):
+    """Failing checks that actually block this PR.
+
+    `required` is the set of check names GitHub reports as required for this PR,
+    or None when that could not be established. Both None and an EMPTY set count
+    every failing check, which is what this function did before BUG-3131 and is
+    the safe direction. Empty is deliberately not authoritative: on a base that
+    requires nothing, dropping every failure would send a red PR to `unarmed`,
+    whose advice is to arm auto-merge — and on such a base that merges red code
+    immediately.
+    """
     out = []
     for check in _checks(pr):
         if check.get("conclusion") != "FAILURE":
             continue
         name = _check_name(check)
         if name == GATE and not include_gate:
+            continue
+        if required and name not in required:
             continue
         out.append(name)
     return out
@@ -77,11 +89,17 @@ def _gate_failing(pr):
     )
 
 
-def classify(pr, now_ts, threshold_min):
+def classify(pr, now_ts, threshold_min, required=None):
     """One of: healthy, broken, gated, unarmed, behind, stuck.
 
     Order is load-bearing (spec 5). Past the threshold there is NO path back to
     healthy: an unrecognised state is still a stall and falls through to stuck.
+
+    `required` names the checks the base branch actually requires. Without it a
+    single failing OPTIONAL check reaches `broken` and masks `unarmed`, which is
+    the state a finished PR waiting for someone to land it is really in. That
+    cost one sm-api PR 4h48m on 2026-09-03: every required check was green and
+    the sweep said "CI is red or the branch conflicts" twice (BUG-3131).
     """
     if pr.get("isDraft"):
         return "healthy"
@@ -89,7 +107,7 @@ def classify(pr, now_ts, threshold_min):
         return "healthy"
     if idle_seconds(pr, now_ts) < threshold_min * 60:
         return "healthy"
-    if pr.get("mergeable") == "CONFLICTING" or _failing(pr):
+    if pr.get("mergeable") == "CONFLICTING" or _failing(pr, required=required):
         return "broken"
     if _gate_failing(pr):
         return "gated"
@@ -126,10 +144,11 @@ def resolve_owner(pr):
 
 
 def recipient(pr, cls):
-    """A gated PR needs a codeowner, and the owner is precisely who cannot
-    clear it — so gated routes to the reviewers team (spec 5)."""
-    if cls == "gated":
-        return REVIEWERS
+    """Route every stalled PR to its landing owner.
+
+    A red codeowner gate is an ordinary gate failure for that owner to diagnose,
+    not a human-review queue routed to the reviewers team.
+    """
     return resolve_owner(pr)
 
 
@@ -177,9 +196,10 @@ def should_escalate(cls, labels, last, now_ts):
 ADVICE = {
     "broken":  "CI is red or the branch conflicts. Fix or rebase; the queue "
                "cannot take it.",
-    "gated":   "Everything is green except the codeowner gate. It needs an "
-               "approving review from a non-author org member, then it lands "
-               "hands-free.",
+    "gated":   "Everything is green except the codeowner gate. Diagnose the "
+               "current-head AI review publication, stale failed suites, and "
+               "workflow inputs; repair or re-request the failed gate before "
+               "queueing.",
     "unarmed": "This PR is mergeable but auto-merge was never armed, so nothing "
                "will ever pick it up. Run: `gh pr merge --auto --squash`",
     "behind":  "Green but behind the base branch. Rebase and push "
@@ -208,13 +228,24 @@ def _human(minutes):
     return "%dd %dh" % (days, rem) if rem else "%dd" % days
 
 
-def comment_body(pr, cls, who, idle_minutes, now_iso):
+REQUIRED_UNKNOWN = (
+    " The set of checks this branch requires could not be read, so every "
+    "failing check was treated as blocking and this verdict may be too harsh.")
+
+
+def comment_body(pr, cls, who, idle_minutes, now_iso, required_known=True):
+    advice = ADVICE.get(cls, ADVICE["stuck"])
+    if cls == "broken" and not required_known:
+        # Only `broken` can turn on the required set, so only `broken` carries
+        # the caveat. Never let that verdict rest silently on a read that did
+        # not happen: it is indistinguishable from a PR that is genuinely red.
+        advice += REQUIRED_UNKNOWN
     return (
         "%s — this PR has not progressed in **%s** (`%s`).\n\n"
         "%s\n\n"
         "<sub>Posted by the sm-workflow PR sweep. Add `%s` to silence it for "
         "this PR.</sub>\n%s"
-    ) % (who, _human(idle_minutes), cls, ADVICE.get(cls, ADVICE["stuck"]),
+    ) % (who, _human(idle_minutes), cls, advice,
          OPTOUT_LABEL, marker(cls, now_iso))
 
 
@@ -228,12 +259,14 @@ def fetch_open_prs(repo):
     numbers = json.loads(_gh(["pr", "list", "--repo", repo, "--state", "open",
                               "--limit", "100", "--json", "number"]))
     out = []
+    skipped = 0
     for entry in numbers:
         try:
             pr = json.loads(_gh(["pr", "view", str(entry["number"]), "--repo", repo,
                                  "--json", PR_FIELDS]))
         except (RuntimeError, ValueError) as exc:
             print("::warning::skipping PR %s: %s" % (entry["number"], exc))
+            skipped += 1
             continue
         commits = pr.pop("commits", None) or []
         pr["headCommittedAt"] = commits[-1]["committedDate"] if commits else None
@@ -247,6 +280,15 @@ def fetch_open_prs(repo):
             # arming, and lands in stuck rather than being dropped silently.
             print("::warning::compare failed for #%s: %s" % (pr["number"], exc))
         out.append(pr)
+    if skipped:
+        # One loud line, because a guard that skips silently is
+        # indistinguishable from a healthy one: BUG-2314 ran blind for ~40h
+        # over eight stalled PRs this way. Never a failing exit - the sweep
+        # must stay unable to block anything.
+        print("::warning::%d of %d open PRs could not be read and were "
+              "SKIPPED - the sweep is blind to them. If the error above names "
+              "checkSuite.workflowRun, the workflow is missing actions: read."
+              % (skipped, len(numbers)))
     return out
 
 
@@ -303,11 +345,84 @@ def emit(event_type, payload):
         print("::warning::event emit failed (non-blocking): %s" % exc)
 
 
+REQUIRED_QUERY = """
+query($owner:String!,$repo:String!,$number:Int!){
+  repository(owner:$owner,name:$repo){
+    pullRequest(number:$number){
+      commits(last:1){nodes{commit{statusCheckRollup{contexts(first:100){nodes{
+        __typename
+        ... on CheckRun { name isRequired(pullRequestNumber:$number) }
+        ... on StatusContext { context isRequired(pullRequestNumber:$number) }
+      }}}}}}
+    }
+  }
+}
+"""
+
+
+def fetch_required_checks(repo, number):
+    """Names GitHub itself reports as required for THIS pull request.
+
+    `isRequired(pullRequestNumber:)` is the authoritative answer and the only
+    one this job can actually get. Reconstructing the set from configuration
+    does not work: the rulesets list is paginated, and classic branch
+    protection needs the Administration permission, which `permissions:` cannot
+    grant `GITHUB_TOKEN` — so `branches/{branch}/protection` returns 403 in the
+    only environment sweep() runs in, and the guard would return None on every
+    run. GitHub also folds in ruleset ref conditions and app_id matching, which
+    a hand-built union does not.
+
+    Returns None when the query fails or reports nothing required. Both mean the
+    same thing here: no positive evidence that any check is required, so nothing
+    may be dropped. An empty set is NOT authoritative — on a base that requires
+    nothing, filtering every failure out would send a red PR to `unarmed`, whose
+    advice is to arm auto-merge, which on such a base merges immediately.
+    """
+    owner, _, name = repo.partition("/")
+    try:
+        raw = _gh(["api", "graphql",
+                   "-f", "query=" + REQUIRED_QUERY,
+                   "-F", "owner=" + owner,
+                   "-F", "repo=" + name,
+                   "-F", "number=%d" % number])
+        payload = json.loads(raw)
+    except (RuntimeError, ValueError) as exc:
+        print("::warning::required-check set unreadable for %s#%s: %s"
+              % (repo, number, exc))
+        return None
+    if payload.get("errors"):
+        print("::warning::required-check set unreadable for %s#%s: %s"
+              % (repo, number, payload["errors"]))
+        return None
+    names = set()
+    try:
+        commits = payload["data"]["repository"]["pullRequest"]["commits"]["nodes"]
+        rollup = commits[0]["commit"]["statusCheckRollup"] or {}
+        nodes = (rollup.get("contexts") or {}).get("nodes") or []
+    except (KeyError, IndexError, TypeError) as exc:
+        print("::warning::required-check set unreadable for %s#%s "
+              "(unexpected payload): %s" % (repo, number, exc))
+        return None
+    for node in nodes:
+        if not node.get("isRequired"):
+            continue
+        name = node.get("name") or node.get("context") or ""
+        if name:
+            names.add(name)
+    return names or None
+
+
 def sweep(repo, threshold_min, now_ts, dry_run=False):
     now_iso = datetime.fromtimestamp(now_ts).astimezone().isoformat()
     results = []
     for pr in fetch_open_prs(repo):
-        cls = classify(pr, now_ts, threshold_min)
+        required = fetch_required_checks(repo, pr["number"])
+        dropped = [n for n in _failing(pr) if required and n not in required]
+        if dropped:
+            # A silent drop is how a wrong verdict leaves no trace. Name them.
+            print("::warning::#%s: failing checks the branch does not require, "
+                  "not counted: %s" % (pr["number"], ", ".join(sorted(dropped))))
+        cls = classify(pr, now_ts, threshold_min, required)
         number = pr["number"]
         labels = _labels(pr)
         if cls == "healthy":
@@ -326,7 +441,8 @@ def sweep(repo, threshold_min, now_ts, dry_run=False):
             continue
         _ensure_label(repo, STALLED_LABEL)
         subprocess.run(["gh", "pr", "comment", str(number), "--repo", repo,
-                        "--body", comment_body(pr, cls, who, idle_min, now_iso)],
+                        "--body", comment_body(pr, cls, who, idle_min, now_iso,
+                                               required is not None)],
                        capture_output=True, text=True)
         subprocess.run(["gh", "pr", "edit", str(number), "--repo", repo,
                         "--add-label", STALLED_LABEL], capture_output=True, text=True)
@@ -339,8 +455,11 @@ def sweep(repo, threshold_min, now_ts, dry_run=False):
 def _cmd_classify(args):
     pr = json.load(sys.stdin)
     now_ts = _ts(args.now)
+    required = None
+    if args.required is not None:
+        required = set(n for n in args.required.split(",") if n)
     print(json.dumps({
-        "class": classify(pr, now_ts, args.threshold),
+        "class": classify(pr, now_ts, args.threshold, required),
         "idle_minutes": round(idle_seconds(pr, now_ts) / 60),
     }))
     return 0
@@ -359,6 +478,9 @@ def main(argv=None):
     c = sub.add_parser("classify", help="classify one PR payload from stdin")
     c.add_argument("--now", required=True)
     c.add_argument("--threshold", type=int, default=60)
+    # Omitted means the required set is unavailable, which is what sweep() sees
+    # when the API reads fail. An empty value is a real empty set.
+    c.add_argument("--required")
     c.set_defaults(func=_cmd_classify)
     s = sub.add_parser("sweep", help="sweep a repo's open PRs")
     s.add_argument("--repo", required=True)

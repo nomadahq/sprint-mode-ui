@@ -69,10 +69,38 @@ jobs:
           # than rely on the absence of a key. Tested under both shells.
           REPO_V=$(grep '^version=' .sm-workflow.conf | head -1 | cut -d= -f2) || true
           if [ -z "$REPO_V" ]; then echo "::error::.sm-workflow.conf missing version="; exit 1; fi
+          # An absent token is a permanent misconfiguration, not an outage, and
+          # before BUG-2165 both landed on one conflated fail-open message.
+          # Measured 2026-08-17 -- the secret existed on zero of 11 adopted
+          # repositories, so this check had never compared a version anywhere
+          # while reporting green throughout.
+          #
+          # The fetch below is still ATTEMPTED with an empty token, on purpose.
+          # gh treats an empty GH_TOKEN as absent and falls through to ambient
+          # auth (GITHUB_TOKEN, then gh's own config), so on runners with
+          # ambient credentials the comparison and its below-floor exit 1 keep
+          # binding. A pre-network guard was implemented first and refuted in
+          # review for silently disabling exactly that floor (item BUG-2165,
+          # 2026-08-18: OLD rc=1 calls=2 vs NEW rc=0 calls=0). Only the MESSAGE
+          # branches, on what this run observed: the token it received was
+          # empty when the fetch failed. On a same-repo run that means
+          # SM_WORKFLOW_READ_TOKEN is not provisioned; fork and Dependabot
+          # pull_request runs receive no secrets by design, so there the notice
+          # is expected and asserts nothing about repository configuration.
+          #
+          # Still exit 0 on both arms. Fail-closed is correct and deliberately
+          # NOT done here: flipping it before the secret is verified fleet-wide
+          # would red every open PR on every adopted repository on their next
+          # 'wf sync' -- a fleet outage caused by a safety fix. That step is
+          # sequenced behind provisioning, not smuggled in with the diagnostic.
           # Fail-open on fetch errors: a kit outage must never brick the fleet.
           KIT_V=$(gh api repos/sprint-mode/sm-workflow/contents/VERSION --jq '.content' 2>/dev/null | base64 -d | tr -d '[:space:]') || true
           KIT_MIN=$(gh api repos/sprint-mode/sm-workflow/contents/MIN_VERSION --jq '.content' 2>/dev/null | base64 -d | tr -d '[:space:]') || true
           if [ -z "${KIT_V:-}" ] || [ -z "${KIT_MIN:-}" ]; then
+            if [ -z "${GH_TOKEN:-}" ]; then
+              echo "::warning::sm-workflow drift check NOT CONFIGURED for this run: the kit VERSION fetch returned nothing and the token this run received was empty, so no version was compared. On a same-repo run this usually means secret SM_WORKFLOW_READ_TOKEN is not available to this run - not provisioned, or scoped to an environment this job does not declare - ask an org admin. Fork and Dependabot pull_request runs receive no Actions secrets by design; there this notice is expected."
+              exit 0
+            fi
             echo "::warning::Could not fetch kit VERSION (token/network) — drift check skipped."
             exit 0
           fi

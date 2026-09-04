@@ -112,4 +112,33 @@ describe("SiteHeader (logged-out marketing shell)", () => {
     expect(siteThemeSnippet).toContain("sm-theme");
     expect(siteThemeSnippet).toContain("data-theme");
   });
+
+  it("uses light wordmark when sm-theme='light', even when OS prefers dark", () => {
+    // Simulate OS dark preference via matchMedia — the <source media> bug caused
+    // this to override the explicit stored theme before the picture element was removed.
+    Object.defineProperty(window, "matchMedia", {
+      writable: true,
+      value: (query) => ({
+        matches: query === "(prefers-color-scheme: dark)",
+        media: query,
+        addEventListener: () => {},
+        removeEventListener: () => {},
+      }),
+    });
+    localStorage.setItem("sm-theme", "light");
+    render(<SiteHeader subdomain="capital" config={CAPITAL} />);
+    const logo = screen.getByRole("img", { name: "Capital" });
+    // Must be the light URL despite OS dark preference.
+    expect(logo).toHaveAttribute("src", CAPITAL.logo_horizontal_url);
+    // No <source> element may override the explicit theme choice.
+    expect(document.querySelector("source")).toBeNull();
+  });
+
+  it("uses dark wordmark when sm-theme='dark' is stored", () => {
+    localStorage.setItem("sm-theme", "dark");
+    render(<SiteHeader subdomain="capital" config={CAPITAL} />);
+    const logo = screen.getByRole("img", { name: "Capital" });
+    expect(logo).toHaveAttribute("src", CAPITAL.logo_dark_url);
+    expect(document.documentElement.getAttribute("data-theme")).toBe("dark");
+  });
 });

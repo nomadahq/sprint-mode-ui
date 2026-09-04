@@ -199,22 +199,13 @@ function h(i) {
 			children: [/* @__PURE__ */ r("a", {
 				href: u,
 				className: "smsh__brand",
-				children: [w && E ? /* @__PURE__ */ r("picture", {
-					style: {
-						display: "flex",
-						alignItems: "center"
-					},
-					children: [C ? /* @__PURE__ */ n("source", {
-						srcSet: C,
-						media: "(prefers-color-scheme: dark)"
-					}) : null, /* @__PURE__ */ n("img", {
-						className: "smsh__logo",
-						src: w,
-						alt: x,
-						onError: function() {
-							D(!1);
-						}
-					})]
+				children: [w && E ? /* @__PURE__ */ n("img", {
+					className: "smsh__logo",
+					src: w,
+					alt: x,
+					onError: function() {
+						D(!1);
+					}
 				}) : /* @__PURE__ */ n("span", {
 					className: "smsh__name",
 					children: x

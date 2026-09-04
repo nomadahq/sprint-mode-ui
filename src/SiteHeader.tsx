@@ -259,15 +259,12 @@ export function SiteHeader(props: SiteHeaderProps) {
             Falls back to the portal name as text if the image fails to load. */}
         <a href={homeHref} className="smsh__brand">
           {wordmark && logoOk ? (
-            <picture style={{ display: 'flex', alignItems: 'center' }}>
-              {wordmarkDark ? <source srcSet={wordmarkDark} media="(prefers-color-scheme: dark)" /> : null}
-              <img
-                className="smsh__logo"
-                src={wordmark}
-                alt={name}
-                onError={function() { setLogoOk(false) }}
-              />
-            </picture>
+            <img
+              className="smsh__logo"
+              src={wordmark}
+              alt={name}
+              onError={function() { setLogoOk(false) }}
+            />
           ) : (
             <span className="smsh__name">{name}</span>
           )}

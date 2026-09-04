@@ -164,6 +164,15 @@ const Login: React.FC<LoginProps> = function Login({
     setLoading(true);
     setError(null);
     var bodyObj: Record<string, string> = { email: email, redirect: redirect };
+    // BUG-3091: when the portal prop (or resolved portal config subdomain) is
+    // set, include it in the body so /auth/magic stamps the correct product on
+    // the magic_tokens row. Without this, the server falls back to Origin
+    // derivation, which fails on non-*.sprintmode.ai origins (e.g.
+    // safeshepherd-admin.pages.dev), producing a product=null code that
+    // /auth/verify-code cannot match — locking out any portal on a pages.dev
+    // or custom domain that proxies through to the SM API.
+    var _portal = resolvePortal();
+    if (_portal) bodyObj.product = _portal;
     if (linkTo) bodyObj.link_to = linkTo;
     if (isSignup && signupParams) {
       var sp = new URLSearchParams(signupParams);

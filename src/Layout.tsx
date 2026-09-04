@@ -1362,7 +1362,12 @@ const Layout: React.FC<LayoutProps> = function Layout(props: LayoutProps) {
   var sidebarBottom = props.sidebarBottom
   var sidebarTop = props.sidebarTop
   var viewAsEnabled = props.viewAsEnabled
-  var viewAsApi = props.viewAsApi || '/api/db/admin-users'
+  // TASK-2037: no fallback feed. Every portal passes its own viewAsApi (admin,
+  // signal, waffle, studios, investors all do); the old default pointed at
+  // /api/db/admin-users, a pre-identity-core roster that no portal should
+  // impersonate from. A portal that omits viewAsApi gets no View-as at all
+  // rather than a silent wrong feed.
+  var viewAsApi = props.viewAsApi || ''
   var headerIcon = props.headerIcon
   var onLogout = props.onLogout
   var profilePath = props.profilePath
@@ -1497,9 +1502,9 @@ const Layout: React.FC<LayoutProps> = function Layout(props: LayoutProps) {
     ? (session as any).portals[portalSubdomain].view_as as string | false | null
     : null
   var isSuperAdmin = session && ((session as any).role === 'super_admin' || (session as any).portal_role === 'super_admin' || (session as any).role === 'admin' || (session as any).portal_role === 'admin' || (session as any).is_sm_team)
-  var showViewAs = canViewAsFromSession !== null
+  var showViewAs = !!viewAsApi && (canViewAsFromSession !== null
     ? (viewAsEnabled !== false && canViewAsFromSession)
-    : (viewAsEnabled && (viewAsAnyRole ? !!session : isSuperAdmin))
+    : (viewAsEnabled && (viewAsAnyRole ? !!session : isSuperAdmin)))
   // ── Server lens (PORTAL-RBAC-VIEWAS-3) ─────────────────────────────────────
   // View-as rides the SERVER: POST /api/auth/view-as sets viewing_as on the
   // per-portal session cookie, and /auth/me returns the lensed role,

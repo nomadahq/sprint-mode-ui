@@ -1736,13 +1736,6 @@ const Layout: React.FC<LayoutProps> = function Layout(props: LayoutProps) {
     applyServerLens(body, { customer: true })
   }
 
-  function selectCustomerCompany(members: ViewAsUser[]) {
-    // Company-level lens: anchor on the first member's contact; the server
-    // resolves the effective role (owner-member first, then portal default).
-    var first = members[0]
-    if (!first) return
-    applyServerLens(first.email ? { email: first.email } : { contact_id: first.contact_id || first.id }, { customer: true })
-  }
 
   // effectiveRole/Perms come straight from the session — /auth/me already
   // resolves role, permissions, and sections through the lens when
@@ -2039,7 +2032,10 @@ const Layout: React.FC<LayoutProps> = function Layout(props: LayoutProps) {
           ? (vaCompanies.length === 0 ? React.createElement('div', { className: 'shell-va-empty' },
               vaFeedState === 'loading' ? 'Loading people\u2026' : vaFeedState === 'error' ? vaFeedMsg : 'No matches') : vaCompanies.map(function(co) {
               return React.createElement(React.Fragment, { key: co.key },
-                React.createElement('button', { className: 'shell-va-co', onClick: function() { selectCustomerCompany(co.members) }, disabled: vaBusy }, co.name),
+                // Aaron ruling 2026-09-04: the company header is a label, not a lens.
+                // Clicking it used to anchor on members[0] -- you clicked "Sprint Mode
+                // LLC" and silently became Aaron. A lens is always a named person.
+                React.createElement('div', { className: 'shell-va-co', role: 'heading', 'aria-level': 3 }, co.name),
                 co.members.map(function(u) {
                   return React.createElement('button', { key: u.email || u.id, className: 'shell-va-person', onClick: function() { selectCustomerPerson(u) }, disabled: vaBusy },
                     React.createElement('span', { className: 'shell-va-person-name' }, u.name || (u.email ? u.email.split('@')[0] : '?')),

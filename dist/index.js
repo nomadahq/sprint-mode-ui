@@ -106655,7 +106655,7 @@ function u9() {
 	}, []), t;
 }
 var BMe = function(t) {
-	var n = t.navConfig, r = t.navSections, a = t.navBottom, h = t.session, g = t.children, _ = t.logoSrc, v = t.logoAlt, y = t.title, b = t.headerRight, x = t.sidebarBottom, S = t.sidebarTop, C = t.viewAsEnabled, w = t.viewAsApi || "/api/db/admin-users", T = t.headerIcon, E = t.onLogout, D = t.profilePath, O = t.cmdK && typeof t.cmdK == "object" && t.cmdK.placeholder || "Jump to...", k = t.cmdKItems, A = t.onSearch, j = t.recentKey, M = t.showCompanyName, N = t.byLine, P = t.userMenuExtra, F = t.notificationApiBase === void 0 ? "" : t.notificationApiBase, R = t.headerCta, z = t.viewAsAnyRole, B = G7(), V = t.cmdK === void 0 ? B.config ? B.config.cmdk !== 0 : !0 : t.cmdK !== !1, H = s(h || null), U = H[0], W = H[1], G = s(!h), ee = G[0], K = G[1], te = s(!1), ne = te[0], re = te[1], ie = s(""), ae = ie[0], oe = ie[1], se = U ? U.bugs_access : void 0, q = U && U.permissions && U.permissions.bugs, ce = se === void 0 ? !!(q && q.edit) : se >= 2, le = s(!1), J = le[0], Y = le[1], ue = s(!1), de = ue[0], fe = ue[1], pe = s(function() {
+	var n = t.navConfig, r = t.navSections, a = t.navBottom, h = t.session, g = t.children, _ = t.logoSrc, v = t.logoAlt, y = t.title, b = t.headerRight, x = t.sidebarBottom, S = t.sidebarTop, C = t.viewAsEnabled, w = t.viewAsApi || "", T = t.headerIcon, E = t.onLogout, D = t.profilePath, O = t.cmdK && typeof t.cmdK == "object" && t.cmdK.placeholder || "Jump to...", k = t.cmdKItems, A = t.onSearch, j = t.recentKey, M = t.showCompanyName, N = t.byLine, P = t.userMenuExtra, F = t.notificationApiBase === void 0 ? "" : t.notificationApiBase, R = t.headerCta, z = t.viewAsAnyRole, B = G7(), V = t.cmdK === void 0 ? B.config ? B.config.cmdk !== 0 : !0 : t.cmdK !== !1, H = s(h || null), U = H[0], W = H[1], G = s(!h), ee = G[0], K = G[1], te = s(!1), ne = te[0], re = te[1], ie = s(""), ae = ie[0], oe = ie[1], se = U ? U.bugs_access : void 0, q = U && U.permissions && U.permissions.bugs, ce = se === void 0 ? !!(q && q.edit) : se >= 2, le = s(!1), J = le[0], Y = le[1], ue = s(!1), de = ue[0], fe = ue[1], pe = s(function() {
 		try {
 			return localStorage.getItem("sm-sidebar-rail") === "1";
 		} catch {
@@ -106725,7 +106725,7 @@ var BMe = function(t) {
 			W(e), K(!1);
 		});
 	}, []);
-	var Fe = t.portalSubdomain, Ie = Fe && U && U.portals && U.portals[Fe] ? U.portals[Fe].view_as : null, Le = U && (U.role === "super_admin" || U.portal_role === "super_admin" || U.role === "admin" || U.portal_role === "admin" || U.is_sm_team), Re = Ie === null ? C && (z ? !!U : Le) : C !== !1 && Ie, Q = U && U.viewing_as || null, ze = Q ? Q.lens === "user" ? "customer" : Q.lens : null, Be = Q && (ze === "team" || ze === "both") ? {
+	var Fe = t.portalSubdomain, Ie = Fe && U && U.portals && U.portals[Fe] ? U.portals[Fe].view_as : null, Le = U && (U.role === "super_admin" || U.portal_role === "super_admin" || U.role === "admin" || U.portal_role === "admin" || U.is_sm_team), Re = !!w && (Ie === null ? C && (z ? !!U : Le) : C !== !1 && Ie), Q = U && U.viewing_as || null, ze = Q ? Q.lens === "user" ? "customer" : Q.lens : null, Be = Q && (ze === "team" || ze === "both") ? {
 		email: Q.email || "",
 		name: Q.name || "",
 		company_id: Q.company_id || void 0,

@@ -9,6 +9,9 @@ export { getSession as fetchSession, clearSession, api, formatCurrency, formatDa
 export { NotificationBellNav } from './NotificationBellNav.js';
 export { ProfileCard } from './ProfileCard.js';
 export { usePortalConfig, PortalConfigProvider } from './usePortalConfig.js';
+export { SiteHeader } from './SiteHeader.js';
+export type { SiteHeaderProps, SiteHeaderNavLink, SiteHeaderConfig } from './SiteHeader.js';
+export { siteThemeSnippet, applySiteTheme, formatPageTitle, setPageTitle, usePageTitle } from './site-helpers.js';
 export { UpdateAttachments } from './UpdateAttachments.js';
 export { PortalUpdates } from './PortalUpdates.js';
 export { PortalUpdatesV2 } from './PortalUpdatesV2.js';

@@ -58,6 +58,13 @@ export { NotificationBellNav } from './NotificationBellNav.tsx'
 export { ProfileCard } from './ProfileCard.tsx'
 export { usePortalConfig, PortalConfigProvider } from './usePortalConfig.tsx'
 
+// Public marketing-site shell (FEAT-2997). Session-free; a marketing site should
+// import from '@sprintmode/ui/site' to keep session code out of its bundle, but
+// the symbols are re-exported here for discoverability.
+export { SiteHeader } from './SiteHeader.tsx'
+export type { SiteHeaderProps, SiteHeaderNavLink, SiteHeaderConfig } from './SiteHeader.tsx'
+export { siteThemeSnippet, applySiteTheme, formatPageTitle, setPageTitle, usePageTitle } from './site-helpers.ts'
+
 export { UpdateAttachments } from './UpdateAttachments.tsx'
 export { PortalUpdates } from './PortalUpdates.tsx'
 export { PortalUpdatesV2 } from './PortalUpdatesV2.tsx'

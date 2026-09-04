@@ -28,6 +28,9 @@ export default defineConfig({
       entry: {
         index: resolve(__dirname, 'src/index.ts'),
         auth: resolve(__dirname, 'src/auth.ts'),
+        // FEAT-2997: public marketing-site shell. Separate entry so consumer
+        // bundles get a chunk with no session code.
+        site: resolve(__dirname, 'src/site.ts'),
       },
       formats: ['es'],
     },

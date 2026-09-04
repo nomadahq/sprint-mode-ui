@@ -108,8 +108,7 @@
 .shell-va-search { width: 100%; box-sizing: border-box; padding: 9px 12px; border: 1px solid var(--border); border-radius: var(--radius-sm, 8px); background: var(--bg); color: var(--foreground); font-size: 13px; font-family: var(--font); margin-bottom: 8px; }
 .shell-va-search:focus { outline: none; border-color: var(--accent); }
 .shell-va-list { display: flex; flex-direction: column; }
-.shell-va-co { display: block; width: 100%; text-align: left; padding: 7px 8px; border: none; background: transparent; color: var(--foreground); font-size: 14px; font-weight: 600; cursor: pointer; font-family: var(--font); border-radius: var(--radius-sm, 8px); }
-.shell-va-co:hover { background: var(--bg-subtle); }
+.shell-va-co { display: block; width: 100%; text-align: left; padding: 7px 8px; color: var(--foreground); font-size: 14px; font-weight: 600; font-family: var(--font); cursor: default; }
 .shell-va-person { display: flex; width: 100%; align-items: center; justify-content: space-between; gap: 8px; padding: 6px 8px 6px 24px; border: none; background: transparent; cursor: pointer; font-family: var(--font); border-radius: var(--radius-sm, 8px); }
 .shell-va-person:hover { background: var(--bg-subtle); }
 .shell-va-person-team { padding-left: 8px; }

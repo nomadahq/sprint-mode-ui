@@ -90,4 +90,13 @@ export function SettingsPage() {
     expect(pinMatch.status).toBe('pass')
     expect(allRepoChecksPass(results)).toBe(true)
   })
+
+  it('stays green when the dark-theme tint rule carries a hex value', () => {
+    const htmlPath = join(dir, 'index.html')
+    const raw = readFileSync(htmlPath, 'utf8')
+    writeFileSync(htmlPath, raw.replace('--accent-tint: rgba(75, 42, 173, 0.18);', '--accent-tint: #2a1a5e;'))
+    const results = runChecks(dir, standard, { newestTag: '1.2.0' })
+    expect(findResult(results, 'no-hardcoded-brand-values').status).toBe('pass')
+  })
+
 })

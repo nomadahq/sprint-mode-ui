@@ -465,7 +465,8 @@ function checkNoHardcodedBrandValues(root) {
     let raw = readSafe(file)
     if (raw == null) continue
     // Allowlist: the brand override block.
-    raw = raw.replace(/html\[data-product=["'][^"']+["']\]\s*\{[^}]*\}/g, '')
+    // (both the base selector and its [data-theme="dark"] tint rule).
+    raw = raw.replace(/html\[data-product=["'][^"']+["']\](?:\[[^\]]*\])*\s*\{[^}]*\}/g, '')
     raw.split('\n').forEach((line, idx) => {
       // Allowlist: SVG fill attributes/declarations.
       if (/\bfill\s*[:=]\s*["']?#[0-9a-fA-F]{3,8}/i.test(line)) return

@@ -140,7 +140,7 @@ describe('sm-portal-lock reports a deviation for each repo-side violation', () =
   })
 
   it('check 26: an advanced-mode public/_worker.js is present', () => {
-    writeFileSync(join(dir, 'public', '_worker.js'), 'export default { fetch(request, env) { return env.ASSETS.fetch(request) } }\n')
+    appendToFile(join(dir, 'public', '_worker.js'), 'export default { fetch(request, env) { return env.ASSETS.fetch(request) } }\n')
     const results = runChecks(dir, standard, {})
     expect(findResult(results, 'functions-passthrough-product-header').status).toBe('deviation')
   })

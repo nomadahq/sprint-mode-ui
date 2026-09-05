@@ -104,6 +104,17 @@ describe('portal-standard.json validates against portal-standard.schema.json', (
     expect(warnOnly).toEqual([2, 14, 29])
   })
 
+  it('derives a_warns_only and gates from each approved title annotation', () => {
+    for (const check of standard.checks) {
+      const annotation = check.title.match(/\[([^\]]*)\]\s*$/)
+      expect(annotation, `check ${check.id} has no bracket annotation`).toBeTruthy()
+      const text = annotation[1]
+      expect(check.a_warns_only).toBe(/\bA warns\b/.test(text))
+      const letters = ['A', 'N', 'S'].filter((g) => new RegExp(`(^|[\\s,;\\[])${g}\\b`).test(text))
+      expect(check.gates).toEqual(letters)
+    }
+  })
+
   it('every gates entry is a non-empty subset of A, N, S', () => {
     for (const check of standard.checks) {
       expect(check.gates.length).toBeGreaterThan(0)

@@ -25,6 +25,7 @@ const PACKAGE_ROOT = resolve(__dirname, '..')
 const SOURCE_EXTENSIONS = ['.js', '.jsx', '.ts', '.tsx', '.mjs']
 const WALK_EXCLUDES = new Set(['node_modules', '.git', 'dist', 'build', '.next', 'coverage'])
 const SHELL_COMPONENT_NAMES = [
+  'ProfileCard',
   'Layout',
   'Login',
   'AccountSwitcher',
@@ -381,17 +382,17 @@ function checkLoginUsesSmUi(root) {
     const raw = readSafe(file)
     if (raw == null) continue
     if (/<Login\b[^>]*\bportal=/.test(raw)) sawLoginWithPortal = true
-    if (/['"`]\/auth\/magic['"`]/.test(raw) && !/@sprint-mode\/sm-ui/.test(raw)) {
+    if (/['"`]\/auth\/(?:magic|verify-code)['"`]/.test(raw) && !/@sprint-mode\/sm-ui/.test(raw)) {
       magicOffenders.push(relative(root, file))
     }
   }
   if (magicOffenders.length) {
-    return { status: 'deviation', found: `local /auth/magic call in ${magicOffenders.join(', ')}`, expected: 'no /auth/magic call outside sm-ui', fix_where: fixWhere }
+    return { status: 'deviation', found: `local /auth/magic or /auth/verify-code call in ${magicOffenders.join(', ')}`, expected: 'no /auth/magic or /auth/verify-code call outside sm-ui', fix_where: fixWhere }
   }
   if (!sawLoginWithPortal) {
     return { status: 'deviation', found: 'no <Login ... portal=...> usage found', expected: '<Login portal="<slug>" ...> from @sprint-mode/sm-ui', fix_where: fixWhere }
   }
-  return { status: 'pass', found: '<Login portal=...> found; no local /auth/magic call', expected: 'same', fix_where: fixWhere }
+  return { status: 'pass', found: '<Login portal=...> found; no local /auth/magic or /auth/verify-code call', expected: 'same', fix_where: fixWhere }
 }
 
 function checkNoLocalRoleList(root) {
@@ -561,12 +562,41 @@ function checkNoNonSpineAuthCalls(root) {
 
 // --- runner ------------------------------------------------------------------
 
+// Check 26: the Pages Functions passthrough (functions/**) sets X-SM-Product
+// to the slug, and the portal does not ship an advanced-mode _worker.js at
+// the root or under public/ (the standard template uses functions/).
+function checkFunctionsPassthrough(root, standard, ctx) {
+  const fixWhere = 'functions/api/[[catchall]].js -- set X-SM-Product from portal.json; delete any _worker.js'
+  const workers = ['_worker.js', join('public', '_worker.js')].filter((f) => existsSync(join(root, f)))
+  if (workers.length) {
+    return { status: 'deviation', found: `${workers.join(', ')} present`, expected: 'no root or public _worker.js; use functions/', fix_where: fixWhere }
+  }
+  const fnDir = join(root, 'functions')
+  if (!existsSync(fnDir)) {
+    return { status: 'deviation', found: 'no functions/ directory', expected: 'functions/ passthrough setting X-SM-Product', fix_where: fixWhere }
+  }
+  const files = walk(fnDir).filter((f) => SOURCE_EXTENSIONS.includes(extname(f)))
+  const setters = files.filter((f) => /X-SM-Product/.test(readSafe(f) || ''))
+  if (!setters.length) {
+    return { status: 'deviation', found: 'no functions/ file sets X-SM-Product', expected: 'functions/ passthrough sets X-SM-Product to the slug', fix_where: fixWhere }
+  }
+  const slug = ctx.dataProductSlug
+  const named = setters.filter((f) => {
+    const raw = readSafe(f) || ''
+    return /portal\.json/.test(raw) || (slug && raw.includes(slug))
+  })
+  if (!named.length) {
+    return { status: 'deviation', found: `X-SM-Product set in ${setters.map((f) => relative(root, f)).join(', ')} but not from portal.json or the slug`, expected: 'X-SM-Product equals the portal slug (read from portal.json)', fix_where: fixWhere }
+  }
+  return { status: 'pass', found: `X-SM-Product set in ${named.map((f) => relative(root, f)).join(', ')}; no _worker.js`, expected: 'same', fix_where: fixWhere }
+}
+
 const CHECK_IMPLS = {
   'sm-ui-pinned-exact': (root, standard, ctx) => ctx.pin,
   'sm-ui-pin-matches-newest-tag': checkSmUiPinMatchesNewestTag,
   'package-lock-in-sync': checkPackageLockInSync,
   'workflow-uses-npm-ci': checkWorkflowUsesNpmCi,
-  'kit-files-present': checkKitFilesPresent,
+  'kit-adopted': checkKitFilesPresent, // N/S gate: kept for the audit; not run by this bin
   'portal-json-present': checkPortalJsonPresent,
   'no-local-shell-components': checkNoLocalShellComponents,
   'login-uses-sm-ui': checkLoginUsesSmUi,
@@ -577,6 +607,7 @@ const CHECK_IMPLS = {
   'view-as-feed-declared': checkViewAsFeedDeclared,
   'auth-me-shape-correct': checkAuthMeShape,
   'no-non-spine-auth-calls': checkNoNonSpineAuthCalls,
+  'functions-passthrough-product-header': checkFunctionsPassthrough,
 }
 
 export function runChecks(root, standard, opts = {}) {
@@ -586,7 +617,7 @@ export function runChecks(root, standard, opts = {}) {
   const htmlSlugResult = checkDataProductOnHtml(root)
   const ctx = { pin, htmlSlugResult, newestTag: opts.newestTag || null, dataProductSlug: htmlSlugResult._slug }
 
-  const repoChecks = standard.checks.filter((c) => c.source === 'repo')
+  const repoChecks = standard.checks.filter((c) => c.source === 'repo' && c.gates.includes('A'))
   const results = []
   for (const check of repoChecks) {
     const impl = CHECK_IMPLS[check.key]

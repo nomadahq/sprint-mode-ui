@@ -62,8 +62,8 @@
 
 ## Risks
 
-- **The 29 check titles are Aaron's approved text; the item forbids adding or rewording one.** Several titles carry a trailing bracket annotation (e.g. `[A warns,N]`) that is not fully consistent with the item's separate instruction that only checks 2 and 14 are `a_warns_only`. Resolution: titles are stored byte-for-byte as given (brackets included), while the structured `gates` and `a_warns_only` fields follow the narrower explicit rule. Flagged for Aaron in the PR body and the session report rather than silently resolved either way.
-- **Two schema fields have no named source in the stored scope**: the "seven variables" for the brand override block (check 12), and a minimum template version for `portal.json` (check 7). Resolution: the seven variables are read directly off `src/tokens.css` and `src/*.tsx` usage (`--accent`, `--accent-hover`, `--accent-foreground`, `--accent-10`, `--accent-20`, `--accent-tint`, `--accent-soft` -- an exact count of 7 found in the existing codebase, not guessed); the minimum template version is a placeholder (`1.0.0`) since square 2 (the template) has not shipped yet. Both are called out explicitly in the session report.
+- **The 29 check titles are Aaron's approved text; the item forbids adding or rewording one.** Titles are stored byte-for-byte from the approved list on FEAT-3170 (bracket gate annotations included); the structured `gates` and `a_warns_only` fields follow the same annotations (warn-only in A: 2, 14 and 29).
+- **Two schema fields are pinned from the approved lines and the shipped template**: the brand override block carries the six accent variables named in line 13 plus the `html[data-product][data-theme="dark"]` tint rule; the minimum template version is `0.1.0`, the version sm-portal-template ships.
 - **Check 3 ("npm ci passes") cannot literally run `npm ci` inside a fixture-based, offline unit test.** Resolution: implemented as a deterministic proxy (the lockfile must exist and pin `@sprint-mode/sm-ui` at the same version as `package.json`), documented in the bin's source and the session report as an approximation, not a live registry check.
 
 ## Execution controls

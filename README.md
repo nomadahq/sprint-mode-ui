@@ -187,9 +187,8 @@ published tag) reports `unknown` unless `--newest-tag` is given.
 ### Exit codes
 
 `sm-portal-lock` exits `1` if any check is a `deviation` that is **not** marked
-`a_warns_only` in `portal-standard.json` (currently checks 2 and 14 -- 14 is not
-a repo-side check, so in practice only check 2 can be a warn-only deviation
-here). It exits `0` otherwise: every check passed, or the only deviations left
+`a_warns_only` in `portal-standard.json` (checks 2, 14 and 29, per the approved
+lines). It exits `0` otherwise: every check passed, or the only deviations left
 are warn-only, exceptions, or unknown.
 
 ### Overrides

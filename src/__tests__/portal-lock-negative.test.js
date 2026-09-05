@@ -55,13 +55,6 @@ describe('sm-portal-lock reports a deviation for each repo-side violation', () =
     expect(findResult(results, 'workflow-uses-npm-ci').status).toBe('deviation')
   })
 
-  it('check 6: AGENTS.md is missing the sm-workflow managed block', () => {
-    const agentsPath = join(dir, 'AGENTS.md')
-    writeFileSync(agentsPath, '# Plain AGENTS.md with no managed block\n')
-    const results = runChecks(dir, standard, {})
-    expect(findResult(results, 'kit-files-present').status).toBe('deviation')
-  })
-
   it('check 7: portal.json template_version is below the standard minimum', () => {
     const portalPath = join(dir, 'portal.json')
     const portal = readJson(portalPath)
@@ -98,7 +91,7 @@ describe('sm-portal-lock reports a deviation for each repo-side violation', () =
     expect(findResult(results, 'no-local-role-list').status).toBe('deviation')
   })
 
-  it('check 11: <html> has no data-product attribute', () => {
+  it('check 12: <html> has no data-product attribute', () => {
     const htmlPath = join(dir, 'index.html')
     const raw = readFileSync(htmlPath, 'utf8')
     writeFileSync(htmlPath, raw.replace(' data-product="acme-widgets"', ''))
@@ -106,7 +99,7 @@ describe('sm-portal-lock reports a deviation for each repo-side violation', () =
     expect(findResult(results, 'data-product-on-html').status).toBe('deviation')
   })
 
-  it('check 12: the brand override block is missing a required variable', () => {
+  it('check 13: the brand override block is missing a required variable', () => {
     const htmlPath = join(dir, 'index.html')
     const raw = readFileSync(htmlPath, 'utf8')
     writeFileSync(htmlPath, raw.replace(/--accent-tint: #eee9fb;\s*/, ''))
@@ -114,7 +107,7 @@ describe('sm-portal-lock reports a deviation for each repo-side violation', () =
     expect(findResult(results, 'brand-override-block-present').status).toBe('deviation')
   })
 
-  it('check 12: the dark-theme tint rule is missing', () => {
+  it('check 13: the dark-theme tint rule is missing', () => {
     const htmlPath = join(dir, 'index.html')
     const raw = readFileSync(htmlPath, 'utf8')
     writeFileSync(htmlPath, raw.replace(/html\[data-product="acme-widgets"\]\[data-theme="dark"\]\s*\{[^}]*\}\s*/, ''))
@@ -122,7 +115,7 @@ describe('sm-portal-lock reports a deviation for each repo-side violation', () =
     expect(findResult(results, 'brand-override-block-present').status).toBe('deviation')
   })
 
-  it('check 13: a hardcoded hex color appears outside the override block', () => {
+  it('check 14: a hardcoded hex color appears outside the override block', () => {
     appendToFile(
       join(dir, 'pages', 'HardcodedColor.jsx'),
       "export function Banner() { return <div style={{ color: '#ff00aa' }}>Sale</div> }\n",
@@ -131,13 +124,25 @@ describe('sm-portal-lock reports a deviation for each repo-side violation', () =
     expect(findResult(results, 'no-hardcoded-brand-values').status).toBe('deviation')
   })
 
-  it('check 26: view-as is enabled without an explicit viewAsApi', () => {
+  it('check 11: view-as is enabled without an explicit viewAsApi', () => {
     appendToFile(
       join(dir, 'pages', 'LegacyViewAs.jsx'),
       "import { Layout } from '@sprint-mode/sm-ui'\nexport function Shell() { return <Layout viewAsEnabled={true} /> }\n",
     )
     const results = runChecks(dir, standard, {})
     expect(findResult(results, 'view-as-feed-declared').status).toBe('deviation')
+  })
+
+  it('check 26: no functions/ file sets X-SM-Product', () => {
+    writeFileSync(join(dir, 'functions', 'api', '[[catchall]].js'), "export async function onRequest(context) { return fetch(context.request) }\n")
+    const results = runChecks(dir, standard, {})
+    expect(findResult(results, 'functions-passthrough-product-header').status).toBe('deviation')
+  })
+
+  it('check 26: an advanced-mode public/_worker.js is present', () => {
+    writeFileSync(join(dir, 'public', '_worker.js'), 'export default { fetch(request, env) { return env.ASSETS.fetch(request) } }\n')
+    const results = runChecks(dir, standard, {})
+    expect(findResult(results, 'functions-passthrough-product-header').status).toBe('deviation')
   })
 
   it('check 27: the page gate reads data.data instead of { ok, user }', () => {

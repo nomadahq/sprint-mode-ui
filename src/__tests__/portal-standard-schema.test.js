@@ -99,9 +99,9 @@ describe('portal-standard.json validates against portal-standard.schema.json', (
     expect(new Set(standard.checks.map((c) => c.key)).size).toBe(29)
   })
 
-  it('marks only checks 2 and 14 as a_warns_only, per the approved design', () => {
+  it('marks only checks 2, 14 and 29 as a_warns_only, per the approved lines', () => {
     const warnOnly = standard.checks.filter((c) => c.a_warns_only).map((c) => c.id)
-    expect(warnOnly).toEqual([2, 14])
+    expect(warnOnly).toEqual([2, 14, 29])
   })
 
   it('every gates entry is a non-empty subset of A, N, S', () => {

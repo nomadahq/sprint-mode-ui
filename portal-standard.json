@@ -40,7 +40,8 @@
     "required_fields": [
       "template",
       "template_version",
-      "type"
+      "type",
+      "modules"
     ],
     "min_template_version": "0.1.0"
   },
@@ -77,7 +78,7 @@
     {
       "id": 1,
       "key": "sm-ui-pinned-exact",
-      "title": "sm-ui pinned exact (no ^, ~, github:, latest) in package.json [A,N,S]",
+      "title": "sm-ui pinned to an exact version (no range, no github: ref, no latest). [A, N, S]",
       "gates": [
         "A",
         "N",
@@ -89,7 +90,7 @@
     {
       "id": 2,
       "key": "sm-ui-pin-matches-newest-tag",
-      "title": "pinned sm-ui equals the newest published tag or a declared exception [A warns only,N]",
+      "title": "sm-ui pinned version equals the newest published tag, or a declared exception. [N deviation; A warns only]",
       "gates": [
         "A",
         "N"
@@ -100,9 +101,11 @@
     {
       "id": 3,
       "key": "package-lock-in-sync",
-      "title": "package-lock.json committed and in sync (npm ci passes) [A]",
+      "title": "package-lock.json committed and consistent (npm ci succeeds). [A, N, S]",
       "gates": [
-        "A"
+        "A",
+        "N",
+        "S"
       ],
       "source": "repo",
       "a_warns_only": false
@@ -110,7 +113,7 @@
     {
       "id": 4,
       "key": "workflow-uses-npm-ci",
-      "title": "workflow installs with npm ci, never npm install [A,N]",
+      "title": "The workflow installs with npm ci, never npm install. [A, N]",
       "gates": [
         "A",
         "N"
@@ -121,20 +124,21 @@
     {
       "id": 5,
       "key": "workflow-secrets-present",
-      "title": "secrets referenced by the workflow exist on the repo (PACKAGES, SM_API_KEY) [N]",
+      "title": "Secrets the workflows reference exist on the repo (PACKAGES, SM_API_KEY). [N, S]",
       "gates": [
-        "N"
+        "N",
+        "S"
       ],
       "source": "pages",
       "a_warns_only": false
     },
     {
       "id": 6,
-      "key": "kit-files-present",
-      "title": "kit files present: CODEOWNERS, .sm-workflow.conf at the fleet version, ci-gate job, AGENTS.md per the kit's adoption definition [A,N]",
+      "key": "kit-adopted",
+      "title": "Kit-adopted per Q7: pack files present at the fleet version, ruleset requires ci-gate, sm-workflow-drift, codeowner-gate, ai-review-gate, commit-identity, auto-merge on. [N, S]",
       "gates": [
-        "A",
-        "N"
+        "N",
+        "S"
       ],
       "source": "repo",
       "a_warns_only": false
@@ -142,7 +146,7 @@
     {
       "id": 7,
       "key": "portal-json-present",
-      "title": "portal.json present with template name, template version and type; template version at or above the standard's minimum [A,N,S]",
+      "title": "portal.json present with template name, template_version at or above the standard's minimum, type and modules. [A, N, S]",
       "gates": [
         "A",
         "N",
@@ -154,7 +158,7 @@
     {
       "id": 8,
       "key": "no-local-shell-components",
-      "title": "app imports Layout from @sprint-mode/sm-ui and defines no local component named Layout, Login, AccountSwitcher, PortalPicker, NotificationBellNav, PageGate or PortalSupportWidget [A,N]",
+      "title": "Layout, Login, PageGate come from @sprint-mode/sm-ui; no local component named like an sm-ui export (Layout, Login, AccountSwitcher, PortalPicker, NotificationBellNav, PageGate, PortalSupportWidget, ProfileCard). [A, N]",
       "gates": [
         "A",
         "N"
@@ -165,10 +169,11 @@
     {
       "id": 9,
       "key": "login-uses-sm-ui",
-      "title": "/auth/login renders sm-ui Login with portal=<slug>; no local login form (no /auth/magic call outside sm-ui) [A,N]",
+      "title": "The login route renders sm-ui Login with portal=\"<slug>\"; no local call to /auth/magic or /auth/verify-code. [A, N, S]",
       "gates": [
         "A",
-        "N"
+        "N",
+        "S"
       ],
       "source": "repo",
       "a_warns_only": false
@@ -176,7 +181,7 @@
     {
       "id": 10,
       "key": "no-local-role-list",
-      "title": "no local role-list constant (SM_TEAM_ROLES, BUILT_IN_ROLES or literal role arrays); roles come from the session and portal-roles [A,N]",
+      "title": "No local role-list constant (SM_TEAM_ROLES, BUILT_IN_ROLES or a literal list of team role keys); is_sm_team and roles come from the session. [A, N]",
       "gates": [
         "A",
         "N"
@@ -186,54 +191,65 @@
     },
     {
       "id": 11,
-      "key": "data-product-on-html",
-      "title": "data-product=<slug> on <html> [A,N,S]",
+      "key": "view-as-feed-declared",
+      "title": "View-as is either off or wired to an explicit viewAsApi feed served by the population endpoint. [A, N]",
       "gates": [
         "A",
-        "N",
-        "S"
+        "N"
       ],
       "source": "repo",
       "a_warns_only": false
     },
     {
       "id": 12,
-      "key": "brand-override-block-present",
-      "title": "brand override block html[data-product=<slug>] with the seven variables when the slug is not in sm-ui's map [A,N]",
+      "key": "data-product-on-html",
+      "title": "data-product on html equals the portal slug. [A, N, S]",
       "gates": [
         "A",
-        "N"
+        "N",
+        "S"
       ],
       "source": "repo",
       "a_warns_only": false
     },
     {
       "id": 13,
-      "key": "no-hardcoded-brand-values",
-      "title": "no hardcoded hex colors or font-family in the portal's own CSS or JSX where a token exists (allowlist: the brand override block, SVG fills) [A warns,N]",
+      "key": "brand-override-block-present",
+      "title": "When the slug is not in sm-ui's known map, the html[data-product] override block is present with --accent, --accent-hover, --accent-foreground, --accent-10, --accent-20, --accent-tint and the dark tint. [A, N, S]",
       "gates": [
         "A",
-        "N"
+        "N",
+        "S"
       ],
       "source": "repo",
       "a_warns_only": false
     },
     {
       "id": 14,
-      "key": "portal-configs-assets-present",
-      "title": "portal_configs brand_color, brand_tint, logo_mark_url, logo_horizontal_url, logo_favicon_url, logo_og_url present and the R2 objects answer HEAD 200 [A warns,N,S]",
+      "key": "no-hardcoded-brand-values",
+      "title": "No hardcoded hex colors or font-family in the portal's own CSS or JSX where a token exists (allowlist: the override block, SVG fills). [A warns; N deviation]",
       "gates": [
         "A",
-        "N",
-        "S"
+        "N"
       ],
-      "source": "d1",
+      "source": "repo",
       "a_warns_only": true
     },
     {
       "id": 15,
-      "key": "public-route-seo-tags",
-      "title": "favicon link and OG tags (title, description, og:image) present in the served HTML of each public route; legacy SPA shells flagged \"SPA shell, no SEO\" as a deviation with a standing exception [N]",
+      "key": "portal-configs-brand-assets",
+      "title": "portal_configs has brand_color, brand_tint and the five logo URLs, and the five R2 objects answer HEAD 200. [N, S]",
+      "gates": [
+        "N",
+        "S"
+      ],
+      "source": "d1",
+      "a_warns_only": false
+    },
+    {
+      "id": 16,
+      "key": "public-route-seo",
+      "title": "Every prerendered public route serves a title, a description and og:image; a legacy SPA portal is a deviation labeled \"SPA shell, no SEO\" with a standing override per portal. [N]",
       "gates": [
         "N"
       ],
@@ -241,9 +257,9 @@
       "a_warns_only": false
     },
     {
-      "id": 16,
-      "key": "prerendered-html-present",
-      "title": "prerendered HTML present for each public route declared in portal.json [N]",
+      "id": 17,
+      "key": "prerendered-public-routes",
+      "title": "Prerendered HTML exists in production for every route in portal.json.public_routes. [N]",
       "gates": [
         "N"
       ],
@@ -251,30 +267,30 @@
       "a_warns_only": false
     },
     {
-      "id": 17,
-      "key": "portal-roles-fleet-standard",
-      "title": "portal_roles has the nine team roles including super_admin with the fleet-standard display names; customer roles match the type's template or a declared list [N,S]",
+      "id": 18,
+      "key": "portal-roles-standard",
+      "title": "portal_roles carries the nine team roles including super_admin with the fleet display names, and the customer roles match the type's list or a declared list. [N, S]",
       "gates": [
         "N",
         "S"
-      ],
-      "source": "d1",
-      "a_warns_only": false
-    },
-    {
-      "id": 18,
-      "key": "no-inactive-portal-members",
-      "title": "no active portal_members row whose person is inactive or departed (status fields, never a name list) [N]",
-      "gates": [
-        "N"
       ],
       "source": "d1",
       "a_warns_only": false
     },
     {
       "id": 19,
-      "key": "team-roles-matrix-entry",
-      "title": "the portal is present in the Team Roles matrix with super_admin granted [N,S]",
+      "key": "no-departed-members",
+      "title": "No active portal_members row belongs to a person whose contacts.status is inactive or whose employment_status is former; a departed person is a status, never a name list. [N]",
+      "gates": [
+        "N"
+      ],
+      "source": "d1",
+      "a_warns_only": false
+    },
+    {
+      "id": 20,
+      "key": "team-roles-matrix",
+      "title": "The portal is registered in the Team Roles matrix with super_admin granted. [N, S]",
       "gates": [
         "N",
         "S"
@@ -283,9 +299,9 @@
       "a_warns_only": false
     },
     {
-      "id": 20,
-      "key": "pages-project-connected",
-      "title": "CF Pages project exists, production branch is main (or the declared branch), git-connected to the portal's repo [N,S]",
+      "id": 21,
+      "key": "pages-project",
+      "title": "The CF Pages project exists, is git-connected to the portal's repo, and its production branch is main (or the branch portal.json declares). [N, S]",
       "gates": [
         "N",
         "S"
@@ -294,9 +310,9 @@
       "a_warns_only": false
     },
     {
-      "id": 21,
-      "key": "custom-domains-attached",
-      "title": "custom domains from portal_configs are attached to the Pages project, status active, DNS resolves [N]",
+      "id": 22,
+      "key": "custom-domains-active",
+      "title": "Every custom_domain in portal_configs is attached to the project and active. [N]",
       "gates": [
         "N"
       ],
@@ -304,19 +320,9 @@
       "a_warns_only": false
     },
     {
-      "id": 22,
-      "key": "production-bundle-shape",
-      "title": "production bundle: main JS asset over 100 KB with content-type application/javascript [N]",
-      "gates": [
-        "N"
-      ],
-      "source": "production",
-      "a_warns_only": false
-    },
-    {
       "id": 23,
-      "key": "production-deployment-matches-main",
-      "title": "latest production deployment SHA equals main head [N]",
+      "key": "production-bundle",
+      "title": "The production main JS asset is application/javascript and larger than 100 KB. [N]",
       "gates": [
         "N"
       ],
@@ -325,8 +331,18 @@
     },
     {
       "id": 24,
+      "key": "canonical-deployment-sha",
+      "title": "The canonical production deployment SHA equals the head of main. [N]",
+      "gates": [
+        "N"
+      ],
+      "source": "production",
+      "a_warns_only": false
+    },
+    {
+      "id": 25,
       "key": "portal-sections-synced",
-      "title": "portal_sections non-empty and matching the app's declared permKeys (sync ran) [N,S]",
+      "title": "portal_sections is non-empty and equals the app's declared permkeys (the sync ran). [N, S]",
       "gates": [
         "N",
         "S"
@@ -335,19 +351,9 @@
       "a_warns_only": false
     },
     {
-      "id": 25,
-      "key": "member-counts-cache-fresh",
-      "title": "cached member counts equal live counts, until BUG-3172 removes the cache [N]",
-      "gates": [
-        "N"
-      ],
-      "source": "d1",
-      "a_warns_only": false
-    },
-    {
       "id": 26,
-      "key": "view-as-feed-declared",
-      "title": "view-as feed declared explicitly (viewAsApi) or View-as absent; never the retired fallback [A,N]",
+      "key": "functions-passthrough-product-header",
+      "title": "The functions/ passthrough sets X-SM-Product to the slug; no root or public _worker.js. [A, N]",
       "gates": [
         "A",
         "N"
@@ -358,7 +364,7 @@
     {
       "id": 27,
       "key": "auth-me-shape-correct",
-      "title": "the page gate reads the /auth/me shape the spine returns ({ ok, user }); a gate testing data.data alone is a deviation [A,N,S]",
+      "title": "The portal's page gate reads the /auth/me shape the spine actually returns ({ ok, user }); a gate that tests data.data alone is a deviation. [A, N, S]",
       "gates": [
         "A",
         "N",
@@ -369,8 +375,8 @@
     },
     {
       "id": 28,
-      "key": "portal-config-endpoint-resolves",
-      "title": "/api/portal/config resolves for the portal's own origins (each allowed domain plus the sprintmode.ai host): ok=true and config.name equals the portal name [N, deploy smoke]",
+      "key": "portal-config-resolves",
+      "title": "/api/portal/config resolves for the portal's own origins (each allowed domain plus the sprintmode.ai host): ok=true and config.name equals the portal name [N, and the sm-api deploy smoke; today's Safe Shepherd logo regression]",
       "gates": [
         "N"
       ],
@@ -380,13 +386,13 @@
     {
       "id": 29,
       "key": "no-non-spine-auth-calls",
-      "title": "no browser-side call to an auth host other than the spine (api.sprintmode.ai or the portal's own /api/sm proxy) [A warns,N]",
+      "title": "No browser-side call to an auth host other than the spine (api.sprintmode.ai or the portal's own /api/sm proxy); a page that calls another origin for a session is a deviation [A warns, N]",
       "gates": [
         "A",
         "N"
       ],
       "source": "repo",
-      "a_warns_only": false
+      "a_warns_only": true
     }
   ],
   "brand_override_dark_rule": "html[data-product=<slug>][data-theme=dark] must redefine --accent-tint"

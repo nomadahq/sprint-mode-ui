@@ -157,6 +157,64 @@ Override `--accent` in your CSS to theme all components:
 }
 ```
 
+## Portal standard and sm-portal-lock
+
+`portal-standard.json` (exported as `@sprint-mode/sm-ui/portal-standard`) is the
+executable PORTAL-LOCK standard for the fleet (FEAT-3170 section G, checks 1-29):
+required sm-ui exports, the known `data-product` slugs, required files, the
+`npm ci` workflow rule, required `portal_configs` fields, deploy shape, public-route
+behavior, the `/auth/me` shape, and the 29 approved checks themselves (id, key,
+title, gates, source, and whether a deviation only warns under Autopilot).
+`portal-standard.schema.json` describes its shape.
+
+`sm-portal-lock` (the package's one bin) runs the **repo-side** checks -- the
+ones whose `source` is `repo` -- against a portal checkout. The production-side
+checks (Cloudflare Pages, D1, R2, a live production fetch) are out of scope for
+this bin; they run elsewhere and read the same standard file.
+
+### Usage
+
+```bash
+npx sm-portal-lock --path /path/to/portal-checkout
+npx sm-portal-lock --path . --newest-tag 1.3.0   # also runs check 2
+npx sm-portal-lock --json                        # machine-readable output
+```
+
+Each check reports one of `pass`, `deviation`, `exception`, or `unknown`, with
+`found`, `expected`, and `fix_where`. Check 2 (the sm-ui pin against the newest
+published tag) reports `unknown` unless `--newest-tag` is given.
+
+### Exit codes
+
+`sm-portal-lock` exits `1` if any check is a `deviation` that is **not** marked
+`a_warns_only` in `portal-standard.json` (checks 2, 14 and 29, per the approved
+lines). It exits `0` otherwise: every check passed, or the only deviations left
+are warn-only, exceptions, or unknown.
+
+### Overrides
+
+A deviation can be waived with a dated, approved override file under
+`docs/portal-lock/overrides/` in the checked-out portal repo, named for the
+check and the date, with YAML-ish frontmatter:
+
+```markdown
+---
+check: sm-ui-pin-matches-newest-tag
+reason: pinned pending a security review of 1.3.0
+approved_by: Aaron Hall
+approved_on: 2026-09-01
+expires: 2026-12-01
+---
+
+Free-form notes on why this is temporary and how it gets resolved.
+```
+
+`check` names the check's `key` (kebab-case, from `portal-standard.json`). All
+five frontmatter fields -- `check`, `reason`, `approved_by`, `approved_on`,
+`expires` -- are required. A valid, unexpired override turns that check's
+`deviation` into an `exception`. A missing field or a past `expires` date
+leaves the check a `deviation` -- the override is ignored, not silently trusted.
+
 ## Architecture
 
 This package is the frontend contract of the SM platform. Products import it — they never rebuild components, auth, or design tokens. See `_jockey/SM_PLATFORM_PRINCIPLES.md`.

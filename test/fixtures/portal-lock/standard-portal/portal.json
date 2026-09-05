@@ -1,0 +1,10 @@
+{
+  "template": "portal-standard",
+  "template_version": "1.0.0",
+  "type": "client",
+  "slug": "acme-widgets",
+  "modules": {
+    "marketing": true,
+    "app": true
+  }
+}

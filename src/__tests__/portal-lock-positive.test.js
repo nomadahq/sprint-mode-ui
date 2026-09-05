@@ -1,3 +1,4 @@
+import { readFileSync, writeFileSync } from 'node:fs'
 // @vitest-environment node
 //
 // Positive tests (TASK-3198, scope item 3): the sm-portal-lock runner stays

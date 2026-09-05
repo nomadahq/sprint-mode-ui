@@ -1,0 +1,25 @@
+<!doctype html>
+<html lang="en" data-product="acme-widgets">
+<head>
+  <meta charset="utf-8" />
+  <title>Acme Widgets Portal</title>
+  <style>
+    /* PORTAL-LOCK check 12: brand override block. "acme-widgets" is not one
+       of sm-ui's known data-product slugs, so this block is required and
+       must carry all seven accent variables. */
+    html[data-product="acme-widgets"] {
+      --accent: #4b2aad;
+      --accent-hover: #3a2189;
+      --accent-foreground: #ffffff;
+      --accent-10: rgba(75, 42, 173, 0.1);
+      --accent-20: rgba(75, 42, 173, 0.2);
+      --accent-tint: #eee9fb;
+      --accent-soft: #efeafd;
+    }
+  </style>
+</head>
+<body>
+  <div id="root"></div>
+  <script type="module" src="/pages/App.jsx"></script>
+</body>
+</html>

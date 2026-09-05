@@ -23,7 +23,11 @@
     "./css": "./src/index.css",
     "./css/shell": "./src/shell.css",
     "./css/components": "./src/components.css",
-    "./brands": "./brands/"
+    "./brands": "./brands/",
+    "./portal-standard": "./portal-standard.json"
+  },
+  "bin": {
+    "sm-portal-lock": "bin/sm-portal-lock.mjs"
   },
   "peerDependencies": {
     "react": ">=18",
@@ -72,7 +76,10 @@
     "src/components.css",
     "src/tokens.css",
     "src/Icons.d.ts",
-    "brands"
+    "brands",
+    "bin",
+    "portal-standard.json",
+    "portal-standard.schema.json"
   ],
   "publishConfig": {
     "registry": "https://npm.pkg.github.com",

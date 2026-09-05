@@ -1,0 +1,5 @@
+{
+  "members": [
+    { "email": "alice@acme.example", "role": "owner", "status": "active" }
+  ]
+}

@@ -216,7 +216,7 @@
         "N"
       ],
       "source": "repo",
-      "a_warns_only": true
+      "a_warns_only": false
     },
     {
       "id": 14,
@@ -386,7 +386,7 @@
         "N"
       ],
       "source": "repo",
-      "a_warns_only": true
+      "a_warns_only": false
     }
   ],
   "brand_override_dark_rule": "html[data-product=<slug>][data-theme=dark] must redefine --accent-tint"

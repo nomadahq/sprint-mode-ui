@@ -65,7 +65,7 @@ describe('sm-portal-lock reports a deviation for each repo-side violation', () =
   it('check 7: portal.json template_version is below the standard minimum', () => {
     const portalPath = join(dir, 'portal.json')
     const portal = readJson(portalPath)
-    portal.template_version = '0.5.0'
+    portal.template_version = '0.0.1'
     writeJson(portalPath, portal)
     const results = runChecks(dir, standard, {})
     expect(findResult(results, 'portal-json-present').status).toBe('deviation')

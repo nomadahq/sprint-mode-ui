@@ -109,7 +109,15 @@ describe('sm-portal-lock reports a deviation for each repo-side violation', () =
   it('check 12: the brand override block is missing a required variable', () => {
     const htmlPath = join(dir, 'index.html')
     const raw = readFileSync(htmlPath, 'utf8')
-    writeFileSync(htmlPath, raw.replace(/--accent-soft:[^;]+;\s*/, ''))
+    writeFileSync(htmlPath, raw.replace(/--accent-tint: #eee9fb;\s*/, ''))
+    const results = runChecks(dir, standard, {})
+    expect(findResult(results, 'brand-override-block-present').status).toBe('deviation')
+  })
+
+  it('check 12: the dark-theme tint rule is missing', () => {
+    const htmlPath = join(dir, 'index.html')
+    const raw = readFileSync(htmlPath, 'utf8')
+    writeFileSync(htmlPath, raw.replace(/html\[data-product="acme-widgets"\]\[data-theme="dark"\]\s*\{[^}]*\}\s*/, ''))
     const results = runChecks(dir, standard, {})
     expect(findResult(results, 'brand-override-block-present').status).toBe('deviation')
   })

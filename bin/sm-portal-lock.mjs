@@ -425,7 +425,7 @@ function checkDataProductOnHtml(root) {
 }
 
 function checkBrandOverrideBlock(root, standard, ctx) {
-  const fixWhere = 'index.html or a global CSS file -- add html[data-product="<slug>"] { ...seven variables... }'
+  const fixWhere = 'index.html or a global CSS file -- add html[data-product="<slug>"] { ...six accent variables... } plus html[data-product="<slug>"][data-theme="dark"] { --accent-tint: ... }'
   const slug = ctx.dataProductSlug
   const requiredVars = standard.brand_override_variables || []
   if (!slug) {
@@ -445,7 +445,12 @@ function checkBrandOverrideBlock(root, standard, ctx) {
       if (missingVars.length) {
         return { status: 'deviation', found: `override block missing: ${missingVars.join(', ')}`, expected: `all of: ${requiredVars.join(', ')}`, fix_where: fixWhere }
       }
-      return { status: 'pass', found: `override block for "${slug}" carries all seven variables`, expected: 'same', fix_where: fixWhere }
+      const darkPattern = new RegExp(`html\\[data-product=["']${escapeRegExp(slug)}["']\\]\\[data-theme=["']dark["']\\]\\s*\\{([^}]*)\\}`)
+      const dark = raw.match(darkPattern)
+      if (!dark || !dark[1].includes('--accent-tint')) {
+        return { status: 'deviation', found: 'override block present but no dark-theme tint rule', expected: 'html[data-product="<slug>"][data-theme="dark"] redefining --accent-tint', fix_where: fixWhere }
+      }
+      return { status: 'pass', found: `override block for "${slug}" carries the six accent variables and the dark tint rule`, expected: 'same', fix_where: fixWhere }
     }
   }
   return { status: 'deviation', found: `no html[data-product="${slug}"] override block found`, expected: `a block with: ${requiredVars.join(', ')}`, fix_where: fixWhere }

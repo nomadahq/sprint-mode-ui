@@ -6,7 +6,7 @@
   <style>
     /* PORTAL-LOCK check 12: brand override block. "acme-widgets" is not one
        of sm-ui's known data-product slugs, so this block is required and
-       must carry all seven accent variables. */
+       must carry the six accent variables and the dark tint rule. */
     html[data-product="acme-widgets"] {
       --accent: #4b2aad;
       --accent-hover: #3a2189;
@@ -14,7 +14,9 @@
       --accent-10: rgba(75, 42, 173, 0.1);
       --accent-20: rgba(75, 42, 173, 0.2);
       --accent-tint: #eee9fb;
-      --accent-soft: #efeafd;
+    }
+    html[data-product="acme-widgets"][data-theme="dark"] {
+      --accent-tint: rgba(75, 42, 173, 0.18);
     }
   </style>
 </head>

@@ -4,8 +4,8 @@
 
 - Waffle item: TASK-3198 (`bug_8303fe56d6b7a33f`), status `open`, assigned to the executor.
 - Allowed repository: `sprint-mode/sm-ui`.
-- Item binding: `sha256:3a1c95bce7d2ab654c1a345f365a7c282126b92a7697d26ddee4a7d26cd9141d`.
-- Waffle source revision: `updated_at` `2026-09-05 17:22:47`; the canonical contract is stored on TASK-3198.
+- Item binding: `sha256:bec4a60942c87a6d76f6ec03b4247b76b5ef901caba5d6ad149cf9149dc3664c`.
+- Waffle source revision: `updated_at` `2026-09-05 17:50:25`; the canonical contract is stored on TASK-3198.
 - Planning base: `origin/main` at `60c0531`.
 - Feature branch: `task-3198-portal-standard`; target branch: `main`.
 - Design binding: none. The item is already a bounded, fully specified square (FEAT-3170 section G, checks 1-29 approved by Aaron 2026-09-05); nothing material is undecided.

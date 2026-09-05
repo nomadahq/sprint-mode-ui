@@ -24,10 +24,16 @@
     "./css/shell": "./src/shell.css",
     "./css/components": "./src/components.css",
     "./brands": "./brands/",
-    "./portal-standard": "./portal-standard.json"
+    "./portal-standard": "./portal-standard.json",
+    "./runtime": {
+      "types": "./runtime/index.d.ts",
+      "default": "./runtime/index.js"
+    }
   },
   "bin": {
-    "sm-portal-lock": "bin/sm-portal-lock.mjs"
+    "sm-portal-lock": "bin/sm-portal-lock.mjs",
+    "sm-portal-sections-sync": "bin/sm-portal-sections-sync.mjs",
+    "sm-portal-permkeys": "bin/sm-portal-permkeys.mjs"
   },
   "peerDependencies": {
     "react": ">=18",
@@ -78,6 +84,7 @@
     "src/Icons.d.ts",
     "brands",
     "bin",
+    "runtime",
     "portal-standard.json",
     "portal-standard.schema.json"
   ],

@@ -7,7 +7,7 @@ import { readFileSync, writeFileSync } from 'node:fs'
 import { join } from 'node:path'
 import { afterEach, beforeEach, describe, expect, it } from 'vitest'
 import { runChecks } from '../../bin/sm-portal-lock.mjs'
-import { appendToFile, cleanup, cloneFixture, loadStandard, readJson, writeJson } from './portal-lock-helpers.js'
+import { appendToFile, cleanup, cloneFixture, loadStandard, readJson, writeJson, findResult } from './portal-lock-helpers.js'
 
 const standard = loadStandard()
 

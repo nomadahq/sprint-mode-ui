@@ -103,6 +103,59 @@ describe('createApiProxy', () => {
     expect(captured.headers.has('CF-Access-Client-Secret')).toBe(false)
   })
 
+  it('sets X-SM-Host to the request URL hostname, lowercased and without a port', async () => {
+    let captured
+    vi.stubGlobal(
+      'fetch',
+      vi.fn(async (req) => {
+        captured = req
+        return new Response('{}', { status: 200 })
+      }),
+    )
+    const proxy = createApiProxy({ slug: 'acme' })
+    const ctx = makeContext('https://Acme-Portal.EXAMPLE.com:8443/api/x')
+
+    await proxy(ctx)
+
+    expect(captured.headers.get('X-SM-Host')).toBe('acme-portal.example.com')
+  })
+
+  it('sets X-SM-Host correctly for a *.sprintmode.ai portal host', async () => {
+    let captured
+    vi.stubGlobal(
+      'fetch',
+      vi.fn(async (req) => {
+        captured = req
+        return new Response('{}', { status: 200 })
+      }),
+    )
+    const proxy = createApiProxy({ slug: 'acme' })
+    const ctx = makeContext('https://acme.sprintmode.ai/api/x')
+
+    await proxy(ctx)
+
+    expect(captured.headers.get('X-SM-Host')).toBe('acme.sprintmode.ai')
+  })
+
+  it('overwrites a client-supplied X-SM-Host rather than trusting it', async () => {
+    let captured
+    vi.stubGlobal(
+      'fetch',
+      vi.fn(async (req) => {
+        captured = req
+        return new Response('{}', { status: 200 })
+      }),
+    )
+    const proxy = createApiProxy({ slug: 'acme' })
+    const ctx = makeContext('https://acme-portal.example.com/api/x', {
+      headers: { 'X-SM-Host': 'attacker.example.com' },
+    })
+
+    await proxy(ctx)
+
+    expect(captured.headers.get('X-SM-Host')).toBe('acme-portal.example.com')
+  })
+
   it('passes 3xx responses through with no body and the original headers', async () => {
     vi.stubGlobal(
       'fetch',

@@ -107,6 +107,30 @@ describe('createAppGate', () => {
     expect(res.headers.get('Location')).toBe('https://acme-portal.example.com/auth/login?redirect=%2Fapp')
   })
 
+  it('gates on any prefix in an appPrefix array, passing non-matching paths through', async () => {
+    const fetchSpy = vi.fn(async () => new Response(JSON.stringify({ ok: true, user: { id: 1 } }), { status: 200 }))
+    vi.stubGlobal('fetch', fetchSpy)
+    const gate = createAppGate({ appPrefix: ['/app', '/admin'] })
+
+    const appCtx = makeContext('https://acme-portal.example.com/app/settings')
+    await gate(appCtx)
+    expect(appCtx.next).toHaveBeenCalledTimes(1)
+    expect(fetchSpy).toHaveBeenCalledTimes(1)
+
+    const adminCtx = makeContext('https://acme-portal.example.com/admin/users')
+    await gate(adminCtx)
+    expect(adminCtx.next).toHaveBeenCalledTimes(1)
+    expect(fetchSpy).toHaveBeenCalledTimes(2)
+
+    const marketingFetchSpy = vi.fn()
+    vi.stubGlobal('fetch', marketingFetchSpy)
+    const marketingCtx = makeContext('https://acme-portal.example.com/marketing')
+    const res = await gate(marketingCtx)
+    expect(marketingCtx.next).toHaveBeenCalledTimes(1)
+    expect(marketingFetchSpy).not.toHaveBeenCalled()
+    expect(await res.text()).toBe('next-called')
+  })
+
   it('honors custom appPrefix / loginPath / meApiPath options', async () => {
     vi.stubGlobal(
       'fetch',

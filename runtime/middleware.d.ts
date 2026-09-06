@@ -1,6 +1,10 @@
 export interface AppGateOptions {
-  /** Path prefix that requires a session. Default "/app". */
-  appPrefix?: string
+  /**
+   * Path prefix (or list of prefixes) that requires a session. The gate
+   * applies when the pathname equals a prefix or starts with prefix + "/".
+   * Default "/app".
+   */
+  appPrefix?: string | string[]
   /** Redirect target when unauthenticated. Default "/auth/login". */
   loginPath?: string
   /** Path (relative to this portal's own origin) to read the session from. Default "/api/auth/me". */

@@ -2,9 +2,10 @@
 
 ## Identity
 
-- Waffle item: TASK-3229 (`bug_7657d0a14188c58f`), status `open`.
+- Waffle item: TASK-3229 (`bug_7657d0a14188c58f`), status `in_progress`.
 - Allowed repository: `sprint-mode/sm-ui`.
-- Waffle source revision: `updated_at` `2026-09-06 01:42:15`; the canonical contract is stored on TASK-3229.
+- Item binding: `sha256:d88c5a4de17e631b3f4a870d29d0dd9f30d11076cadc3744943a7ac24fd5f8f9`.
+- Waffle source revision: `updated_at` `2026-09-06 01:52:17`; the canonical contract is stored on TASK-3229.
 - Planning base: `origin/main` at `074270d9188d66ee93e82977776e1bade25720d4` (tag `v1.2.3`).
 - Feature branch: `task-3229-door-props` (pushed, PR #375, head `4ccf0b6fed22d056d5b7e5970603c4bf416f38c9`); target branch: `main`.
 - Design binding: none. FEAT-3170 factory sequence step 1, proposal bc_cf23c2095a71a229 section 1, Aaron's D2 ruling.

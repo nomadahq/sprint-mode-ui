@@ -131,6 +131,24 @@ describe('createAppGate', () => {
     expect(await res.text()).toBe('next-called')
   })
 
+  it('does not gate a path that merely shares the prefix string (/apple vs /app)', async () => {
+    const fetchSpy = vi.fn()
+    vi.stubGlobal('fetch', fetchSpy)
+    const gate = createAppGate({ appPrefix: '/app' })
+
+    const appleCtx = makeContext('https://acme-portal.example.com/apple')
+    const res = await gate(appleCtx)
+    expect(appleCtx.next).toHaveBeenCalledTimes(1)
+    expect(fetchSpy).not.toHaveBeenCalled()
+    expect(await res.text()).toBe('next-called')
+
+    const arrayGate = createAppGate({ appPrefix: ['/app', '/admin'] })
+    const adminsCtx = makeContext('https://acme-portal.example.com/administrator')
+    await arrayGate(adminsCtx)
+    expect(adminsCtx.next).toHaveBeenCalledTimes(1)
+    expect(fetchSpy).not.toHaveBeenCalled()
+  })
+
   it('honors custom appPrefix / loginPath / meApiPath options', async () => {
     vi.stubGlobal(
       'fetch',

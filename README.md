@@ -215,6 +215,74 @@ five frontmatter fields -- `check`, `reason`, `approved_by`, `approved_on`,
 `deviation` into an `exception`. A missing field or a past `expires` date
 leaves the check a `deviation` -- the override is ignored, not silently trusted.
 
+## Per-portal worker runtime
+
+`@sprint-mode/sm-ui/runtime` ships the per-portal Cloudflare Pages Functions
+worker as one framework artifact (FEAT-3170 square 1a): the app page gate and
+the API passthrough that every portal repo previously carried as its own
+copy of `functions/_middleware.js` and `functions/api/[[catchall]].js`. A
+portal imports these instead of hand-rolling them; a framework fix reaches
+every portal through an sm-ui version bump instead of a per-repo patch.
+Plain ESM JavaScript -- no React, no sm-ui component imports -- so it runs
+unchanged in the Cloudflare Pages Functions / Workers runtime.
+
+```javascript
+// functions/_middleware.js
+import { createAppGate } from '@sprint-mode/sm-ui/runtime'
+export const onRequest = createAppGate()
+```
+
+```javascript
+// functions/api/[[catchall]].js
+import portal from '../../portal.json'
+import { createApiProxy } from '@sprint-mode/sm-ui/runtime'
+export const onRequest = createApiProxy(portal)
+```
+
+`createAppGate(options)` redirects an unauthenticated request for the app
+prefix (default `/app`, `/app/*`) to the login path (default `/auth/login`),
+reading the session from `meApiPath` (default `/api/auth/me`) through the
+portal's own `/api` proxy -- never sm-api directly, or the request loses the
+`X-SM-Product` / `X-SM-Platform` headers sm-api needs to resolve the session.
+A gate-check failure (network error, malformed response) fails closed:
+treated as unauthenticated, never as authenticated.
+
+`createApiProxy(portal)` proxies `/api/*` to the sm-api spine (`SM_API_URL`
+env var, default `https://api.sprintmode.ai`), stripping the `/api` prefix
+for `/api/auth/*` routes, setting `X-SM-Product` / `X-SM-Platform` from
+`portal.slug`, forwarding `CF-Access-Client-Id` / `CF-Access-Client-Secret`
+from env when present, answering `OPTIONS` preflight itself, passing 3xx
+responses through untouched, and returning a `502` JSON error if the
+upstream fetch fails.
+
+## Portal sections sync and permKey coverage bins
+
+Two more bins port the sm-signal-lineage scripts (previously copied
+byte-for-byte into sm-signal, sm-waffle, switchpoint-dash, the sm-portal
+template, and the sm-api scaffold generator) into this package, so a portal
+repo calls the shared bin instead of carrying its own copy:
+
+```bash
+npx sm-portal-permkeys --app pages/app/+Page.tsx
+npx sm-portal-sections-sync --portal <slug> --app pages/app/+Page.tsx
+```
+
+`sm-portal-permkeys` fails the build (exit `1`) when a routed,
+element-rendering, non-user-space page has no `permKey` declaration --
+built-in exemptions (auth, user-space, legal, onboarding, catchalls,
+`<Navigate>` redirects) plus a repo-local `.permkey-allowlist.json` (an array
+of exact paths or `"prefix/*"` patterns) cover the rest. Accepts multiple
+`--app <file>` flags.
+
+`sm-portal-sections-sync` extracts `permKey` declarations (nav-object
+`permKey: '...'` entries and JSX `permKey="..."` attributes) from the app
+file and `POST`s them to `/api/admin/portals/:subdomain/sections/sync` with
+`X-SM-Key` auth, printing the added/updated/unchanged/orphaned diff. Flags
+`--portal`, `--app`, `--api`, `--key` fall back to `PORTAL_SUBDOMAIN`,
+`PORTAL_APP_FILE`, `SM_API_URL`, `SM_API_KEY` respectively. It exits `0`
+always -- a sync failure never blocks portal CI -- except when a required
+flag (or env fallback) is missing, or the app file does not exist.
+
 ## Architecture
 
 This package is the frontend contract of the SM platform. Products import it — they never rebuild components, auth, or design tokens. See `_jockey/SM_PLATFORM_PRINCIPLES.md`.

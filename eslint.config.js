@@ -8,6 +8,8 @@ const globals = {
   document: "readonly",
   console: "readonly",
   fetch: "readonly",
+  Request: "readonly",
+  Response: "readonly",
   alert: "readonly",
   confirm: "readonly",
   prompt: "readonly",

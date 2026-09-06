@@ -195,6 +195,18 @@ export interface LayoutProps {
    *  Notification Settings and the Roles/Linked-Accounts section. */
   apiKeysPath?: string
   viewAsClientNav?: (NavSection & { type?: string; heading?: string })[]
+  /** TASK-3229 (D2 one door shape): the prefix in front of the spine's
+   *  /auth/* routes -- for example "/api" on a portal whose own proxy maps
+   *  /api/auth/* to /auth/*. Threaded to AccountSwitcher (user menu identity
+   *  reads) and used as the view-as base when viewAsAuthBase is not set.
+   *  Omit to keep the v1.2.3 default (direct to https://api.sprintmode.ai
+   *  on *.sprintmode.ai hosts, same-origin proxy elsewhere). */
+  authBase?: string
+  /** TASK-3229 (D2 one door shape): the prefix in front of the spine's
+   *  /api/* routes -- "" means the portal's own origin (proxy). Threaded to
+   *  AccountSwitcher for the linked-accounts read. Omit to keep the v1.2.3
+   *  default (direct to https://api.sprintmode.ai). */
+  apiBase?: string
 }
 
 // ─── Session Context ────────────────────────────────────────────────────────
@@ -577,6 +589,7 @@ function HeaderUserMenu(props: {
   userMenuExtra?: React.ReactNode
   portalSubdomain?: string
   authBase?: string
+  apiBase?: string
   mcpKeysPath?: string
   apiKeysPath?: string
 }) {
@@ -684,7 +697,7 @@ function HeaderUserMenu(props: {
       // BUG-2033: the operator's roles, sign-in emails, and Other Accounts
       // never render inside a lensed shell. The AccountSwitcher also guards
       // itself on the fresh /auth/me, but the menu never mounts it lensed.
-      lens ? null : React.createElement(AccountSwitcher, { product: props.portalSubdomain || undefined, session: session, authBase: props.authBase }),
+      lens ? null : React.createElement(AccountSwitcher, { product: props.portalSubdomain || undefined, session: session, authBase: props.authBase, apiBase: props.apiBase }),
       React.createElement('a', { href: logoutHref, style: { display: 'block', padding: '8px 10px', borderRadius: 6, fontSize: 13, color: 'var(--foreground)', textDecoration: 'none' } }, 'Sign out')
     ) : null
   )
@@ -1674,8 +1687,15 @@ const Layout: React.FC<LayoutProps> = function Layout(props: LayoutProps) {
   // resolves the per-portal cookie from X-SM-Product -- so one shared-layer
   // path works fleet-wide with no per-portal proxy routes (a portal without
   // a proxy route 405s, which is exactly what broke Studios). Custom-domain
-  // portals can override via viewAsAuthBase to a same-origin proxy.
-  var vaAuthBase = (props as { viewAsAuthBase?: string }).viewAsAuthBase || 'https://api.sprintmode.ai'
+  // portals can override via viewAsAuthBase to a same-origin proxy, or (TASK-3229,
+  // D2 one door shape) fall through to the shell-wide authBase before the
+  // historic direct default.
+  // The user menu's AccountSwitcher receives the RAW props.authBase (see the
+  // HeaderUserMenu mount): it must stay undefined when the portal passes
+  // nothing, so its own host split keeps the v1.2.3 default. vaAuthBase below
+  // is already defaulted and serves only the view-as and exit-view-as POSTs
+  // and the ActingRoleChip (PR #375 review, Critical).
+  var vaAuthBase = props.viewAsAuthBase || props.authBase || 'https://api.sprintmode.ai'
 
   function applyServerLens(body: Record<string, unknown>, opts?: { customer?: boolean }) {
     if (vaBusy) return
@@ -2094,7 +2114,7 @@ const Layout: React.FC<LayoutProps> = function Layout(props: LayoutProps) {
     // TASK-2282: header inbox envelope and Cmd/Ctrl+I shortcut removed across
     // all portals. API surface (notificationHref prop, NotificationBellNav
     // export, /user/updates route) left in place intentionally.
-    React.createElement(HeaderUserMenu, { session: session, profilePath: profilePath, logoutHref: logoutHref, userMenuExtra: userMenuExtra, portalSubdomain: portalSubdomain, authBase: vaAuthBase, mcpKeysPath: props.mcpKeysPath, apiKeysPath: props.apiKeysPath })
+    React.createElement(HeaderUserMenu, { session: session, profilePath: profilePath, logoutHref: logoutHref, userMenuExtra: userMenuExtra, portalSubdomain: portalSubdomain, authBase: props.authBase, apiBase: props.apiBase, mcpKeysPath: props.mcpKeysPath, apiKeysPath: props.apiKeysPath })
   ) : null
 
   return (

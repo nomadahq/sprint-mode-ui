@@ -95,11 +95,11 @@ export function NotificationPrefs(props: NotificationPrefsProps) {
   }
 
   var CHANNELS_SIMPLE = [
-    { key: 'app_enabled', label: 'In-app notifications', description: 'Bell badge and updates feed' },
+    { key: 'app_enabled', label: 'In-app notifications', description: 'Shown in-app' },
   ]
 
   var CHANNELS_FULL = [
-    { key: 'app_enabled', label: 'In-app', description: 'Bell badge and updates feed' },
+    { key: 'app_enabled', label: 'In-app', description: 'Shown in-app' },
     { key: 'slack_enabled', label: 'Slack DM', description: 'Sprint Mode Slack bot' },
     { key: 'email_enabled', label: 'Email', description: 'Sent to your login email' },
   ]

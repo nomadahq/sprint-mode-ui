@@ -109770,7 +109770,7 @@ function sNe({ apiBase: e, backHref: t, portalSubdomain: n }) {
 					children: [
 						{
 							label: "In-app notifications",
-							sub: "Show in the bell icon",
+							sub: "Shown in-app",
 							val: v,
 							onChange: function() {
 								var e = !v;
@@ -109832,7 +109832,7 @@ function sNe({ apiBase: e, backHref: t, portalSubdomain: n }) {
 						style: v9,
 						children: "Security"
 					}),
-					/* @__PURE__ */ g("div", {
+					/* @__PURE__ */ h("div", {
 						style: {
 							display: "flex",
 							alignItems: "center",
@@ -109840,7 +109840,7 @@ function sNe({ apiBase: e, backHref: t, portalSubdomain: n }) {
 							paddingBottom: 12,
 							borderBottom: "1px solid var(--border, #e5e7eb)"
 						},
-						children: [/* @__PURE__ */ g("div", { children: [/* @__PURE__ */ h("div", {
+						children: /* @__PURE__ */ g("div", { children: [/* @__PURE__ */ h("div", {
 							style: {
 								fontSize: 13,
 								fontWeight: 500
@@ -109852,13 +109852,7 @@ function sNe({ apiBase: e, backHref: t, portalSubdomain: n }) {
 								color: "var(--muted, #6b7280)"
 							},
 							children: ["Magic link to ", T.email]
-						})] }), T.portal_last_login && /* @__PURE__ */ g("span", {
-							style: {
-								fontSize: 12,
-								color: "var(--muted, #9ca3af)"
-							},
-							children: ["Last login: ", h9(T.portal_last_login)]
-						})]
+						})] })
 					}),
 					/* @__PURE__ */ h(lNe, { base: r })
 				]
@@ -110198,7 +110192,7 @@ function lNe({ base: e }) {
 						maxWidth: 420,
 						lineHeight: 1.5
 					},
-					children: t === "ready" ? "Sign in with Touch ID, Face ID, or a security key instead of an email code. One passkey works on every Sprint Mode portal." : t === "unsupported" ? "Not available on this browser or device." : t === "checking" ? "Checking..." : "Not available right now."
+					children: t === "ready" ? "Sign in with Touch ID, Face ID, or a security key instead of an email code. One passkey works on every Sprint Mode portal." : t === "unsupported" ? "Not available on this browser or device." : t === "checking" ? "Checking..." : "Create a passkey to sign in with Touch ID, Face ID, or a security key."
 				})] }), t === "ready" && /* @__PURE__ */ h("button", {
 					onClick: d,
 					disabled: a,
@@ -113675,7 +113669,7 @@ function rPe(e) {
 		{
 			key: "app_enabled",
 			label: "In-app",
-			description: "Bell badge and updates feed"
+			description: "Shown in-app"
 		},
 		{
 			key: "slack_enabled",
@@ -113690,7 +113684,7 @@ function rPe(e) {
 	] : [{
 		key: "app_enabled",
 		label: "In-app notifications",
-		description: "Bell badge and updates feed"
+		description: "Shown in-app"
 	}];
 	return f ? o.createElement("div", { style: {
 		padding: 32,

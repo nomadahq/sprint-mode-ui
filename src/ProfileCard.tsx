@@ -428,7 +428,7 @@ function SelfProfileCard({ apiBase, backHref, portalSubdomain }: { apiBase?: str
         <div style={SECTION_TITLE}>Notifications</div>
         <div style={{ display: 'flex', flexDirection: 'column', gap: 0 }}>
           {[
-            { label: 'In-app notifications', sub: 'Show in the bell icon', val: appNotifs, onChange: function() { var v = !appNotifs; setAppNotifs(v); patchNotifPrefs({ app_enabled: v }) } },
+            { label: 'In-app notifications', sub: 'Shown in-app', val: appNotifs, onChange: function() { var v = !appNotifs; setAppNotifs(v); patchNotifPrefs({ app_enabled: v }) } },
             { label: 'Email notifications', sub: 'Receive by email', val: emailNotifs, onChange: function() { var v = !emailNotifs; setEmailNotifs(v); patchNotifPrefs({ email_enabled: v }) } },
             { label: 'Slack notifications', sub: 'Receive via Slack DM', val: slackNotifs, onChange: function() { var v = !slackNotifs; setSlackNotifs(v); patchNotifPrefs({ slack_enabled: v }) } },
           ].map(function(n, i) {
@@ -454,12 +454,7 @@ function SelfProfileCard({ apiBase, backHref, portalSubdomain }: { apiBase?: str
             <div style={{ fontSize: 13, fontWeight: 500 }}>Sign-in method</div>
             <div style={{ fontSize: 12, color: 'var(--muted, #6b7280)' }}>Magic link to {p.email}</div>
           </div>
-          {p.portal_last_login && (
-            <span style={{ fontSize: 12, color: 'var(--muted, #9ca3af)' }}>
-              Last login: {fmtDate(p.portal_last_login)}
-            </span>
-          )}
-        </div>
+          </div>
         <PasskeysBlock base={base} />
       </div>
 
@@ -669,7 +664,7 @@ function PasskeysBlock({ base }: { base: string }) {
   var subtitle =
     state === 'ready' ? 'Sign in with Touch ID, Face ID, or a security key instead of an email code. One passkey works on every Sprint Mode portal.'
     : state === 'unsupported' ? 'Not available on this browser or device.'
-    : state === 'checking' ? 'Checking...' : 'Not available right now.'
+    : state === 'checking' ? 'Checking...' : 'Create a passkey to sign in with Touch ID, Face ID, or a security key.'
 
   return (
     <div style={{ paddingTop: 12 }}>

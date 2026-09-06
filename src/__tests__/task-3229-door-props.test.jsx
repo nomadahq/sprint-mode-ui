@@ -212,6 +212,28 @@ describe('Regression: default (no authBase/apiBase) is unchanged (TASK-3229)', f
     expect(calls.some(function(u) { return u.indexOf('api.sprintmode.ai') !== -1; })).toBe(false)
   })
 
+  it('Layout off *.sprintmode.ai with no new props still routes the user menu through the same-origin proxy (PR #375 review, Critical)', async function() {
+    // The AccountSwitcher is only ever mounted through Layout; it must receive
+    // the RAW authBase (undefined here), not the defaulted view-as base, or the
+    // explicit-wins gate fires on every real mount and off-host portals lose
+    // their proxy default.
+    setHostname('safeshepherd.pages.dev')
+    var calls = []
+    mockFetchCapturing(calls)
+    render(
+      React.createElement(MemoryRouter, null,
+        React.createElement(Layout, { session: makeSession(), portalSubdomain: 'admin-t4b', title: 'Admin' },
+          React.createElement('div', null, 'PAGE')
+        )
+      )
+    )
+    fireEvent.click(document.querySelector('.shell-header-avatar'))
+    await waitFor(function() {
+      expect(calls).toContain('/api/auth/me')
+    })
+    expect(calls.some(function(u) { return u.indexOf('api.sprintmode.ai/auth/me') !== -1; })).toBe(false)
+  })
+
   it('Layout with no new props keeps the view-as base at https://api.sprintmode.ai (v1.2.3 default)', async function() {
     setHostname('admin.sprintmode.ai')
     var calls = []

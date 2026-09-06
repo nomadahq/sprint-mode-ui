@@ -1690,6 +1690,11 @@ const Layout: React.FC<LayoutProps> = function Layout(props: LayoutProps) {
   // portals can override via viewAsAuthBase to a same-origin proxy, or (TASK-3229,
   // D2 one door shape) fall through to the shell-wide authBase before the
   // historic direct default.
+  // The user menu's AccountSwitcher receives the RAW props.authBase (see the
+  // HeaderUserMenu mount): it must stay undefined when the portal passes
+  // nothing, so its own host split keeps the v1.2.3 default. vaAuthBase below
+  // is already defaulted and serves only the view-as and exit-view-as POSTs
+  // and the ActingRoleChip (PR #375 review, Critical).
   var vaAuthBase = props.viewAsAuthBase || props.authBase || 'https://api.sprintmode.ai'
 
   function applyServerLens(body: Record<string, unknown>, opts?: { customer?: boolean }) {
@@ -2109,7 +2114,7 @@ const Layout: React.FC<LayoutProps> = function Layout(props: LayoutProps) {
     // TASK-2282: header inbox envelope and Cmd/Ctrl+I shortcut removed across
     // all portals. API surface (notificationHref prop, NotificationBellNav
     // export, /user/updates route) left in place intentionally.
-    React.createElement(HeaderUserMenu, { session: session, profilePath: profilePath, logoutHref: logoutHref, userMenuExtra: userMenuExtra, portalSubdomain: portalSubdomain, authBase: vaAuthBase, apiBase: props.apiBase, mcpKeysPath: props.mcpKeysPath, apiKeysPath: props.apiKeysPath })
+    React.createElement(HeaderUserMenu, { session: session, profilePath: profilePath, logoutHref: logoutHref, userMenuExtra: userMenuExtra, portalSubdomain: portalSubdomain, authBase: props.authBase, apiBase: props.apiBase, mcpKeysPath: props.mcpKeysPath, apiKeysPath: props.apiKeysPath })
   ) : null
 
   return (

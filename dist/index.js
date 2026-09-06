@@ -107208,7 +107208,7 @@ var KMe = function(e) {
 		logoutHref: qt,
 		userMenuExtra: P,
 		portalSubdomain: Fe,
-		authBase: _t,
+		authBase: e.authBase,
 		apiBase: e.apiBase,
 		mcpKeysPath: e.mcpKeysPath,
 		apiKeysPath: e.apiKeysPath

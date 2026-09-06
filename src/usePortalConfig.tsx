@@ -28,6 +28,10 @@ export interface PortalConfigContextValue {
 
 export interface PortalConfigProviderProps {
   subdomain: string
+  /** TASK-3229 (D2 one door shape): prefix in front of /api/* routes.
+   *  "" routes the portal-config read through the portal's own origin
+   *  (proxy). The default stays direct to https://api.sprintmode.ai until
+   *  a later square flips every portal to the proxy default. */
   apiBase?: string
   children: ReactNode
 }

@@ -71,6 +71,28 @@ Extend sidebar nav by passing `navConfig`:
 }} />
 ```
 
+### One door shape
+
+TASK-3229 (D2 ruling): on every host the browser should reach the spine only
+through the portal's own `/api` proxy, never `api.sprintmode.ai` directly.
+`Layout`, `Login`, and `PortalConfigProvider` are opt-in and default-preserving
+for this: pass no new prop and a portal keeps the v1.2.3 direct-to-sm-api
+behavior. A portal that has its own proxy passes three props:
+
+```javascript
+<Login authBase="/api" ... />
+<Layout authBase="/api" apiBase="" ... />
+<PortalConfigProvider apiBase="" ... />
+```
+
+- `authBase` — the prefix in front of the spine's `/auth/*` routes (for
+  example `/api` on a portal whose proxy maps `/api/auth/*` to `/auth/*`).
+  `Layout` threads it to the user-menu identity reads (`AccountSwitcher`) and
+  uses it as the view-as base when `viewAsAuthBase` is not set.
+- `apiBase` — the prefix in front of `/api/*` routes. `""` means the portal's
+  own origin (proxy). `Layout` threads it to the linked-accounts read;
+  `PortalConfigProvider` uses it for the portal-config read.
+
 ### Login Page
 
 ```javascript

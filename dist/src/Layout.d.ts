@@ -179,6 +179,18 @@ export interface LayoutProps {
         type?: string;
         heading?: string;
     })[];
+    /** TASK-3229 (D2 one door shape): the prefix in front of the spine's
+     *  /auth/* routes -- for example "/api" on a portal whose own proxy maps
+     *  /api/auth/* to /auth/*. Threaded to AccountSwitcher (user menu identity
+     *  reads) and used as the view-as base when viewAsAuthBase is not set.
+     *  Omit to keep the v1.2.3 default (direct to https://api.sprintmode.ai
+     *  on *.sprintmode.ai hosts, same-origin proxy elsewhere). */
+    authBase?: string;
+    /** TASK-3229 (D2 one door shape): the prefix in front of the spine's
+     *  /api/* routes -- "" means the portal's own origin (proxy). Threaded to
+     *  AccountSwitcher for the linked-accounts read. Omit to keep the v1.2.3
+     *  default (direct to https://api.sprintmode.ai). */
+    apiBase?: string;
 }
 export declare function useSession(): SessionData | null;
 export interface ViewAsUser {

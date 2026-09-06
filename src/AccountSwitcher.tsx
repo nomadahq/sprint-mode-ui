@@ -8,6 +8,16 @@
 // Fetch routing fix (B0): when not on *.sprintmode.ai, identity calls route
 // through the same-origin proxy (idBase = '' = relative) so the portal's own
 // session cookie is used, not the SM/admin one.
+//
+// TASK-3229 (D2 one door shape): the two props below are the whole surface a
+// portal touches to route through its own /api proxy instead of talking to
+// api.sprintmode.ai directly.
+//   - authBase: prefix for /auth/* identity reads (/auth/me, /auth/swap-role,
+//     /auth/default-role). Passing it explicitly (even "") wins on every
+//     host — the *.sprintmode.ai/onSmHost split below only decides the
+//     default when authBase is omitted, so v1.2.3 portals are unaffected.
+//   - apiBase: prefix for /api/* reads, used as-is for the linked-accounts
+//     fetch on every host. "" means the portal's own origin (proxy).
 
 import React, { useState, useEffect, useCallback } from 'react'
 import { themedMarkFromLogoUrl } from './dark-mode'
@@ -133,6 +143,7 @@ var CACHE_TTL = 60000 // refresh in background after 60 s
 export function AccountSwitcher(props: AccountSwitcherProps) {
   var apiBase = props.apiBase || ''
   var product = props.product || ''
+  var hasExplicitAuthBase = props.authBase !== undefined
   var authBase = props.authBase || 'https://api.sprintmode.ai'
   var cacheKey = apiBase + '|' + product
 
@@ -140,14 +151,21 @@ export function AccountSwitcher(props: AccountSwitcherProps) {
   // through the same-origin proxy so the portal's own session cookie is used.
   var onSmHost = typeof window !== 'undefined' &&
     /\.sprintmode\.ai$/.test(window.location.hostname)
+  // TASK-3229 (D2 one door shape): an explicit authBase wins on every host —
+  // the onSmHost split below only decides the default when the caller passes
+  // no authBase at all, so a portal that passes no new prop keeps the exact
+  // v1.2.3 behavior (the regression test proves it).
+  var useAuthBasePath = hasExplicitAuthBase || onSmHost
   // idBase for /auth/me, /auth/swap-role, /auth/default-role:
-  //   - on *.sprintmode.ai: use authBase (direct to api.sprintmode.ai)
-  //   - elsewhere (e.g. safeshepherd.pages.dev): use '' (same-origin proxy)
-  var idBase = onSmHost ? authBase : ''
-  // Path convention: same-origin proxy exposes /api/auth/*, direct uses /auth/*
-  var idMePath = onSmHost ? '/auth/me' : '/api/auth/me'
-  var idSwapPath = onSmHost ? '/auth/swap-role' : '/api/auth/swap-role'
-  var idDefaultRolePath = onSmHost ? '/auth/default-role' : '/api/auth/default-role'
+  //   - authBase passed explicitly, or on *.sprintmode.ai: use authBase
+  //   - elsewhere (e.g. safeshepherd.pages.dev) with no authBase: use ''
+  //     (same-origin proxy)
+  var idBase = useAuthBasePath ? authBase : ''
+  // Path convention: same-origin proxy exposes /api/auth/*, direct (or an
+  // explicit authBase, which already carries the proxy prefix) uses /auth/*
+  var idMePath = useAuthBasePath ? '/auth/me' : '/api/auth/me'
+  var idSwapPath = useAuthBasePath ? '/auth/swap-role' : '/api/auth/swap-role'
+  var idDefaultRolePath = useAuthBasePath ? '/auth/default-role' : '/api/auth/default-role'
 
   var cached = _linkedCache[cacheKey]
   var _accounts = useState<LinkedAccount[]>(cached ? cached.accounts : []); var accounts = _accounts[0]; var setAccounts = _accounts[1]

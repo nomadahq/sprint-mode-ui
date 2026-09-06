@@ -6,7 +6,10 @@
 // Ported from sm-portal-template functions/api/[[catchall]].js (main
 // 38b1e09f): generic passthrough to the sm-api spine. Every request gets
 // X-SM-Product and X-SM-Platform from portal.json so sm-api resolves the
-// right per-portal session cookie and access grant.
+// right per-portal session cookie and access grant, plus X-SM-Host (the
+// request URL's own hostname, lowercased, no port) so sm-api can tell which
+// portal host actually served the request. X-SM-Host is always derived from
+// the request, never trusted from an incoming client header.
 //
 //   /api/auth/*  --> SM API at /auth/*  (strip /api prefix)
 //   /api/*       --> SM API at /api/*   (everything else, path kept as-is)
@@ -64,6 +67,10 @@ export function createApiProxy(portal) {
     var proxyHeaders = new Headers(request.headers)
     if (context.env.SM_API_CLIENT_ID) proxyHeaders.set('CF-Access-Client-Id', context.env.SM_API_CLIENT_ID)
     if (context.env.SM_API_CLIENT_SECRET) proxyHeaders.set('CF-Access-Client-Secret', context.env.SM_API_CLIENT_SECRET)
+    // X-SM-Host is always the request URL's own hostname (lowercased, no
+    // port) -- set here, after copying the incoming headers, so a
+    // client-supplied X-SM-Host is overwritten rather than trusted.
+    proxyHeaders.set('X-SM-Host', url.hostname.toLowerCase())
     proxyHeaders.set('X-SM-Platform', portal.slug + '-portal/1.0')
     proxyHeaders.set('X-SM-Product', portal.slug)
 

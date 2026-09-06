@@ -7,7 +7,9 @@
 // an unauthenticated request for the app prefix (default "/app" or
 // "/app/*") is redirected to the login path before the client-only app
 // shell ever renders, rather than letting the client flash the shell and
-// then bounce. Reads the "me" endpoint through the PORTAL'S OWN /api proxy
+// then bounce. appPrefix also accepts an array of prefixes (TASK-3248) for
+// portals gating more than one section behind the same session check.
+// Reads the "me" endpoint through the PORTAL'S OWN /api proxy
 // (runtime/api-proxy.js) so the request carries the same X-SM-Product /
 // X-SM-Platform headers sm-api needs to resolve the per-portal session
 // cookie -- calling sm-api directly here would skip that and 401 a valid
@@ -23,11 +25,24 @@
 
 /**
  * @typedef {Object} AppGateOptions
- * @property {string} [appPrefix]  Path prefix that requires a session. Default "/app".
+ * @property {string|string[]} [appPrefix]  Path prefix (or list of prefixes) that
+ *   requires a session. The gate applies when the pathname equals a prefix or
+ *   starts with prefix + "/". Default "/app".
  * @property {string} [loginPath]  Redirect target when unauthenticated. Default "/auth/login".
  * @property {string} [meApiPath]  Path (relative to this portal's own origin) to
  *   read the session from. Default "/api/auth/me".
  */
+
+/**
+ * @param {string} pathname
+ * @param {string[]} prefixes
+ * @returns {boolean}
+ */
+function matchesAppPrefix(pathname, prefixes) {
+  return prefixes.some(function (prefix) {
+    return pathname === prefix || pathname.startsWith(prefix + '/')
+  })
+}
 
 /**
  * Build a Cloudflare Pages Functions onRequest handler that gates a
@@ -39,6 +54,7 @@
 export function createAppGate(options) {
   var opts = options || {}
   var appPrefix = opts.appPrefix || '/app'
+  var appPrefixes = Array.isArray(appPrefix) ? appPrefix : [appPrefix]
   var loginPath = opts.loginPath || '/auth/login'
   var meApiPath = opts.meApiPath || '/api/auth/me'
 
@@ -46,7 +62,7 @@ export function createAppGate(options) {
     var request = context.request
     var url = new URL(request.url)
 
-    if (url.pathname !== appPrefix && !url.pathname.startsWith(appPrefix + '/')) {
+    if (!matchesAppPrefix(url.pathname, appPrefixes)) {
       return context.next()
     }
 

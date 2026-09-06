@@ -267,11 +267,18 @@ reading the session from `meApiPath` (default `/api/auth/me`) through the
 portal's own `/api` proxy -- never sm-api directly, or the request loses the
 `X-SM-Product` / `X-SM-Platform` headers sm-api needs to resolve the session.
 A gate-check failure (network error, malformed response) fails closed:
-treated as unauthenticated, never as authenticated.
+treated as unauthenticated, never as authenticated. `appPrefix` also accepts
+an array of prefixes (`{ appPrefix: ['/app', '/admin'] }`) for a portal that
+gates more than one section behind the same session check; the gate applies
+when the pathname equals any prefix or starts with `prefix + '/'`. A single
+string still works exactly as before.
 
 `createApiProxy(portal)` proxies `/api/*` to the sm-api spine (`SM_API_URL`
 env var, default `https://api.sprintmode.ai`), stripping the `/api` prefix
-for `/api/auth/*` routes, setting `X-SM-Product` / `X-SM-Platform` from
+for `/api/auth/*` routes, setting `X-SM-Host` to the request URL's own
+hostname (lowercased, no port) so sm-api can tell which portal host actually
+served the request -- a client-supplied `X-SM-Host` is always overwritten,
+never trusted -- then setting `X-SM-Product` / `X-SM-Platform` from
 `portal.slug`, forwarding `CF-Access-Client-Id` / `CF-Access-Client-Secret`
 from env when present, answering `OPTIONS` preflight itself, passing 3xx
 responses through untouched, and returning a `502` JSON error if the

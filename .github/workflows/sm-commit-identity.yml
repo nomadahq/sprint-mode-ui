@@ -1,0 +1,172 @@
+name: sm commit identity
+
+# FEAT-2199 layer 1: App-landed work must name its square and its session.
+#
+# GitHub records the shared App as author, approver and merger on every PR it
+# lands - no human, no session. When such a PR also carries no square
+# reference, the work is invisible to the audit trail entirely: the 2026-08-18
+# exhibits were an off-board six-repo bump wave under the shared credential
+# that broke sm-signal for 4.5 hours, and 12 of the 13 untraceable new-era PRs
+# were that single wave. The platform already parses square refs from PR
+# title, body and branch; this check turns their ABSENCE on the App path from
+# an invisible gap into a red check. Convention becomes metadata.
+#
+# WHY BOT-AUTHORED ONLY. A human-authored PR records its human natively -
+# GitHub's own attribution answers "who". The contract binds the path where it
+# cannot: the App. Human PRs pass untouched, whatever they carry.
+#
+# WHAT THIS DOES NOT DO, so nobody mistakes it for the whole program:
+# - It cannot verify that the session or the human named is real (layer 2b,
+#   deferred by ruling
+#   2026-08-19: every incident on record is an omission, not a forgery; the
+#   tripwire for building 2b is recorded on FEAT-2199).
+# - It does not stamp identity into credentials (layer 2a, token-proxy lane).
+# - It is NOT a required context in this release. Flipping it required is a
+#   deliberate follow-up after the fleet carries the workflow, the same
+#   two-step dup-claim used.
+#
+# LEGITIMATE NON-SESSION BOTS GO RED, and that is stated rather than
+# hidden (the sm-dup-claim precedent): a dependabot bump or any App-opened
+# automation that carries no square and no session trailer fails this check.
+# While the check is unrequired that failure is advisory - nothing blocks -
+# and deciding their exemption (an allowlist, a label, or acceptance) is
+# part of the required-flip follow-up, not something this release smuggles.
+#
+# TAMPER NOTE. `pull_request` resolves this file from the PR's own copy, so a
+# PR can neuter its own run. The tamper control for the workflows directory is
+# the BUG-2217 layering - the CODEOWNERS directory gate today, the
+# workflow-paths push ruleset as it rolls out - not this file guarding itself.
+
+on:
+  pull_request:
+    # `edited` on purpose: the title and body carry the square ref, so fixing
+    # them must re-run the check.
+    types: [opened, reopened, synchronize, ready_for_review, edited]
+  merge_group:
+
+permissions:
+  contents: read
+  pull-requests: read
+
+concurrency:
+  group: sm-commit-identity-${{ github.repository }}-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  commit-identity:
+    runs-on: ubuntu-latest
+    steps:
+      - name: App-authored PRs carry a square ref and session trailers
+        env:
+          GH_TOKEN: ${{ github.token }}
+          REPO: ${{ github.repository }}
+          PR: ${{ github.event.pull_request.number }}
+          HEAD_REF: ${{ github.event.pull_request.head.ref }}
+          PR_TITLE: ${{ github.event.pull_request.title }}
+          PR_BODY: ${{ github.event.pull_request.body }}
+          AUTHOR_LOGIN: ${{ github.event.pull_request.user.login }}
+          AUTHOR_TYPE: ${{ github.event.pull_request.user.type }}
+        run: |
+          if [ "${{ github.event_name }}" = "merge_group" ]; then
+            echo "merge_group build: the check already ran on the PR itself."
+            exit 0
+          fi
+          # The contract binds the App path only. GitHub's `type` is the
+          # authority; the `[bot]` suffix is the belt for enterprise shapes
+          # where type reads differently.
+          case "$AUTHOR_TYPE:$AUTHOR_LOGIN" in
+            Bot:*|*:*"[bot]") ;;
+            *)
+              echo "Human-authored PR ($AUTHOR_LOGIN) - GitHub's own attribution answers 'who'. Pass."
+              exit 0 ;;
+          esac
+          # Per-run scratch: fixed names are shared state between concurrent
+          # runs on one machine (BUG-2018 class).
+          WORK="$(mktemp -d)"
+          export WORK
+          trap 'rm -rf "$WORK"' EXIT
+          # Branch on gh's OWN exit status: under `bash -e` without pipefail a
+          # pipe reports only its last command, and an API failure must fail
+          # this check closed, not pass it empty.
+          rc=0
+          gh api "repos/$REPO/pulls/$PR/commits?per_page=100" --paginate --slurp \
+            > "$WORK/commits.json" 2>"$WORK/commits.err" || rc=$?
+          if [ "$rc" -ne 0 ]; then
+            echo "::error::Could not list the PR's commits (gh exit $rc) - failing closed rather than passing an unchecked identity contract."
+            cat "$WORK/commits.err" >&2
+            exit 1
+          fi
+          python3 - <<'PY'
+          import json, os, re, sys
+
+          WORK = os.environ["WORK"]
+          title = os.environ.get("PR_TITLE") or ""
+          body = os.environ.get("PR_BODY") or ""
+          head_ref = os.environ.get("HEAD_REF") or ""
+
+          problems = []
+
+          # 1. The square ref, on any of the three surfaces the platform
+          # parses. Display numbers are globally unique across types.
+          SQUARE = re.compile(r"\b(?:BUG|FEAT|TASK|UX|HA)-\d+\b", re.I)
+          BRANCH = re.compile(r"(?:^|/)(?:bug|feat|task|ux|ha)-\d+(?:-|$)", re.I)
+          if not (SQUARE.search(title) or SQUARE.search(body)
+                  or BRANCH.search(head_ref)):
+              problems.append(
+                  "no square reference anywhere the platform parses - add the "
+                  "display id (e.g. TASK-1234) to the title or body, or name "
+                  "the branch task-1234-<slug>")
+
+          # 2. Session trailers on every non-merge commit. `Claude-Session:`
+          # is the shipped convention; bare `Session:` is the contract's name
+          # for it. Human attribution: an Acts-For trailer, a Co-Authored-By
+          # naming a non-bot identity, or a non-bot git author - App-pushed
+          # commits authored by the bot itself must say who they act for.
+          SESSION = re.compile(r"^(?:Claude-)?Session:\s*\S+", re.I | re.M)
+          COAUTHOR = re.compile(r"^Co-Authored-By:\s*(.+)$", re.I | re.M)
+          ACTSFOR = re.compile(r"^Acts-For:\s*\S+", re.I | re.M)
+
+          pages = json.load(open(os.path.join(WORK, "commits.json")))
+          commits = [c for page in pages for c in page]
+          missing_session, missing_human = [], []
+          for c in commits:
+              if len(c.get("parents") or []) > 1:
+                  continue  # merge commits carry no work of their own
+              sha = (c.get("sha") or "")[:9]
+              msg = ((c.get("commit") or {}).get("message")) or ""
+              if not SESSION.search(msg):
+                  missing_session.append(sha)
+                  continue
+              author = ((c.get("commit") or {}).get("author")) or {}
+              a_name = (author.get("name") or "")
+              a_mail = (author.get("email") or "")
+              human = bool(ACTSFOR.search(msg))
+              if not human:
+                  for m in COAUTHOR.finditer(msg):
+                      if "[bot]" not in m.group(1).lower():
+                          human = True
+                          break
+              if not human and "[bot]" not in a_name.lower() \
+                 and "[bot]" not in a_mail.lower():
+                  human = True
+              if not human:
+                  missing_human.append(sha)
+          if missing_session:
+              problems.append(
+                  "commit(s) without a Session:/Claude-Session: trailer: "
+                  + ", ".join(missing_session))
+          if missing_human:
+              problems.append(
+                  "commit(s) naming no human (no Acts-For:, no non-bot "
+                  "Co-Authored-By:, bot git author): "
+                  + ", ".join(missing_human))
+
+          if problems:
+              print("::error::App-authored PR fails the commit identity "
+                    "contract (FEAT-2199 layer 1): "
+                    + "; ".join(problems)
+                    + ". The square's agent trail is the only surface that "
+                    "answers which session did this and for whom.")
+              sys.exit(1)
+          print("App-authored PR carries its square and its session. Pass.")
+          PY

@@ -1,0 +1,114 @@
+name: ai review gate rerun
+
+# Companion to sm-ai-review-gate.yml and sm-codeowner-gate.yml. It reports
+# nothing and gates nothing.
+#
+# Both gates run on PR lifecycle events, not on comments. When /review-pr
+# publishes its verdict the PR's review state changes but no push happens, so
+# each gate's pre-review red can stand forever. This re-requests both gates'
+# failed runs on that head, which is the BUG-2138 pattern the codeowner gate
+# already uses and which was proven live on sm-website#168.
+#
+# WHY IT CANNOT SIMPLY BE A SECOND TRIGGER ON THE GATE. `issue_comment` resolves
+# the workflow file from the default branch, which is the provenance the gate
+# needs - but an `issue_comment` run carries no pull-request association, so the
+# check it produces attaches to the default branch commit and never satisfies a
+# required check bound to the PR head. It can re-request a run that IS attached;
+# it cannot stand in for one.
+#
+# FAIL-SAFE BY CONSTRUCTION. The worst this file can do is fail to re-request,
+# which leaves the PR red for ordinary diagnosis. It can never turn a red gate
+# green: it does not report either required context, and re-running each gate
+# re-executes that gate's own logic from the default branch. So `actions: write`
+# here cannot be used to pass a gate, only to ask each gate the question again.
+#
+# The gate file names are written out rather than derived. A repo that renames
+# a managed workflow loses its re-request and stays red with a warning; `wf
+# sync` moves the managed files together, so that costs nothing in a repo that
+# has not hand-renamed them.
+
+on:
+  issue_comment:
+    types: [created, edited]
+
+permissions:
+  contents: read
+  pull-requests: read
+
+jobs:
+  rerun-review-gates:
+    # Cheap filters first: this event fires on every comment in the repository,
+    # including on real issues. A job-level `if:` is safe here in a way it would
+    # not be on the gate itself, because a skipped run of this job reports no
+    # required context - there is nothing for a skip to satisfy.
+    if: >-
+      github.event.issue.pull_request != null &&
+      contains(github.event.comment.body, 'AI_PR_REVIEW_RESULT')
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      pull-requests: read
+      # Solely to re-request the gates' own failed runs on this head. The token
+      # cannot approve, merge, or write code with it, and re-running the gate
+      # cannot make the gate pass.
+      actions: write
+    steps:
+      - name: Re-request the review gates now that a verdict has been published
+        env:
+          GH_TOKEN: ${{ github.token }}
+          REPO: ${{ github.repository }}
+          PR: ${{ github.event.issue.number }}
+          GATE_FILES: |-
+            sm-ai-review-gate.yml
+            sm-codeowner-gate.yml
+        run: |
+          # Never fatal, in any arm. This companion reports no required
+          # context; a failed re-request leaves the existing red for ordinary
+          # diagnosis without changing either gate's verdict.
+          set -u
+          WORK="$(mktemp -d)" || {
+            echo "::warning::No scratch directory available - not re-requesting anything."
+            exit 0
+          }
+          trap 'rm -rf "$WORK"' EXIT
+
+          rc=0
+          HEAD_SHA=$(gh api "repos/$REPO/pulls/$PR" --jq '.head.sha' 2>"$WORK/pr.err") || rc=$?
+          if [ "$rc" -ne 0 ] || [ -z "${HEAD_SHA:-}" ]; then
+            echo "::warning::Could not read PR $PR's head (gh exit $rc). The gate may still hold a stale red; re-run it by hand."
+            cat "$WORK/pr.err" >&2
+            exit 0
+          fi
+
+          # Every failed run on this head, not just the newest: a reopened or a
+          # ready_for_review before the review leaves more than one, and any one
+          # of them holds the rollup red. A lookup failure for one gate must not
+          # prevent the other gate from receiving its fresh decision.
+          for GATE_FILE in $GATE_FILES; do
+            rc=0
+            gh api "repos/$REPO/actions/workflows/$GATE_FILE/runs?head_sha=$HEAD_SHA&per_page=100" \
+              --jq '.workflow_runs[] | select(.conclusion == "failure") | .id' \
+              > "$WORK/stale" 2>"$WORK/stale.err" || rc=$?
+            if [ "$rc" -ne 0 ]; then
+              echo "::warning::Could not look up $GATE_FILE runs on $HEAD_SHA (gh exit $rc). If the repo renamed the managed workflow this lookup cannot find it; diagnose that gate's stale red."
+              cat "$WORK/stale.err" >&2
+              continue
+            fi
+            if [ ! -s "$WORK/stale" ]; then
+              echo "No failed $GATE_FILE run on $HEAD_SHA - nothing to re-request."
+              continue
+            fi
+
+            while read -r run_id; do
+              [ -n "$run_id" ] || continue
+              rc=0
+              gh api -X POST "repos/$REPO/actions/runs/$run_id/rerun-failed-jobs" \
+                >/dev/null 2>"$WORK/rerun.err" || rc=$?
+              if [ "$rc" -ne 0 ]; then
+                echo "::warning::Re-requesting $GATE_FILE run $run_id failed (gh exit $rc). Its stale failure may still hold the rollup red; diagnose that run before queueing."
+                cat "$WORK/rerun.err" >&2
+              else
+                echo "Re-requested $GATE_FILE run $run_id: the published verdict now gets a fresh decision."
+              fi
+            done < "$WORK/stale"
+          done

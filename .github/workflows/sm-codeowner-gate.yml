@@ -2,8 +2,8 @@ name: codeowner gate
 
 # GitHub does not enforce require_code_owner_review when required approvals is 0
 # (proven by the sm-api #1008 incident). This required check IS the binding:
-# a PR touching CODEOWNERS-listed paths fails this gate until a non-author
-# org member/collaborator approves.
+# a PR touching CODEOWNERS-listed paths fails this gate until a current-head AI
+# result approves or any non-author account submits an APPROVED GitHub review.
 #
 # Approvals re-trigger the gate via pull_request_review — but that alone does
 # NOT make auto-merge proceed, which this file claimed until BUG-2138. The
@@ -13,8 +13,127 @@ name: codeowner gate
 # yes. It is warn-only: clearing a stale suite is a convenience, never a
 # verdict, so a settled approval never turns red because a follow-up call
 # failed.
+#
+# BUG-2216: WHICH REF SUPPLIES THIS FILE decides whether the gate can be
+# neutered by the PR it gates. GitHub resolves the workflow FILE from
+# refs/pull/N/merge - the PR's own copy - for `pull_request` AND for
+# `pull_request_review`; it resolves it from the default branch for
+# `pull_request_target`. On any PR-supplied leg a PR can rewrite the gate step
+# below to `exit 0`, keep the job name branch protection binds on, and satisfy
+# the very check that exists to gate it.
+#
+# So, precisely, leg by leg, because an unqualified claim here is the same
+# overclaim BUG-2216 was filed against:
+#
+#   pull_request_target  base-supplied. This is the leg whose definition a PR
+#                        cannot edit. That is ALL it is - see below for why it
+#                        is not the same as "the leg that binds".
+#   pull_request         PR-supplied. MIGRATION-ONLY, see the transition note.
+#   pull_request_review  PR-supplied. Still forgeable, and self-service: a PR
+#                        author may submit a COMMENT review on their own PR,
+#                        which is a `submitted` event, so no second person is
+#                        needed to fire their copy. That copy also declares its
+#                        own `permissions:`, so the narrow grant below does not
+#                        constrain it.
+#   merge_group          PR-supplied too, and easy to miss: the workflow is
+#                        resolved from the queue branch
+#                        refs/heads/gh-readonly-queue/..., which CONTAINS the
+#                        queued PR's commits. It decides nothing regardless -
+#                        the step's first action is to exit 0 on this event -
+#                        so it is not a verdict path, but it is not "this
+#                        file" either, and an earlier version of the note
+#                        below said it was.
+#
+# `pull_request_target` is safe to use here only because nothing in this
+# workflow obtains PR code: no action steps, no checkout, no fetch or clone of
+# a PR ref. PR-controlled values reach the script as quoted env vars and as
+# data read through `gh api`.
+#
+# tests/test-codeowner-gate.sh pins that, and pins it as a NAMED LIST of
+# spellings rather than as the concept: `uses:`, `actions/checkout`,
+# `gh pr checkout`, `refs/pull/`, `git fetch`, `git checkout`, `git clone`.
+# Those are scanned over every line of every `run:` body in every block-scalar
+# spelling (`|`, `>`, with any chomping or indentation indicator), INCLUDING
+# lines starting with `#`, since a heredoc line can be captured and executed;
+# and over non-comment lines elsewhere; and against the whitespace-collapsed
+# text too, so a folded scalar cannot split a spelling across two lines. A
+# spelling absent from the list would still pass. The list is the guarantee;
+# the word "checkout" is not.
+#
+# And that assertion is a LINE parser, not a YAML parser - the kit's CI installs
+# no dependencies, so PyYAML is not available to it. YAML crafted to read one
+# way to a line parser and another way to GitHub will defeat it; four review
+# rounds of this change each did exactly that. It catches regression and makes a
+# deliberate weakening visible in a diff. It is not a security boundary, and
+# nothing here claims it is - a determined author does not need to defeat it
+# anyway, since they can add a separate workflow emitting this check's name
+# (BUG-2217).
+#
+# TRANSITION, and it is why `pull_request` is still listed. On the `wf sync` PR
+# that upgrades a repo from a release without `pull_request_target`, the
+# `pull_request` leg resolves from the PR's copy and the `pull_request_target`
+# leg resolves from the default branch's OLD copy. Drop `pull_request` in the
+# same release and NEITHER fires: `codeowner-gate` is a strict required context
+# (server/required-checks-ruleset.json), so that upgrade PR blocks on a check
+# that never reports, once, in every adopted repo. Keeping both for one release
+# makes the upgrade PR report via the PR-supplied leg while the base-supplied
+# leg takes over afterwards.
+#
+# REMOVING THE MIGRATION LEG IS GATED ON EVIDENCE, NOT ON A RELEASE NUMBER.
+# `wf sync` copies the CURRENT kit tree; there is no stepwise upgrade, and being
+# behind the kit is warn-only (sm-workflow-drift.yml). A repo that skips 13.42.0
+# entirely - most of the fleet sits well below it - would sync straight from a
+# release with no `pull_request_target` to one with no `pull_request`, and hit
+# the very deadlock this leg prevents, with the intermediate release no longer
+# offerable. So: drop `pull_request` only once EVERY adopted repo's
+# `.sm-workflow.conf` reports version >= 13.42.0, verified by reading them, not
+# assumed from elapsed releases. Tracked on the Waffle item; the test suite
+# fails if this marker is deleted while the trigger stays.
+#
+# What none of this closes, and why the base-supplied leg is not "the leg that
+# binds":
+#
+#   - The required context is bound by NAME only
+#     (server/required-checks-ruleset.json lists a bare `codeowner-gate`, with no
+#     integration id), and every leg emits a check run under that one job name.
+#   - A PR-supplied leg declares its own `permissions:` and can therefore hold
+#     `actions: write` on a base-repository token - this file already contains a
+#     `pull_request_review`-only job that does exactly that - which is enough to
+#     ACT ON the base-supplied leg's run, not merely to add a second opinion
+#     beside it.
+#   - Any PR may add a NEW workflow file emitting a check of this name
+#     (BUG-2217).
+#
+# SO BE EXACT ABOUT WHAT THIS RELEASE DOES. It ADDS a base-supplied leg. It
+# does NOT yet remove the edit-the-gate-in-place bypass, because `pull_request`
+# is still live below: a PR can ship its own copy declaring that trigger with a
+# `codeowner-gate` job that is `exit 0`, and land a green check run of the
+# required name on the same head as the base-supplied leg's red one. The bypass
+# closes when the migration leg is dropped, not here - and per the transition
+# note that wait is long, because most of the fleet is far below 13.42.0.
+#
+# UNVERIFIED, AND IT MATTERS: how branch protection resolves TWO check runs of
+# the name `codeowner-gate` on one head. BUG-2138 observed a stale failed run
+# holding the rollup at FAILURE while a newer same-named run passed, which
+# would mean the base-supplied red wins - but that was observed for a different
+# purpose, is undocumented, and the PR controls its own leg's job graph and so
+# can influence which run completes last. Nobody has tested it for this. Do not
+# describe the migration window as safe on the strength of it.
+#
+# The standing mitigation is the CODEOWNERS gate on /.github/. A current-head
+# AI APPROVE or a non-author GitHub review can clear it. The path is therefore
+# load-bearing for every required check in the repository: removing it without
+# a ruleset path restriction on .github/workflows/** in its place makes them
+# all forgeable by the PR being checked.
 
 on:
+  pull_request_target:
+    types: [opened, reopened, synchronize, ready_for_review]
+  # MIGRATION-ONLY - remove ONLY once EVERY adopted repo's .sm-workflow.conf
+  # reports version >= 13.42.0, verified by reading them, NOT after some number
+  # of releases. See the transition note above; removing this on a release
+  # count deadlocks the sync PR of every repo that skipped 13.42.0. Present so
+  # the upgrade PR itself reports a check.
   pull_request:
     types: [opened, reopened, synchronize, ready_for_review]
   pull_request_review:
@@ -22,9 +141,14 @@ on:
   merge_group:
 
 # Workflow-level scope stays read-only for BOTH jobs. The write scope BUG-2138
-# needs is declared on the job that needs it, and nowhere else: a `pull_request`
-# run executes the workflow file from the PR branch, so a workflow-level grant
-# would hand a write-scoped token to anyone who can push a branch.
+# needs is declared on the job that needs it, and nowhere else. Be exact about
+# what that buys: it is a real control on the `pull_request_target` leg, the
+# only one that runs THIS file, and which now carries a base-repository token on
+# every PR. It is NOT a control on the PR-supplied legs - `pull_request`,
+# `pull_request_review` and `merge_group` all resolve the file from a ref the PR
+# contributes to, so a PR's own copy declares its own `permissions:` and never
+# reads this block. The scoping bounds one leg, and saying "legs" plural was
+# itself the overclaim pattern this file is about.
 permissions:
   contents: read
   pull-requests: read
@@ -40,8 +164,16 @@ jobs:
           PR: ${{ github.event.pull_request.number }}
           BASE: ${{ github.event.pull_request.base.ref }}
           AUTHOR: ${{ github.event.pull_request.user.login }}
+          # The event reaches the script as env, NEVER as an inline
+          # expression: one ${{ }} inside a run scalar makes GitHub evaluate
+          # the WHOLE scalar as a template expression, capped at 21,000
+          # characters - this block is far past that, and the file is then
+          # INVALID: no leg reports, and codeowner-gate being a required
+          # context, every PR in the repo blocks forever (BUG-2394, found by
+          # the TASK-2215 canary on sm-docs#117).
+          EVENT_NAME: ${{ github.event_name }}
         run: |
-          if [ "${{ github.event_name }}" = "merge_group" ]; then
+          if [ "$EVENT_NAME" = "merge_group" ]; then
             echo "merge_group build: the gate already passed on the PR itself."
             exit 0
           fi
@@ -55,6 +187,252 @@ jobs:
           WORK="$(mktemp -d)"
           export WORK
           trap 'rm -rf "$WORK"' EXIT
+          # TASK-2213: WHICH MODE this gate runs in is decided by whether the
+          # protection that REPLACES path-gating is actually live on this repo,
+          # verified at runtime — never assumed from visibility or fleet lore.
+          # Protected mode requires BOTH: a private/internal repo AND an
+          # active push ruleset whose file_path_restriction covers
+          # .github/workflows/ (BUG-2217). Anything else keeps the path-based
+          # behaviour below, with a named line saying why: a private repo
+          # without the ruleset would otherwise retire its path gate with
+          # nothing behind it — the exact condition the provenance notes above
+          # forbid. Public repos can never carry a push ruleset, so they are
+          # path mode by construction (sm-ui).
+          # What the verification reads is the RULE'S PATHS, not who may
+          # bypass it: bypass_actors is never examined — GitHub returns that
+          # list only to a caller with write access to the ruleset, which
+          # this job's contents:read token does not have — so a ruleset with
+          # a wide bypass list still reads as full protection here. The kit
+          # ships exactly one Integration bypass actor
+          # (server/workflow-paths-ruleset.json); auditing that list is a
+          # server-side concern (wf adopt --server), not this gate's.
+          rc=0
+          VISIBILITY=$(gh api "repos/$REPO" --jq '.visibility' 2>"$WORK/vis.err") || rc=$?
+          case "$VISIBILITY" in
+            public|private|internal) [ "$rc" -eq 0 ] || VISIBILITY=__bad__ ;;
+            *) VISIBILITY=__bad__ ;;
+          esac
+          if [ "$VISIBILITY" = __bad__ ]; then
+            echo "::error::Could not read $REPO's visibility (gh exit $rc, value not in public|private|internal) - failing closed; the gate cannot pick its mode without it."
+            cat "$WORK/vis.err" >&2
+            exit 1
+          fi
+          GATE_MODE=paths
+          if [ "$VISIBILITY" = private ] || [ "$VISIBILITY" = internal ]; then
+            # Is the workflow-paths push ruleset live HERE? The list endpoint
+            # gives id/target/enforcement; the per-ruleset read gives the rule
+            # type and paths. Absence is an ANSWER (stay in path mode, say so);
+            # an API failure is not (fail closed — a gate that cannot tell
+            # which mode it is in must not guess).
+            rc=0
+            gh api "repos/$REPO/rulesets?includes_parents=true" --paginate \
+              > "$WORK/rulesets.json" 2>"$WORK/rulesets.err" || rc=$?
+            if [ "$rc" -ne 0 ]; then
+              echo "::error::Could not list $REPO's rulesets (gh exit $rc) - failing closed; the gate cannot verify its replacement protection."
+              cat "$WORK/rulesets.err" >&2
+              exit 1
+            fi
+            PUSH_IDS=$(python3 - <<'PYRS'
+          import json, os, sys
+          try:
+              raw = open(os.environ["WORK"] + "/rulesets.json", encoding="utf-8").read()
+              rows, decoder, at = [], json.JSONDecoder(), 0
+              while at < len(raw):
+                  while at < len(raw) and raw[at].isspace():
+                      at += 1
+                  if at >= len(raw):
+                      break
+                  page, at = decoder.raw_decode(raw, at)
+                  if not isinstance(page, list):
+                      raise ValueError("non-array page (gh error object?): %r" % (page,))
+                  rows.extend(page)
+              for r in rows:
+                  if isinstance(r, dict) and r.get("target") == "push" and r.get("enforcement") == "active":
+                      print(r.get("id"))
+          except Exception as exc:
+              print("ruleset list parse error: %s" % exc, file=sys.stderr)
+              sys.exit(2)
+          PYRS
+            ) || { echo "::error::The ruleset listing could not be parsed - failing closed."; exit 1; }
+            PROTECTED=no
+            for rid in $PUSH_IDS; do
+              rc=0
+              gh api "repos/$REPO/rulesets/$rid" > "$WORK/rs-$rid.json" 2>"$WORK/rs.err" || rc=$?
+              if [ "$rc" -ne 0 ]; then
+                echo "::error::Could not read ruleset $rid (gh exit $rc) - failing closed; the gate cannot verify its replacement protection."
+                cat "$WORK/rs.err" >&2
+                exit 1
+              fi
+              if RSFILE="$WORK/rs-$rid.json" python3 - <<'PYRD'
+          import json, os, sys
+          try:
+              d = json.load(open(os.environ["RSFILE"], encoding="utf-8"))
+              for rule in d.get("rules") or []:
+                  if rule.get("type") != "file_path_restriction":
+                      continue
+                  for path in (rule.get("parameters") or {}).get("restricted_file_paths") or []:
+                      # Directory coverage, not mere membership: a restriction
+                      # on one file under the directory leaves every other
+                      # workflow pushable and replaces nothing (#83 round-2
+                      # probe P2), and a QUALIFIED glob is no better — round 3
+                      # showed `*/deep.yml` and `*.yml` both pass a bare
+                      # startswith("*") while leaving top-level or .yaml
+                      # workflows pushable. Only an unqualified directory-wide
+                      # glob counts.
+                      if path.startswith(".github/workflows/") and path[len(".github/workflows/"):] in ("*", "**", "**/*"):
+                          sys.exit(0)
+          except SystemExit:
+              raise
+          except Exception as exc:
+              print("ruleset read error: %s" % exc, file=sys.stderr)
+              sys.exit(2)
+          sys.exit(1)
+          PYRD
+              then PROTECTED=yes; break
+              elif [ $? -ge 2 ]; then
+                echo "::error::Ruleset $rid could not be interpreted - failing closed."
+                exit 1
+              fi
+            done
+            if [ "$PROTECTED" = yes ]; then
+              GATE_MODE=protected
+            else
+              echo "This $VISIBILITY repo has NO active push ruleset restricting .github/workflows/ - the structural replacement for path-gating (BUG-2217) is not live here, so the path-based gate stays. Apply the workflow-paths ruleset (wf adopt --server) to retire it."
+            fi
+          fi
+
+          # FEAT-2692/FEAT-2745: a current-head non-Critical
+          # AI_PR_REVIEW_RESULT APPROVE is a shared
+          # clearance path in both modes. Read the live PR head and comments
+          # once, guard each API call, and never infer success from an empty or
+          # malformed payload. Publisher repository permission is deliberately
+          # not part of this decision.
+          rc=0
+          LIVE_HEAD=$(gh api "repos/$REPO/pulls/$PR" --jq '.head.sha' \
+            2>"$WORK/pr-head.err") || rc=$?
+          case "$LIVE_HEAD" in
+            [0-9a-f][0-9a-f][0-9a-f][0-9a-f][0-9a-f][0-9a-f][0-9a-f][0-9a-f][0-9a-f][0-9a-f][0-9a-f][0-9a-f][0-9a-f][0-9a-f][0-9a-f][0-9a-f][0-9a-f][0-9a-f][0-9a-f][0-9a-f][0-9a-f][0-9a-f][0-9a-f][0-9a-f][0-9a-f][0-9a-f][0-9a-f][0-9a-f][0-9a-f][0-9a-f][0-9a-f][0-9a-f][0-9a-f][0-9a-f][0-9a-f][0-9a-f][0-9a-f][0-9a-f][0-9a-f][0-9a-f]) [ "$rc" -eq 0 ] || LIVE_HEAD=__bad__ ;;
+            *) LIVE_HEAD=__bad__ ;;
+          esac
+          if [ "$LIVE_HEAD" = __bad__ ]; then
+            echo "::error::Could not read PR #$PR's live head (gh exit $rc) - failing closed; a current-head AI approval cannot be verified."
+            cat "$WORK/pr-head.err" >&2
+            exit 1
+          fi
+          export LIVE_HEAD
+
+          rc=0
+          gh api "repos/$REPO/issues/$PR/comments" --paginate \
+            > "$WORK/comments.json" 2>"$WORK/comments.err" || rc=$?
+          if [ "$rc" -ne 0 ]; then
+            echo "::error::Could not read PR #$PR's comments (gh exit $rc) - failing closed; AI review clearance cannot be verified."
+            cat "$WORK/comments.err" >&2
+            exit 1
+          fi
+          if ! [ -s "$WORK/comments.json" ]; then
+            echo "::error::PR #$PR's comments read returned nothing - failing closed; an empty success is not an empty history."
+            exit 1
+          fi
+
+          ai_rc=0
+          python3 - <<'PYAI' || ai_rc=$?
+          import json, os, re, sys, unicodedata
+
+          MARKER = "AI_PR_REVIEW_RESULT"
+          work = os.environ["WORK"]
+
+          def load_pages(path):
+              raw = open(path, encoding="utf-8").read()
+              rows, decoder, at, pages = [], json.JSONDecoder(), 0, 0
+              while at < len(raw):
+                  while at < len(raw) and raw[at].isspace():
+                      at += 1
+                  if at >= len(raw):
+                      break
+                  page, at = decoder.raw_decode(raw, at)
+                  if not isinstance(page, list):
+                      raise ValueError("non-array page (gh error object?): %r" % (page,))
+                  pages += 1
+                  for row in page:
+                      if not isinstance(row, dict):
+                          raise ValueError("non-object comment element: %r" % (row,))
+                      rows.append(row)
+              if pages == 0:
+                  raise ValueError("a successful comments read decoded zero pages")
+              return rows
+
+          def visible(body):
+              body = re.sub(r"<!--[\s\S]*?(?:-->|--!>|\Z)", "", body)
+              return "".join(ch for ch in body if unicodedata.category(ch) != "Cf")
+
+          def parse(body):
+              lines = visible(body).splitlines()
+              starts = [i for i, line in enumerate(lines) if line.strip() == MARKER]
+              if not starts:
+                  return None
+              if len(starts) != 1:
+                  return {"ambiguous": len(starts)}
+              out = {}
+              result_lines = lines[starts[0] + 1:]
+              out["_critical"] = any(
+                  re.fullmatch(r"[-*+]\s+severity:\s*Critical", line.strip(), flags=re.I)
+                  for line in result_lines
+              )
+              for line in result_lines:
+                  line = line.strip()
+                  if not line or ":" not in line:
+                      continue
+                  key, value = line.split(":", 1)
+                  key = key.strip()
+                  if key == "findings":
+                      break
+                  if key in ("pr", "base", "head", "reviewer", "verdict"):
+                      out[key] = value.strip()
+              return out
+
+          try:
+              carriers = [(comment, parse(comment.get("body") or ""))
+                          for comment in load_pages(work + "/comments.json")]
+              carriers = [(comment, block) for comment, block in carriers
+                          if block is not None]
+              chosen = carriers[-1] if carriers else None
+              if chosen is not None:
+                  comment, block = chosen
+                  binding_valid = ("ambiguous" not in block and
+                                   block.get("pr") == str(os.environ["PR"]) and
+                                   block.get("base") == os.environ["BASE"] and
+                                   block.get("head") == os.environ["LIVE_HEAD"] and
+                                   bool(block.get("reviewer")))
+                  if binding_valid and block.get("verdict") == "APPROVE" and block.get("_critical"):
+                      print("AI review result is malformed: APPROVE carries a Critical finding; every Critical must BLOCK.", file=sys.stderr)
+                      sys.exit(3)
+                  valid = (binding_valid and
+                           block.get("verdict") == "APPROVE" and
+                           not block.get("_critical"))
+                  if valid:
+                      author = ((comment.get("user") or {}).get("login") or "unknown")
+                      url = comment.get("html_url") or "no url"
+                      with open(work + "/ai-approval", "w", encoding="utf-8") as f:
+                          f.write("%s\t%s\n" % (author, url))
+          except Exception as exc:
+              print("AI review comments parse error: %s" % exc, file=sys.stderr)
+              sys.exit(2)
+          PYAI
+          if [ "$ai_rc" -ne 0 ]; then
+            echo "::error::PR #$PR's comments could not be parsed into a valid AI review decision (exit $ai_rc) - failing closed."
+            exit 1
+          fi
+
+          if [ "$GATE_MODE" = protected ]; then
+            echo "protected mode ($VISIBILITY repo, workflow-paths push ruleset verified live): per-path CODEOWNERS evaluation is retired, and a current-head AI APPROVE is sufficient review clearance."
+            # The shared approval logic expects a pattern set and file list. In
+            # protected mode every PR reaches that logic, while the push ruleset
+            # supplies the structural protection for workflow files.
+            printf '*\n' > "$WORK/codeowners"
+            printf 'protected\n' > "$WORK/files"
+          fi
+          export GATE_MODE
+          if [ "$GATE_MODE" = paths ]; then
           # CODEOWNERS from the BASE branch — a PR must not be able to edit
           # its own gate out of existence.
           #
@@ -105,6 +483,13 @@ jobs:
             cat "$WORK/files.err" >&2
             exit 1
           fi
+          # A 2xx that wrote nothing is not an empty diff - a PR always has at
+          # least one changed file (#83 round 8; the comments read's shape).
+          if ! [ -s "$WORK/files" ]; then
+            echo "::error::PR #$PR's file listing returned nothing - failing closed; an empty success is not an empty diff."
+            exit 1
+          fi
+          fi
           rc=0
           gh api "repos/$REPO/pulls/$PR/reviews" --paginate \
             > "$WORK/reviews.json" 2>"$WORK/reviews.err" || rc=$?
@@ -114,9 +499,10 @@ jobs:
             exit 1
           fi
           python3 - <<'PY'
-          import json, os, re, subprocess, sys
+          import json, os, re, sys
 
           author = os.environ["AUTHOR"]
+          mode = os.environ.get("GATE_MODE", "paths")
           # The heredoc is quoted, so the shell does not interpolate here; the
           # scratch directory arrives through the exported environment instead.
           WORK = os.environ["WORK"]
@@ -220,69 +606,44 @@ jobs:
               print("No codeowner-listed paths touched - gate passes.")
               sys.exit(0)
 
-          print("Codeowner paths touched:")
-          for f in touched:
-              print("  ", f)
+          if mode == "protected":
+              print("Workflow paths are protected structurally; current-head AI "
+                    "approval is sufficient review clearance for this PR.")
+          else:
+              print("Codeowner paths touched:")
+              for f in touched:
+                  print("  ", f)
 
           latest = {}
           for r in json.load(open(os.path.join(WORK, "reviews.json"))):
               u = r.get("user", {}).get("login")
               if u and r.get("state") in ("APPROVED", "CHANGES_REQUESTED", "DISMISSED"):
                   latest[u] = r  # list is chronological; keep the last decisive state
-          def has_write(login):
-              # BUG-1958: author_association reads NONE for an org member whose
-              # membership is private under the workflow token, so it silently
-              # discounted real approvals and the gate stayed red after a valid
-              # tap. Resolve the repo permission instead. Measured 2026-08-13
-              # under this gate's own token: this endpoint answers, while the
-              # org teams endpoints 404. Fails CLOSED — anything that is not a
-              # clean positive is a no, so an API hiccup can never open the gate
-              # (the BUG-1636 rule).
-              # `.permission` is the legacy field and reports exactly one of
-              # admin / write / read / none: maintain resolves to write and
-              # triage to read, which is the grouping this gate wants. The
-              # granular `.role_name` is deliberately not used — it can carry a
-              # custom org role name this gate could not classify.
-              try:
-                  p = subprocess.run(
-                      ["gh", "api",
-                       "repos/%s/collaborators/%s/permission" % (os.environ["REPO"], login),
-                       "--jq", ".permission"],
-                      capture_output=True, text=True, timeout=30)
-              except Exception as exc:
-                  print("  %s: permission lookup failed (%s) - not counted" % (login, exc))
-                  return False
-              if p.returncode != 0:
-                  # 404 means "not a collaborator" — a correct deny. Anything
-                  # else means the gate could not look, which is also a deny but
-                  # a different problem, so print enough to tell them apart.
-                  print("  %s: permission lookup did not resolve (exit %d) - not "
-                        "counted: %s" % (login, p.returncode,
-                                         " ".join(p.stderr.split())[:200]))
-                  return False
-              level = p.stdout.strip()
-              if level in ("admin", "write"):
-                  return True
-              print("  %s: repo permission=%s - not counted" % (login, level or "empty"))
-              return False
 
-          approvers = []
-          for u, r in latest.items():
-              if r["state"] != "APPROVED" or u == author:
-                  continue
-              if r.get("author_association") in ("OWNER", "MEMBER", "COLLABORATOR"):
-                  approvers.append(u)
-              elif has_write(u):
-                  print("  %s: author_association=%s, but repo permission grants "
-                        "write - counted (BUG-1958: private membership reads NONE)"
-                        % (u, r.get("author_association")))
-                  approvers.append(u)
+          ai_path = os.path.join(WORK, "ai-approval")
+          if os.path.exists(ai_path):
+              author_url = open(ai_path, encoding="utf-8").read().strip().split("\t", 1)
+              ai_author = author_url[0]
+              ai_url = author_url[1] if len(author_url) == 2 else "no url"
+              print("Current-head AI review by %s approves this PR (%s) - gate passes."
+                    % (ai_author, ai_url))
+              sys.exit(0)
+
+          # FEAT-2692: any non-author account's latest decisive APPROVED review
+          # counts. Neither author_association nor repository permission is a
+          # trust input. The PR author remains excluded.
+          approvers = [u for u, r in latest.items()
+                       if r["state"] == "APPROVED" and u != author]
           if approvers:
               print("Approved by:", ", ".join(approvers), "- gate passes.")
               sys.exit(0)
-          print("::error::This PR touches codeowner paths and requires an approving "
-                "review from a non-author org member. None found yet - the gate "
-                "re-runs automatically when a review is submitted.")
+          if mode == "protected":
+              print("::error::This protected-mode PR has no current-head AI APPROVE "
+                    "and no approving review from a non-author account.")
+          else:
+              print("::error::This PR touches codeowner paths and requires an approving "
+                    "review from a non-author account or a current-head AI approval. "
+                    "Neither was found.")
           sys.exit(1)
           PY
 
@@ -299,9 +660,13 @@ jobs:
   #
   # A SEPARATE JOB, deliberately. `actions: write` belongs only to the code
   # that needs it: declared at workflow level it would also be live on every
-  # `pull_request` run, which executes the workflow file FROM THE PR BRANCH —
-  # handing a write-scoped token to anyone who can push a branch, in every
-  # adopted repo, on a trigger where this code cannot even run.
+  # `pull_request_target` run - a base-supplied leg carrying a base-repository
+  # token on every PR - on a trigger where this code cannot even run. Scoping
+  # it here bounds THAT exposure. It does not bound the PR-supplied legs: a
+  # PR's own copy of this file declares its own `permissions:` and never reads
+  # the block above, so nothing written here constrains what that copy asks
+  # for. Said plainly so the next reader does not mistake this for a control it
+  # is not.
   #
   # `needs` carries the authorization: this job starts only when the gate job
   # succeeded, so the approval question is settled yes before any earlier run
@@ -315,10 +680,21 @@ jobs:
       # Solely to re-request this workflow's OWN earlier failed runs on this
       # head. The token cannot approve, merge, or write code with it.
       #
-      # It IS a real write token even on a fork PR: `pull_request_review` runs
-      # in the base-repository context, so the read-only-token rule that covers
-      # fork `pull_request` runs does not apply here. Scoping it to this job is
-      # what bounds the exposure — not the trigger.
+      # Read this together with the leg table at the top of the file, which
+      # this sentence used to contradict. This job runs ONLY on
+      # `pull_request_review`, which is a PR-SUPPLIED leg: GitHub resolves the
+      # workflow file for it from refs/pull/N/merge, so on that leg it is the
+      # PR's own copy that decides what permissions to ask for, and this block
+      # is never read. Scoping the grant here does not bound that actor. It
+      # bounds what THIS file asks for, which is worth doing and is not the
+      # same claim.
+      #
+      # Open question, deliberately not settled here: whether a fork PR's token
+      # on this leg is writable. `pull_request_review` runs in the
+      # base-repository context, which suggests yes; that is a statement about
+      # the TOKEN, and the file provenance above is a statement about the CODE.
+      # They are different axes and an earlier version of this comment asserted
+      # the token rule as if it also settled the code rule.
       actions: write
     steps:
       - name: Re-request the runs whose stale failure holds the rollup red
